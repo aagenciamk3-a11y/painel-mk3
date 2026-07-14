@@ -352,6 +352,16 @@ function render(){
 
 /* ---------------- CALENDÁRIO ---------------- */
 function renderCal(c){
+  /* barra de filtros — por enquanto: Cliente. Fácil de crescer. */
+  const btn = (rot,val,ativo) =>
+    '<button class="opt '+(ativo?"on":"")+'" data-fcliente="'+val+'">'+rot+'</button>';
+  $("filtros").innerHTML =
+    '<h3>Filtros</h3>'+
+    '<div class="filtro-linha"><span class="rot">Cliente</span>'+
+      btn("Todos","", !VISTA.escopo)+
+      CLIENTES.map(x=>btn(x.nome, x.id, VISTA.escopo===x.id)).join("")+
+    '</div>';
+
   const base = (c ? TODAS.filter(t=>t.clienteId===c.id) : TODAS).filter(t=>t.data);
   const ref  = new Date(HOJE.getFullYear(), HOJE.getMonth()+VISTA.mes, 1);
   const ano  = ref.getFullYear(), mes = ref.getMonth();
@@ -453,7 +463,7 @@ function ficha(c){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-nav],[data-bucket],[data-cliente],[data-limpa],[data-mes],[data-dia]");
+  const alvo = ev.target.closest("[data-nav],[data-bucket],[data-cliente],[data-limpa],[data-mes],[data-dia],[data-fcliente]");
   if(!alvo) return;
   const D = alvo.dataset;
   let topo = true;
@@ -465,6 +475,9 @@ document.addEventListener("click", function(ev){
   if(D.nav==="cliente"){    VISTA.aba="painel"; }
 
   if(D.cliente){ VISTA.aba="painel"; VISTA.escopo=D.cliente; VISTA.filtro=null; }
+
+  /* filtro de cliente dentro do calendário (não troca de aba) */
+  if(D.fcliente!==undefined){ VISTA.escopo = D.fcliente || null; VISTA.dia=null; topo=false; }
 
   if(D.bucket) VISTA.filtro = (VISTA.filtro===D.bucket) ? null : D.bucket;
 
