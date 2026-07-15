@@ -61,5 +61,61 @@ const CLIENTES = [
       {data:"2026-07-13", titulo:"Planejamento aprovado",     detalhe:"Aprovado no mesmo dia"},
       {data:"2026-07-16", titulo:"Gravação + fotos",          detalhe:"Insumo para as artes do mês"}
     ]
+  },
+
+  /* ─────────────── SUELEM · CORRETORA DE IMÓVEIS ─────────────── */
+  {
+    id: "suelem",
+    nome: "Suelem",
+    marca: "Suelem Corretora de Imóveis",
+
+    segmento: "Corretor",                          // Vila Velha / Cariacica · ES
+    plano: "6 artes + 2 Reels/mês + 2 campanhas de tráfego",
+    /* Cliente desde mai/2025 (CS00001). Renovação nova firmada hoje;
+       usamos a assinatura de hoje como âncora do contrato atual. */
+    entrada: "2026-07-15",
+
+    /* RENOVAÇÃO 07/2026 — aguardando assinatura. Vigência 3 meses. */
+    contrato: "Renovação 07/2026 (aguardando assinatura)",
+    inicioContrato: "2026-07-15",
+    vencimentoContrato: "2026-10-15",
+    mensalidade: {valorPix: 2200, valorPermuta: 0, diaVencimento: 20},
+
+    /* Plano reformulado com tráfego pago (2 campanhas básicas). Pacote de
+       fotos (R$ 600 em 3x de R$ 200) registrado à parte, nos marcos. */
+    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:true},
+
+    /* cliente antiga: sem nova imersão. Âncora do ciclo de julho = aprovação
+       do planejamento de hoje (planejamento enviado e aprovado no mesmo dia). */
+    imersao: null,
+    reuniaoPlanejamentoEntrada: "2026-07-15",
+
+    envioPlanejamento:     "2026-07-15",
+    aprovacaoPlanejamento: "2026-07-15",
+    envioMidia:            null,          // artes ainda em produção
+    aprovacaoMidia:        null,
+
+    /* vídeos de julho já produzidos; artes não dependem de nova gravação */
+    gravacao: null,
+    artesDependemDaGravacao: false,
+
+    /* ciclo mensal padrão (relatório + reunião + planejamento) começa em agosto */
+    inicioCicloPadrao: "2026-08",
+
+    justificados: [],
+
+    concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
+                 "imersao","imersaoDoc","reuniaoPlan",
+                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao"],
+
+    marcos: [
+      {data:"2025-05-30", titulo:"Cliente desde 2025",             detalhe:"Primeiro contrato CS00001/2025"},
+      {data:"2026-07-15", titulo:"Renovação de contrato",          detalhe:"Novo plano R$ 2.200 + 2 campanhas de tráfego · aguardando assinatura"},
+      {data:"2026-07-15", titulo:"Planejamento de julho aprovado", detalhe:"Aprovado no mesmo dia"},
+      {data:"2026-07-15", titulo:"Produção de julho",              detalhe:"Vídeos já produzidos; artes em produção, seguem para o Pode Postar após aprovação"},
+      {data:"2026-07-20", titulo:"Pacote de fotos 1/3",            detalhe:"R$ 200 · parcela 1 de 3"},
+      {data:"2026-08-20", titulo:"Pacote de fotos 2/3",            detalhe:"R$ 200 · parcela 2 de 3"},
+      {data:"2026-09-20", titulo:"Pacote de fotos 3/3",            detalhe:"R$ 200 · parcela 3 de 3"}
+    ]
   }
 ];
