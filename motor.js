@@ -130,23 +130,33 @@ function regras(c){
     }
   }
 
-  /* CICLO MENSAL PADRÃO — por padrão, mês seguinte à entrada (manual, seção 4).
-     Pode ser adiado por cliente quando o 1º ciclo ainda estiver rodando. */
+  /* CICLO MENSAL PADRÃO — repete a cada mês de vigência, a partir de inicioCicloPadrao
+     (ou do mês seguinte à entrada). Gera relatório, reunião mensal, planejamento e mídia
+     de CADA mês, com ids sufixados por AAAA-MM. Reuniões pedem Meet + agenda + convite. */
   const e=d(D0);
-  const ini = c.inicioCicloPadrao
+  let ini = c.inicioCicloPadrao
     ? new Date(Number(c.inicioCicloPadrao.split("-")[0]), Number(c.inicioCicloPadrao.split("-")[1])-1, 1)
     : new Date(e.getFullYear(), e.getMonth()+1, 1);
-  const ano=ini.getFullYear(), mes=ini.getMonth()+1;
-  const dd=n=>ano+"-"+String(mes).padStart(2,"0")+"-"+String(n).padStart(2,"0");
-  const ult=new Date(ano,mes,0).getDate();
-  const cic="Ciclo "+ini.toLocaleDateString("pt-BR",{month:"long"});
-  add("relatorio","Ciclo padrão","Gerar relatório mensal","Início da semana 3 · "+cic,dd(15),"Analista");
-  add("reuMensal","Ciclo padrão","Reunião mensal","Janela: dias 15 a 20 · "+cic,dd(20),"Analista");
-  add("envRelat","Ciclo padrão","Enviar relatório ao cliente","E-mail, no dia da reunião ou no útil seguinte · "+cic,dd(21),"Analista");
-  add("planej","Ciclo padrão","Criar o planejamento","Após a reunião · aprovação interna da gestão · "+cic,dd(23),"Analista");
-  add("envPlanej","Ciclo padrão","Enviar planejamento ao cliente","Abre o prazo de 48h úteis · "+cic,dd(24),"Analista");
-  add("midia","Ciclo padrão","Produzir a mídia","Semana 4 · "+cic,dd(28),"Analista");
-  add("agendado","Ciclo padrão","Conteúdo agendado","Pronto para publicar no dia 1 · "+cic,dd(ult),"Analista");
+  const fimCiclos = c.vencimentoContrato ? d(c.vencimentoContrato)
+                                         : new Date(ini.getFullYear(), ini.getMonth()+1, 1);
+  let _gi=0;
+  for(let mref=new Date(ini); mref<=fimCiclos && _gi<24; mref.setMonth(mref.getMonth()+1), _gi++){
+    const ano=mref.getFullYear(), mes=mref.getMonth()+1;
+    const sfx="_"+ano+"-"+String(mes).padStart(2,"0");
+    const dd=n=>ano+"-"+String(mes).padStart(2,"0")+"-"+String(n).padStart(2,"0");
+    const ult=new Date(ano,mes,0).getDate();
+    const cic="Ciclo "+mref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    add("relatorio"+sfx,"Ciclo padrão","Gerar relatório mensal","Início da semana 3 · "+cic,dd(15),"Analista");
+    add("reuMensal"+sfx,"Ciclo padrão","Reunião mensal","Janela: dias 15 a 20 · criar Meet, registrar na agenda e enviar convite · "+cic,dd(20),"Analista");
+    add("envRelat"+sfx,"Ciclo padrão","Enviar relatório ao cliente","E-mail, no dia da reunião ou no útil seguinte · "+cic,dd(21),"Analista");
+    add("planej"+sfx,"Ciclo padrão","Criar o planejamento","Após a reunião · aprovação interna da gestão · "+cic,dd(23),"Analista");
+    add("envPlanej"+sfx,"Ciclo padrão","Enviar planejamento ao cliente","Abre o prazo de 48h úteis · "+cic,dd(24),"Analista");
+    add("midia"+sfx,"Ciclo padrão","Produzir a mídia","Semana 4 · "+cic,dd(28),"Analista");
+    add("agendado"+sfx,"Ciclo padrão","Conteúdo agendado","Pronto para publicar no dia 1 · "+cic,dd(ult),"Analista");
+  }
+
+  /* TAREFAS EXTRAS por cliente (itens fora do padrão: pagamentos a fornecedor, etc.) */
+  (c.tarefasExtras||[]).forEach((t,i)=>add(t.id||("extra"+i), t.fase||"Outros", t.tarefa, t.detalhe||"", t.data||null, t.resp||"MK3"));
 
   return T;
 }

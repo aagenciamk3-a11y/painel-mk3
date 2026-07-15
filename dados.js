@@ -105,8 +105,15 @@ const CLIENTES = [
     justificados: [],
 
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
-                 "imersao","imersaoDoc","reuniaoPlan",
+                 "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
                  "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao"],
+
+    /* pacote de fotos profissional: R$ 600 em 3x de R$ 200 — repasse ao fornecedor */
+    tarefasExtras: [
+      {id:"fotos_2026-07", fase:"Contrato", tarefa:"Pagar fornecedor de fotos — R$ 200 (1/3)", detalhe:"Pacote de fotos profissional · repassar ao fornecedor", data:"2026-07-20", resp:"Financeiro"},
+      {id:"fotos_2026-08", fase:"Contrato", tarefa:"Pagar fornecedor de fotos — R$ 200 (2/3)", detalhe:"Pacote de fotos profissional · repassar ao fornecedor", data:"2026-08-20", resp:"Financeiro"},
+      {id:"fotos_2026-09", fase:"Contrato", tarefa:"Pagar fornecedor de fotos — R$ 200 (3/3)", detalhe:"Pacote de fotos profissional · repassar ao fornecedor", data:"2026-09-20", resp:"Financeiro"}
+    ],
 
     marcos: [
       {data:"2025-05-30", titulo:"Cliente desde 2025",             detalhe:"Primeiro contrato CS00001/2025"},
