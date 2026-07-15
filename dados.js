@@ -51,7 +51,7 @@ const CLIENTES = [
 
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
-                 "c1_plan","c1_lembPlan","c1_aprPlan"],
+                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro"],
 
     marcos: [
       {data:"2026-06-22", titulo:"Entrada do cliente",        detalhe:"Contrato assinado"},
