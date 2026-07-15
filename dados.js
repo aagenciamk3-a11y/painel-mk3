@@ -124,5 +124,62 @@ const CLIENTES = [
       {data:"2026-08-20", titulo:"Pacote de fotos 2/3",            detalhe:"R$ 200 · parcela 2 de 3"},
       {data:"2026-09-20", titulo:"Pacote de fotos 3/3",            detalhe:"R$ 200 · parcela 3 de 3"}
     ]
+  },
+
+  /* ─────────────── LEONARDO DE PAULA · CORRETOR ─────────────── */
+  {
+    id: "leonardo",
+    nome: "Leonardo",
+    marca: "Leonardo de Paula Negócios Imobiliários",
+
+    segmento: "Corretor",                       // Cariacica / Grande Vitória · ES
+    plano: "8 artes + 3 Reels/mês",             // contrato CS00012/2025
+    /* cliente desde jan/2026; ancorado no ponto atual (renovação pendente) */
+    entrada: "2026-01-14",
+
+    /* CONTRATO CS00012/2025 — vigência original 14/01 a 14/07/2026 (6 meses),
+       VENCIDO em 14/07. Renovação registrada como pendência atrasada (tarefasExtras).
+       Vencimento abaixo é uma continuação PROVISÓRIA (6 meses, mesmo valor) só para
+       manter o fluxo normal deste cliente até a renovação ser fechada. */
+    contrato: "CS00012/2025 (vencido 14/07 · renovação pendente)",
+    inicioContrato: "2026-07-15",
+    vencimentoContrato: "2027-01-14",
+    mensalidade: {valorPix: 1980, valorPermuta: 0, diaVencimento: 15},
+
+    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:false},
+
+    /* cliente antigo: sem nova imersão. Âncora do ciclo atual = envio do
+       planejamento (09/07). Enviado 09/07, cobrado e aprovado 13/07. */
+    imersao: null,
+    reuniaoPlanejamentoEntrada: "2026-07-09",
+
+    envioPlanejamento:     "2026-07-09",
+    aprovacaoPlanejamento: "2026-07-13",
+    envioMidia:            "2026-07-14",   // artes entregues terça, aguardando aprovação
+    aprovacaoMidia:        null,
+
+    gravacao: null,
+    artesDependemDaGravacao: false,
+
+    /* novo ciclo (relatório + reunião + planejamento) a partir de agosto */
+    inicioCicloPadrao: "2026-08",
+
+    justificados: [],
+
+    /* renovação do contrato entra como pendência ATRASADA */
+    tarefasExtras: [
+      {id:"renovacao_atrasada", fase:"Contrato", tarefa:"Renovar contrato (venceu 14/07)", detalhe:"CS00012/2025 encerrou 14/07/2026 · renovação pendente", data:"2026-07-14", resp:"Gestão"}
+    ],
+
+    concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
+                 "imersao","imersaoDoc","reuniaoPlan",
+                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_artes"],
+
+    marcos: [
+      {data:"2026-01-14", titulo:"Cliente desde 2026",     detalhe:"Contrato CS00012/2025"},
+      {data:"2026-07-09", titulo:"Planejamento enviado",   detalhe:"Conteúdo escrito enviado para aprovação"},
+      {data:"2026-07-13", titulo:"Planejamento aprovado",  detalhe:"Cobrado dia 13 e aprovado; 1 publicação marcada em ajuste (cliente não informou o que ajustar)"},
+      {data:"2026-07-14", titulo:"Artes entregues",        detalhe:"Enviadas para aprovação; aguardando retorno"}
+    ]
   }
 ];
