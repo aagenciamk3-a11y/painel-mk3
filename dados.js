@@ -173,7 +173,7 @@ const CLIENTES = [
 
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
-                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_artes","reserva3m"],
+                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_artes","reserva3m","pesq6m"],
 
     marcos: [
       {data:"2026-01-14", titulo:"Cliente desde 2026",     detalhe:"Contrato CS00012/2025"},
