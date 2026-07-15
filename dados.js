@@ -18,7 +18,7 @@ const CLIENTES = [
 
     /* CONTRATO CS00003/2025 — vigência 20/06/2026 a 20/09/2026 (3 meses) */
     contrato: "CS00003/2025",
-    inicioContrato: "2026-06-20",
+    inicioContrato: "2026-07-20",          // 1ª mensalidade em 20/07 (a de 20/06 estava errada)
     vencimentoContrato: "2026-09-20",
     mensalidade: {valorPix: 1000, valorPermuta: 500, diaVencimento: 20},
 
@@ -172,7 +172,7 @@ const CLIENTES = [
     ],
 
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
-                 "imersao","imersaoDoc","reuniaoPlan",
+                 "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
                  "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_artes"],
 
     marcos: [
