@@ -213,7 +213,8 @@ const CLIENTES = [
     aprovacaoMidia:        null,
 
     gravacao: "2026-07-23",
-    artesDependemDaGravacao: false,  // as artes dela NÃO dependem da gravação
+    semFotos: true,                 // gravação só, sem fotos
+    artesDependemDaGravacao: false, // as artes dela NÃO dependem da gravação
 
     inicioCicloPadrao: "2026-08",
 

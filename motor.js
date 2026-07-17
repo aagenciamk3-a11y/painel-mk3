@@ -91,15 +91,15 @@ function regras(c){
     add("c1_plan","1º ciclo","Criar e enviar o planejamento ao cliente","2 dias úteis após a reunião · abre o prazo de 48h úteis",limEnvPlan,"Analista");
     add("c1_lembPlan","1º ciclo","Lembrete de aprovação do planejamento","1 dia útil sem retorno",lembPlan,"Analista");
     add("c1_aprPlan","1º ciclo","Aprovação do planejamento","Limite: 2 dias úteis · sem retorno = aprovado automaticamente",limAprPlan,"Cliente");
-    const baseAjuste = c.alteracaoPedida || limAprPlan;
-    add("c1_ajuste","1º ciclo","Se pedir alteração: devolver o ajuste",
-        c.alteracaoPedida ? ("Alteração pedida em "+fmt(c.alteracaoPedida)+" · 2 dias úteis para devolver")
-                          : "2 dias úteis para a MK3 devolver",
-        uteis(baseAjuste,PRAZO),"Analista");
+    /* só existe quando o cliente REALMENTE pediu alteração (se aprovou, não pediu) */
+    if(c.alteracaoPedida)
+      add("c1_ajuste","1º ciclo","Devolver a alteração pedida",
+          "Alteração pedida em "+fmt(c.alteracaoPedida)+" · 2 dias úteis para devolver",
+          uteis(c.alteracaoPedida,PRAZO),"Analista");
     add("c1_roteiro","1º ciclo","Enviar roteiro à produtora",
         "No mesmo dia da aprovação do planejamento", baseAprPlan, "Analista");
     if(c.gravacao)
-      add("c1_gravacao","1º ciclo","Gravação + fotos","Manhã, 8h às 17h · insumo das artes",c.gravacao,"Produtora / Cliente");
+      add("c1_gravacao","1º ciclo",c.semFotos?"Gravação":"Gravação + fotos","Manhã, 8h às 17h"+(c.artesDependemDaGravacao?" · insumo das artes":""),c.gravacao,"Produtora / Cliente");
     else
       add("c1_gravacao","1º ciclo","Agendar diária de gravação","Manhã, 8h às 17h · régua a confirmar",null,"Analista / Estagiário");
     add("c1_artes","1º ciclo","Criar as artes",
