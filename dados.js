@@ -213,13 +213,11 @@ const CLIENTES = [
     aprovacaoMidia:        null,
 
     gravacao: "2026-07-23",
-    artesDependemDaGravacao: true,   // reels/artes do mês saem da gravação de 23/07
+    artesDependemDaGravacao: false,  // as artes dela NÃO dependem da gravação
 
     inicioCicloPadrao: "2026-08",
 
-    justificados: [
-      {etapa:"Entrega das artes", motivo:"Depende da gravação marcada para 23/07 pela cliente"}
-    ],
+    justificados: [],
 
     /* c1_aprPlan com data -> painel mostra "Concluído · atrasou N dias úteis" */
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
