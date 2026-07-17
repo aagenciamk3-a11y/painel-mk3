@@ -106,7 +106,7 @@ const CLIENTES = [
 
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
-                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao","c1_artes"],
+                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao","c1_artes","c1_lembMid"],
 
     /* pacote de fotos profissional: R$ 600 em 3x de R$ 200 — repasse ao fornecedor */
     tarefasExtras: [
