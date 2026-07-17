@@ -92,7 +92,7 @@ const CLIENTES = [
 
     envioPlanejamento:     "2026-07-15",
     aprovacaoPlanejamento: "2026-07-15",
-    envioMidia:            null,          // artes ainda em produção
+    envioMidia:            "2026-07-16",   // artes enviadas para aprovação
     aprovacaoMidia:        null,
 
     /* vídeos de julho já produzidos; artes não dependem de nova gravação */
@@ -106,7 +106,7 @@ const CLIENTES = [
 
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
-                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao"],
+                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao","c1_artes"],
 
     /* pacote de fotos profissional: R$ 600 em 3x de R$ 200 — repasse ao fornecedor */
     tarefasExtras: [
