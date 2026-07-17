@@ -212,12 +212,14 @@ const CLIENTES = [
     envioMidia:            null,
     aprovacaoMidia:        null,
 
-    gravacao: null,
-    artesDependemDaGravacao: false,
+    gravacao: "2026-07-23",
+    artesDependemDaGravacao: true,   // reels/artes do mês saem da gravação de 23/07
 
     inicioCicloPadrao: "2026-08",
 
-    justificados: [],
+    justificados: [
+      {etapa:"Entrega das artes", motivo:"Depende da gravação marcada para 23/07 pela cliente"}
+    ],
 
     /* c1_aprPlan com data -> painel mostra "Concluído · atrasou N dias úteis" */
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
@@ -232,7 +234,8 @@ const CLIENTES = [
       {data:"2026-07-06", titulo:"Reunião de imersão",        detalhe:"Realizada às 11:15, a pedido da cliente"},
       {data:"2026-07-13", titulo:"Planejamento enviado",      detalhe:"Para aprovação no Pode Postar"},
       {data:"2026-07-15", titulo:"Contrato alterado",         detalhe:"Data ajustada a pedido da cliente e reenviado"},
-      {data:"2026-07-17", titulo:"Planejamento aprovado + contrato assinado", detalhe:"Aprovado hoje (com atraso); contrato assinado"}
+      {data:"2026-07-17", titulo:"Planejamento aprovado + contrato assinado", detalhe:"Aprovado hoje (com atraso); contrato assinado"},
+      {data:"2026-07-23", titulo:"Gravação marcada",       detalhe:"Diária de gravação agendada pela cliente"}
     ]
   }
 ];
