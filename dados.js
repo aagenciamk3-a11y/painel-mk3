@@ -51,7 +51,7 @@ const CLIENTES = [
 
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
-                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro"],
+                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao"],
 
     marcos: [
       {data:"2026-06-22", titulo:"Entrada do cliente",        detalhe:"Contrato assinado"},
@@ -155,8 +155,9 @@ const CLIENTES = [
 
     envioPlanejamento:     "2026-07-09",
     aprovacaoPlanejamento: "2026-07-13",
-    envioMidia:            "2026-07-14",   // artes entregues terça, aguardando aprovação
-    aprovacaoMidia:        null,
+    envioMidia:            "2026-07-14",   // artes entregues terça
+    aprovacaoMidia:        "2026-07-16",   // artes aprovadas
+    alteracaoPedida:       "2026-07-17",   // cliente pediu alteração hoje · 2 dias úteis p/ devolver
 
     gravacao: null,
     artesDependemDaGravacao: false,
@@ -173,7 +174,8 @@ const CLIENTES = [
 
     concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
-                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_artes","reserva3m","pesq6m"],
+                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_artes",
+                 "c1_lembMid","c1_aprMid","c1_podepostar","c1_calendario","reserva3m","pesq6m"],
 
     marcos: [
       {data:"2026-01-14", titulo:"Cliente desde 2026",     detalhe:"Contrato CS00012/2025"},
