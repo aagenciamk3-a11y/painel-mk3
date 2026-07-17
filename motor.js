@@ -32,10 +32,24 @@ const uteisEntre = (limite, real) => {
 const maiorData = (a,b) => !a ? b : !b ? a : (a>b ? a : b);
 
 /* ---------------- REGRAS ---------------- */
+/* Conclusão de uma tarefa. Em `concluidas` aceita:
+   - "id"            -> concluído (sem data, assume no prazo)
+   - {id, data}      -> concluído naquela data (o painel calcula prazo/atraso) */
+const conclusaoDe = (c, id) => {
+  for(const e of (c.concluidas||[])){
+    if(e === id) return {feita:true, data:null};
+    if(e && e.id === id) return {feita:true, data:e.data||null};
+  }
+  return {feita:false, data:null};
+};
+
 function regras(c){
   const T=[];
-  const add=(id,fase,tarefa,detalhe,data,resp)=>T.push({id,fase,tarefa,detalhe,data,resp,
-    cliente:c.nome, clienteId:c.id, feita:c.concluidas.includes(id)});
+  const add=(id,fase,tarefa,detalhe,data,resp)=>{
+    const cc=conclusaoDe(c,id);
+    T.push({id,fase,tarefa,detalhe,data,resp,cliente:c.nome,clienteId:c.id,
+      feita:cc.feita, dataConclusao:cc.data});
+  };
 
   /* PARTE A — ENTRADA (âncora: assinatura) */
   const D0=c.entrada;
@@ -230,7 +244,15 @@ function atrasos(c){
 }
 
 function status(t){
-  if(t.feita) return {k:"ok",txt:"Concluído"};
+  if(t.feita){
+    if(t.dataConclusao && t.data){
+      const n=uteisEntre(t.data, t.dataConclusao);
+      if(n>0) return {k:"ok", atraso:n, quando:t.dataConclusao,
+                      txt:"Concluído · atrasou "+n+(n===1?" dia útil":" dias úteis")};
+      return {k:"ok", atraso:0, quando:t.dataConclusao, txt:"Concluído na data"};
+    }
+    return {k:"ok", txt:"Concluído"};
+  }
   if(!t.data) return {k:"sem",txt:"Sem data"};
   const n=dias(t.data);
   if(n<0)   return {k:"atrasado",txt:"Atrasado "+Math.abs(n)+"d"};
@@ -272,7 +294,7 @@ function chipsHTML(c, comFiltro){
 }
 
 const linha = t => '<div class="row">'+
-  '<div class="tag t-'+t.st.k+'">'+t.st.txt+'</div>'+
+  '<div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
   '<div class="tarefa">'+t.tarefa+'<em>'+(t.detalhe||"")+'</em></div>'+
   '<div class="cli">'+t.cliente+'</div>'+
   '<div class="data">'+fmt(t.data)+' <span class="dow">'+dow(t.data)+'</span></div>'+
@@ -457,7 +479,7 @@ function ficha(c){
     const its = ts.filter(t=>t.fase===f);
     if(!its.length) return "";
     return '<div class="fase"><h4>'+f+'</h4>'+its.map(t=>
-      '<div class="li"><div class="tag t-'+t.st.k+'">'+t.st.txt+'</div>'+
+      '<div class="li"><div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
       '<div class="tarefa">'+t.tarefa+'</div>'+
       '<div class="data">'+fmt(t.data)+' <span class="dow">'+dow(t.data)+'</span></div></div>').join("")+'</div>';
   };
