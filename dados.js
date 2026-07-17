@@ -183,5 +183,56 @@ const CLIENTES = [
       {data:"2026-07-13", titulo:"Planejamento aprovado",  detalhe:"Cobrado dia 13 e aprovado; 1 publicação marcada em ajuste (cliente não informou o que ajustar)"},
       {data:"2026-07-14", titulo:"Artes entregues",        detalhe:"Enviadas para aprovação; aguardando retorno"}
     ]
+  },
+
+  /* ─────────────── CYNTHIA CARVALHO · CORRETORA (VITÓRIA) ─────────────── */
+  {
+    id: "cynthia",
+    nome: "Cynthia",
+    marca: "Cynthia Carvalho — Corretora de Imóveis",
+
+    segmento: "Corretor",                      // Vitória/ES · Remax Foccus · médio/alto padrão
+    plano: "6 artes + 2 Reels/mês",            // contrato CS00004/2025
+    entrada: "2026-06-22",                      // grupo criado + onboarding enviado
+
+    contrato: "CS00004/2025",
+    inicioContrato: "2026-07-15",               // contrato alterado (data mudada a pedido dela)
+    vencimentoContrato: "2026-10-15",
+    mensalidade: {valorPix: 1500, valorPermuta: 0, diaVencimento: 20},
+
+    /* o contrato exclui agendamento, mas a MK3 agenda para todos (Pode Postar) */
+    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:false},
+
+    /* imersão remarcada 2x por falta da cliente; realizada em 06/07 (a pedido dela) */
+    imersao: "2026-07-06",
+    reuniaoPlanejamentoEntrada: "2026-07-10",   // âncora do ciclo (planejamento enviado 13/07)
+
+    envioPlanejamento:     "2026-07-13",
+    aprovacaoPlanejamento: "2026-07-17",         // aprovado hoje — 2 dias úteis após o limite (15/07)
+    envioMidia:            null,
+    aprovacaoMidia:        null,
+
+    gravacao: null,
+    artesDependemDaGravacao: false,
+
+    inicioCicloPadrao: "2026-08",
+
+    justificados: [],
+
+    /* c1_aprPlan com data -> painel mostra "Concluído · atrasou N dias úteis" */
+    concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
+                 "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
+                 "c1_plan","c1_lembPlan",
+                 {id:"c1_aprPlan", data:"2026-07-17"}],
+
+    marcos: [
+      {data:"2026-06-22", titulo:"Entrada do cliente",        detalhe:"Grupo criado e onboarding enviado"},
+      {data:"2026-06-26", titulo:"Imersão remarcada",         detalhe:"Cliente não compareceu; pediu desculpas"},
+      {data:"2026-07-02", titulo:"Imersão remarcada",         detalhe:"Cliente não compareceu novamente"},
+      {data:"2026-07-06", titulo:"Reunião de imersão",        detalhe:"Realizada às 11:15, a pedido da cliente"},
+      {data:"2026-07-13", titulo:"Planejamento enviado",      detalhe:"Para aprovação no Pode Postar"},
+      {data:"2026-07-15", titulo:"Contrato alterado",         detalhe:"Data ajustada a pedido da cliente e reenviado"},
+      {data:"2026-07-17", titulo:"Planejamento aprovado + contrato assinado", detalhe:"Aprovado hoje (com atraso); contrato assinado"}
+    ]
   }
 ];
