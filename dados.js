@@ -236,5 +236,53 @@ const CLIENTES = [
       {data:"2026-07-17", titulo:"Planejamento aprovado + contrato assinado", detalhe:"Aprovado hoje (com atraso); contrato assinado"},
       {data:"2026-07-23", titulo:"Gravação marcada",       detalhe:"Diária de gravação agendada pela cliente"}
     ]
+  },
+
+  /* ─────────────── ESCOLA OCEANUS ─────────────── */
+  {
+    id: "oceanus",
+    nome: "Oceanus",
+    marca: "Escola Oceanus",
+
+    segmento: "Escola",                          // Serra/ES
+    plano: "Plano Básico + 1 diária de captação/mês",  // contrato CS00016/2026
+    entrada: "2026-02-12",
+
+    contrato: "CS00016/2026",
+    inicioContrato: "2026-02-12",
+    vencimentoContrato: "2026-08-12",
+    mensalidade: {valorPix: 3100, valorPermuta: 0, diaVencimento: 15},
+
+    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:false},
+
+    /* cliente antiga (desde fev). Sem novo 1º ciclo; o planejamento do mês
+       corrente está em atraso, registrado abaixo em tarefasExtras. */
+    imersao: null,
+    reuniaoPlanejamentoEntrada: null,
+
+    envioPlanejamento:     null,
+    aprovacaoPlanejamento: null,
+    envioMidia:            null,
+    aprovacaoMidia:        null,
+
+    gravacao: null,
+    artesDependemDaGravacao: false,
+
+    inicioCicloPadrao: "2026-09",                // contrato encerra em ago; sem novo ciclo padrão
+
+    justificados: [],
+
+    /* PLANEJAMENTO EM ATRASO (17 dias) */
+    tarefasExtras: [
+      {id:"plan_atraso", fase:"1º ciclo", tarefa:"Criar e enviar o planejamento (EM ATRASO)", detalhe:"Planejamento do mês atrasado", data:"2026-06-30", resp:"Analista"}
+    ],
+
+    concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
+                 "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
+                 "reserva3m","pag_2026-02-15","pag_2026-03-15","pag_2026-04-15","pag_2026-05-15","pag_2026-06-15"],
+
+    marcos: [
+      {data:"2026-02-12", titulo:"Entrada do cliente", detalhe:"Contrato CS00016/2026 · Escola Oceanus (Serra/ES)"}
+    ]
   }
 ];
