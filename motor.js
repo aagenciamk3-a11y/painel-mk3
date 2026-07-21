@@ -276,72 +276,82 @@ const ROTULO  = {atrasado:"Atrasado",hoje:"Vence hoje",umdia:"Falta 1 dia",
                  semana:"Esta semana",sem:"Sem data",futuro:"Programado",ok:"Concluído"};
 const BUCKETS = ["atrasado","hoje","umdia","semana","sem","ok"];
 
-/* ---- áreas (filtro do topo) ---- */
-const AREAS = [{k:"mkt",rot:"Marketing Digital"},{k:"fin",rot:"Financeiro"},{k:"com",rot:"Comercial"}];
-function areaDe(t){
-  if(/^pag_/.test(t.id) || /^fotos_/.test(t.id)) return "fin";
-  if(["fimContrato","entregaMateriais","renov","renovacao_atrasada"].includes(t.id)) return "com";
+/* ---- áreas (Visão Geral = tudo) ---- */
+const AREAS = [{k:"all",rot:"Visão Geral"},{k:"mkt",rot:"Marketing Digital"},
+               {k:"fin",rot:"Financeiro"},{k:"com",rot:"Comercial"}];
+function areaBase(id){
+  if(/^pag_/.test(id) || /^fotos_/.test(id)) return "fin";
+  if(["fimContrato","entregaMateriais","renov","renovacao_atrasada"].includes(id)) return "com";
   return "mkt";
 }
+const areaMatch = t => VISTA.area==="all" || t.area===VISTA.area;
 
-const VISTA  = { area:"mkt", escopo:null, aba:"cal", mes:0, dia:null, filtro:null };
-const TODAS  = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaDe(t)})));
+const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null };
+const TODAS  = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})));
 const cliente = id => CLIENTES.find(c=>c.id===id);
-const tarefasCli = c => TODAS.filter(t=>t.clienteId===c.id && t.area===VISTA.area);
+const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
+const tarefasArea = () => TODAS.filter(areaMatch);
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
 
-/* ---- visual do cliente (banner + avatar por segmento) ---- */
 function coresSeg(seg){
   const M = {
     "corretor":["#2f9150","#155a2c"], "corretora":["#8f5fb0","#573477"],
-    "corretor de imóveis":["#2f9150","#155a2c"],
     "varejo":["#b98fb0","#6f4f6a"], "moda":["#c07bb0","#7a3f6a"],
     "escola":["#a0703f","#5f4020"], "educação":["#a0703f","#5f4020"],
-    "tecnologia":["#3f6fa0","#20405f"], "saúde":["#3fa0a0","#205f5f"],
-    "alimentação":["#c08a3f","#7a5320"], "beleza":["#c05f8f","#7a3f5f"]
+    "tecnologia":["#3f6fa0","#20405f"]
   };
   return M[(seg||"").toLowerCase()] || ["#4c6b8f","#2a3f5a"];
 }
 const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
-/* ---- linha de tarefa (usada em Tarefas e no dia do calendário) ---- */
-const linha = t => '<div class="row">'+
+/* ---- linha de tarefa (lista) ---- */
+const linha = (t, showCli) => '<div class="row'+(showCli?" rowc":"")+'">'+
   '<div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
   '<div class="tarefa">'+esc(t.tarefa)+(t.detalhe?'<em>'+esc(t.detalhe)+'</em>':'')+'</div>'+
+  (showCli?'<div class="cli">'+esc(t.cliente)+'</div>':'')+
   '<div class="data">'+fmt(t.data)+' <span class="dow">'+dow(t.data)+'</span></div>'+
   '<div class="resp">'+esc(t.resp)+'</div></div>';
 
-/* ---------------- HOME: CARDS ---------------- */
+/* ---- bloco de evento no calendário (estilo referência) ---- */
+function evCard(t, showCli, isMarco){
+  const cls  = isMarco ? "marco" : t.st.k;
+  const meta = isMarco ? "Marco" : (showCli ? t.cliente : t.resp);
+  const tt   = (isMarco?"◆ ":"")+esc(t.tarefa || t.titulo);
+  return '<div class="ev ev-'+cls+'" title="'+esc(t.tarefa||t.titulo)+'">'+
+    '<div class="ev-tt">'+tt+'</div>'+
+    '<div class="ev-meta"><span class="ev-dot"></span>'+esc(meta)+'</div></div>';
+}
+
+/* ---------------- CARDS DE CLIENTE ---------------- */
 function cardsHTML(){
   return CLIENTES.map(c=>{
     const ts = tarefasCli(c);
     const n  = ks => ts.filter(t=>ks.includes(t.st.k)).length;
     const cor = coresSeg(c.segmento);
     const tiles = [
-      ["atrasado","Atrasado",     n(["atrasado"])],
-      ["hoje","Vence hoje",       n(["hoje","umdia"])],
-      ["semana","A fazer",        n(["semana","futuro","sem"])],
-      ["ok","Concluído",          n(["ok"])]
+      ["atrasado","Atrasado", n(["atrasado"])],
+      ["hoje","Vence hoje",   n(["hoje","umdia"])],
+      ["semana","A fazer",    n(["semana","futuro","sem"])],
+      ["ok","Concluído",      n(["ok"])]
     ];
     return '<button class="ccard" data-cliente="'+c.id+'">'+
       '<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
-      '<div class="ccard-av" style="background:'+cor[1]+'">'+esc(iniciais(c.marca||c.nome))+'</div>'+
+      '<div class="ccard-av" style="background:'+cor[1]+'">'+esc(iniciais(c.nome))+'</div>'+
       '<div class="ccard-body">'+
-        '<div class="ccard-top"><h3>'+esc(c.marca||c.nome)+'</h3><span class="badge-ativo">Ativo</span></div>'+
-        (c.segmento?'<span class="seg">'+esc(c.segmento)+'</span>':'')+
+        '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3><span class="badge-ativo">Ativo</span></div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
           '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
       '</div></button>';
   }).join("");
 }
 
-/* ---------------- CALENDÁRIO DO CLIENTE ---------------- */
-function calHTML(c){
-  const base = tarefasCli(c).filter(t=>t.data);
+/* ---------------- CALENDÁRIO (reutilizável) ---------------- */
+function calendario(tasks, marcos, showCli){
+  const base = tasks.filter(t=>t.data);
   const ref  = new Date(HOJE.getFullYear(), HOJE.getMonth()+VISTA.mes, 1);
   const ano  = ref.getFullYear(), mes = ref.getMonth();
-  const desloc = new Date(ano,mes,1).getDay();          // domingo = 0 (semana começa no domingo)
+  const desloc = new Date(ano,mes,1).getDay();      // domingo = 0
   const ini = new Date(ano,mes,1-desloc);
   const hojeIso = iso(HOJE);
   const diasNoMes = new Date(ano,mes+1,0).getDate();
@@ -354,15 +364,16 @@ function calHTML(c){
     const fora = dt.getMonth()!==mes;
     const fds  = dt.getDay()===0 || dt.getDay()===6;
     const evs  = base.filter(t=>t.data===s);
-    const mk   = c.marcos.filter(m=>m.data===s);
+    const mk   = marcos.filter(m=>m.data===s);
     const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":"", s===VISTA.dia?"sel":""].filter(Boolean).join(" ");
-    const marco = mk.length ? '<div class="ev t-ok" title="'+esc(mk[0].titulo)+'">◆ '+esc(mk[0].titulo)+'</div>' : "";
-    const teto = mk.length ? 2 : 3;
-    const evsHtml = evs.slice(0,teto).map(t=>
-      '<div class="ev t-'+t.st.k+(t.st.atraso?' okatraso':'')+'" title="'+esc(t.tarefa)+'">'+esc(t.tarefa)+'</div>').join("");
-    const resto = evs.length - teto;
-    const extra = resto>0 ? '<div class="mais">+'+resto+' '+(resto===1?"tarefa":"tarefas")+'</div>' : "";
-    cells += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+marco+evsHtml+extra+'</div>';
+    const teto = 3;
+    let evsHtml = mk.slice(0,1).map(m=>evCard(m,false,true)).join("");
+    evsHtml += evs.slice(0, teto - (mk.length?1:0)).map(t=>evCard(t,showCli,false)).join("");
+    const total = evs.length + mk.length;
+    const mostrados = Math.min(evs.length, teto-(mk.length?1:0)) + Math.min(mk.length,1);
+    const resto = total - mostrados;
+    const extra = resto>0 ? '<div class="mais">+'+resto+' '+(resto===1?"item":"itens")+'</div>' : "";
+    cells += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
   }
 
   let dayList="";
@@ -370,7 +381,7 @@ function calHTML(c){
     const evs = base.filter(t=>t.data===VISTA.dia).sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
     const titulo = d(VISTA.dia).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
     dayList = '<div class="calDia"><h2>'+titulo+'</h2>'+(evs.length
-      ? '<div class="fila">'+evs.map(linha).join("")+'</div>'
+      ? '<div class="fila">'+evs.map(t=>linha(t,showCli)).join("")+'</div>'
       : '<div class="vazio">Nenhuma tarefa neste dia.</div>')+'</div>';
   }
 
@@ -382,21 +393,34 @@ function calHTML(c){
       '<div class="cal-grid">'+cells+'</div></div>'+dayList;
 }
 
+/* ---------------- LISTA GLOBAL (todos os clientes) ---------------- */
+function listaGlobalHTML(){
+  const ts = tarefasArea();
+  const semaf = '<div class="semaforo">'+BUCKETS.map(k=>
+    '<div class="sf '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'">'+
+    '<b>'+ts.filter(t=>t.st.k===k).length+'</b><small>'+ROTULO[k]+'</small></div>').join("")+'</div>';
+  const lista = (VISTA.filtro ? ts.filter(t=>t.st.k===VISTA.filtro) : ts.filter(t=>t.st.k!=="ok"))
+    .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
+  return semaf +
+    '<h2>'+(VISTA.filtro?ROTULO[VISTA.filtro]:"Fila de execução")+' · todos os clientes</h2>'+
+    (lista.length ? '<div class="fila">'+lista.map(t=>linha(t,true)).join("")+'</div>'
+                  : '<div class="vazio">Nada aqui'+(VISTA.filtro?" em <strong>"+ROTULO[VISTA.filtro]+"</strong>":"")+'.</div>');
+}
+
 /* ---------------- TAREFAS DO CLIENTE ---------------- */
 function tarefasHTML(c){
   const ts = tarefasCli(c);
   const semaf = '<div class="semaforo">'+BUCKETS.map(k=>
     '<div class="sf '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'">'+
     '<b>'+ts.filter(t=>t.st.k===k).length+'</b><small>'+ROTULO[k]+'</small></div>').join("")+'</div>';
-
   const lista = (VISTA.filtro ? ts.filter(t=>t.st.k===VISTA.filtro) : ts.filter(t=>t.st.k!=="ok"))
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
   let html = semaf +
     '<h2>'+(VISTA.filtro?ROTULO[VISTA.filtro]:"Fila de execução")+'</h2>'+
-    (lista.length ? '<div class="fila">'+lista.map(linha).join("")+'</div>'
+    (lista.length ? '<div class="fila">'+lista.map(t=>linha(t,false)).join("")+'</div>'
                   : '<div class="vazio">Nada aqui'+(VISTA.filtro?" em <strong>"+ROTULO[VISTA.filtro]+"</strong>":"")+'.</div>');
 
-  if(VISTA.area==="mkt"){
+  if(VISTA.area==="mkt" || VISTA.area==="all"){
     const c48 = contadores(c);
     if(c48.length) html += '<h2>Contadores de 48h úteis — na mão do cliente</h2><div class="fila">'+c48.map(x=>{
         const nn=dias(x.vencimento);
@@ -414,12 +438,12 @@ function tarefasHTML(c){
     const sMK3=contam.filter(a=>a.quem==="MK3").reduce((s,a)=>s+a.dias,0);
     const sCli=contam.filter(a=>a.quem==="Cliente").reduce((s,a)=>s+a.dias,0);
     const sJus=jus.reduce((s,a)=>s+a.dias,0);
-    html += '<h2>Atrasos'+
-      (contam.length?"  ·  placar — MK3: "+sMK3+"d · Cliente: "+sCli+"d":"")+
-      (jus.length?"  ·  "+sJus+"d justificados (fora do placar)":"")+
-      (prev.length?"  ·  "+prev.length+" previsto"+(prev.length>1?"s":""):"")+'</h2>';
-    html += atr.length
-      ? '<div class="fila">'+atr.map(a=>
+    if(atr.length){
+      html += '<h2>Atrasos'+
+        (contam.length?"  ·  placar — MK3: "+sMK3+"d · Cliente: "+sCli+"d":"")+
+        (jus.length?"  ·  "+sJus+"d justificados (fora do placar)":"")+
+        (prev.length?"  ·  "+prev.length+" previsto"+(prev.length>1?"s":""):"")+'</h2>'+
+        '<div class="fila">'+atr.map(a=>
           '<div class="atr'+(a.justificado?" just":a.previsto?" prev":"")+'">'+
             '<div class="etapa">'+esc(a.etapa)+
               (a.justificado?' <span class="badge-just">Justificado</span>'
@@ -429,8 +453,8 @@ function tarefasHTML(c){
             '<div class="data">'+(a.previsto?"só em ":"saiu ")+fmt(a.real)+'</div>'+
             '<div class="n">+'+a.dias+' '+(a.dias===1?"dia útil":"dias úteis")+'</div>'+
             '<div class="quem q-'+a.quem+'">'+a.quem+'</div>'+
-          '</div>').join("")+'</div>'
-      : '<div class="ok-prazo">Nenhum atraso. Tudo dentro do prazo.</div>';
+          '</div>').join("")+'</div>';
+    }
   }
   return html;
 }
@@ -459,20 +483,27 @@ function render(){
   const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
 
   if(!c){
-    $("view").innerHTML = '<div class="cards">'+cardsHTML()+'</div>';
+    const modos = [["cards","Cartões"],["cal","Calendário"],["lista","Lista"]];
+    const toggle = '<div class="modos">'+modos.map(m=>
+      '<button class="'+(VISTA.modo===m[0]?"on":"")+'" data-modo="'+m[0]+'">'+m[1]+'</button>').join("")+'</div>';
+    let body;
+    if(VISTA.modo==="cards")      body = '<div class="cards">'+cardsHTML()+'</div>';
+    else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), CLIENTES.flatMap(x=>x.marcos), true);
+    else                          body = listaGlobalHTML();
+    $("view").innerHTML = toggle + body;
     return;
   }
 
   const cor = coresSeg(c.segmento);
   const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["hist","Histórico"]];
   const bar =
-    '<div class="cli-bar"><button class="voltar" data-nav="home">&larr; Clientes</button>'+
-    '<div class="cli-title"><span class="cli-av2" style="background:'+cor[1]+'">'+esc(iniciais(c.marca||c.nome))+'</span>'+
-      '<strong>'+esc(c.marca||c.nome)+'</strong>'+(c.segmento?' <span class="seg">'+esc(c.segmento)+'</span>':'')+'</div>'+
+    '<div class="cli-bar"><button class="voltar" data-nav="home">&larr; Todos os clientes</button>'+
+    '<div class="cli-title"><span class="cli-av2" style="background:'+cor[1]+'">'+esc(iniciais(c.nome))+'</span>'+
+      '<strong>'+esc(c.nome)+'</strong></div>'+
     '<div class="cli-tabs">'+tabs.map(t=>
       '<button class="'+(VISTA.aba===t[0]?"on":"")+'" data-cliaba="'+t[0]+'">'+t[1]+'</button>').join("")+'</div></div>';
 
-  const body = VISTA.aba==="cal" ? calHTML(c)
+  const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), c.marcos, false)
              : VISTA.aba==="tarefas" ? tarefasHTML(c)
              : histHTML(c);
   $("view").innerHTML = bar + body;
@@ -480,12 +511,13 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket]");
   if(!alvo) return;
   const D = alvo.dataset;
   let topo = true;
 
   if(D.area){ VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; }
+  if(D.modo){ VISTA.modo=D.modo; VISTA.filtro=null; VISTA.dia=null; }
   if(D.cliente){ VISTA.escopo=D.cliente; VISTA.aba="cal"; VISTA.mes=0; VISTA.dia=null; VISTA.filtro=null; }
   if(D.nav==="home"){ VISTA.escopo=null; VISTA.filtro=null; VISTA.dia=null; }
   if(D.cliaba){ VISTA.aba=D.cliaba; VISTA.filtro=null; VISTA.dia=null; }

@@ -9,7 +9,7 @@ const CLIENTES = [
   /* ─────────────── ADRIANA · LOJA DINHA MAIS ─────────────── */
   {
     id: "adriana",
-    nome: "Adriana",
+    nome: "Dinha Mais",
     marca: "Loja Dinha Mais",
 
     segmento: "Varejo",                   // loja Dinha Mais / Dinha Sports
@@ -129,7 +129,7 @@ const CLIENTES = [
   /* ─────────────── LEONARDO DE PAULA · CORRETOR ─────────────── */
   {
     id: "leonardo",
-    nome: "Leonardo",
+    nome: "Leonardo de Paula",
     marca: "Leonardo de Paula Negócios Imobiliários",
 
     segmento: "Corretor",                       // Cariacica / Grande Vitória · ES
@@ -188,7 +188,7 @@ const CLIENTES = [
   /* ─────────────── CYNTHIA CARVALHO · CORRETORA (VITÓRIA) ─────────────── */
   {
     id: "cynthia",
-    nome: "Cynthia",
+    nome: "Cynthia Carvalho",
     marca: "Cynthia Carvalho — Corretora de Imóveis",
 
     segmento: "Corretor",                      // Vitória/ES · Remax Foccus · médio/alto padrão
