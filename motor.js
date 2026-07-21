@@ -305,6 +305,16 @@ function coresSeg(seg){
 }
 const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
+const FOTO = {
+  cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg", leonardo:"fotos/leonardo.jpg",
+  oceanus:"fotos/oceanus.png", adriana:"fotos/dinha.png"
+};
+function avatarHTML(c, cls){
+  const cor=coresSeg(c.segmento), f=FOTO[c.id];
+  return '<div class="'+cls+'" style="background:'+cor[1]+'">'+esc(iniciais(c.nome))+
+    (f?'<img src="'+f+'" alt="" loading="lazy" onerror="this.remove()">':'')+'</div>';
+}
+
 /* ---- linha de tarefa (lista) ---- */
 const linha = (t, showCli) => '<div class="row'+(showCli?" rowc":"")+'">'+
   '<div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
@@ -337,7 +347,7 @@ function cardsHTML(){
     ];
     return '<button class="ccard" data-cliente="'+c.id+'">'+
       '<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
-      '<div class="ccard-av" style="background:'+cor[1]+'">'+esc(iniciais(c.nome))+'</div>'+
+      avatarHTML(c,"ccard-av")+
       '<div class="ccard-body">'+
         '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3><span class="badge-ativo">Ativo</span></div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
@@ -498,7 +508,7 @@ function render(){
   const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["hist","Histórico"]];
   const bar =
     '<div class="cli-bar"><button class="voltar" data-nav="home">&larr; Todos os clientes</button>'+
-    '<div class="cli-title"><span class="cli-av2" style="background:'+cor[1]+'">'+esc(iniciais(c.nome))+'</span>'+
+    '<div class="cli-title">'+avatarHTML(c,"cli-av2")+
       '<strong>'+esc(c.nome)+'</strong></div>'+
     '<div class="cli-tabs">'+tabs.map(t=>
       '<button class="'+(VISTA.aba===t[0]?"on":"")+'" data-cliaba="'+t[0]+'">'+t[1]+'</button>').join("")+'</div></div>';
