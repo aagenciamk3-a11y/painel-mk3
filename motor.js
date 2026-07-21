@@ -307,7 +307,7 @@ const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).ma
 
 const FOTO = {
   cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg", leonardo:"fotos/leonardo.jpg",
-  oceanus:"fotos/oceanus.png", adriana:"fotos/dinha.png"
+  oceanus:"fotos/oceanus.jpg", adriana:"fotos/dinha.jpg"
 };
 function avatarHTML(c, cls){
   const cor=coresSeg(c.segmento), f=FOTO[c.id];
