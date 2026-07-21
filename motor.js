@@ -266,268 +266,232 @@ function status(t){
   return {k:"futuro",txt:"Faltam "+n+" dias"};
 }
 
-/* ---------------- NAVEGAÇÃO ---------------- */
+/* ================= INTERFACE ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?"":s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
 const ORDEM   = {atrasado:0,hoje:1,umdia:2,semana:3,sem:4,futuro:5,ok:6};
 const ROTULO  = {atrasado:"Atrasado",hoje:"Vence hoje",umdia:"Falta 1 dia",
-                 semana:"Esta semana",sem:"Sem data",ok:"Concluído"};
+                 semana:"Esta semana",sem:"Sem data",futuro:"Programado",ok:"Concluído"};
 const BUCKETS = ["atrasado","hoje","umdia","semana","sem","ok"];
 
-const VISTA = { aba:"painel", escopo:null, filtro:null, mes:0, dia:null };
-const TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t)})));
+/* ---- áreas (filtro do topo) ---- */
+const AREAS = [{k:"mkt",rot:"Marketing Digital"},{k:"fin",rot:"Financeiro"},{k:"com",rot:"Comercial"}];
+function areaDe(t){
+  if(/^pag_/.test(t.id) || /^fotos_/.test(t.id)) return "fin";
+  if(["fimContrato","entregaMateriais","renov","renovacao_atrasada"].includes(t.id)) return "com";
+  return "mkt";
+}
+
+const VISTA  = { area:"mkt", escopo:null, aba:"cal", mes:0, dia:null, filtro:null };
+const TODAS  = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaDe(t)})));
 const cliente = id => CLIENTES.find(c=>c.id===id);
-
-const noEscopo = () => VISTA.escopo ? TODAS.filter(t=>t.clienteId===VISTA.escopo) : TODAS;
-const visiveis = () => {
-  const base = noEscopo();
-  return VISTA.filtro ? base.filter(t=>t.st.k===VISTA.filtro) : base.filter(t=>t.st.k!=="ok");
-};
-
-const $ = id => document.getElementById(id);
+const tarefasCli = c => TODAS.filter(t=>t.clienteId===c.id && t.area===VISTA.area);
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
 
-function chipsHTML(c, comFiltro){
-  const ch=[];
-  if(c) ch.push('<span class="chip"><i>Cliente</i> '+c.nome+
-    ' <button data-limpa="escopo" title="Ver todos os clientes">×</button></span>');
-  if(comFiltro && VISTA.filtro) ch.push('<span class="chip"><i>Status</i> '+ROTULO[VISTA.filtro]+
-    ' <button data-limpa="filtro" title="Ver todos os status">×</button></span>');
-  if(ch.length) ch.push('<button class="limpar" data-limpa="tudo">Ver tudo</button>');
-  return ch.length ? ch.join("")
-    : '<span style="font-size:12px;color:var(--mut)">Mostrando todos os clientes.</span>';
+/* ---- visual do cliente (banner + avatar por segmento) ---- */
+function coresSeg(seg){
+  const M = {
+    "corretor":["#2f9150","#155a2c"], "corretora":["#8f5fb0","#573477"],
+    "corretor de imóveis":["#2f9150","#155a2c"],
+    "varejo":["#b98fb0","#6f4f6a"], "moda":["#c07bb0","#7a3f6a"],
+    "escola":["#a0703f","#5f4020"], "educação":["#a0703f","#5f4020"],
+    "tecnologia":["#3f6fa0","#20405f"], "saúde":["#3fa0a0","#205f5f"],
+    "alimentação":["#c08a3f","#7a5320"], "beleza":["#c05f8f","#7a3f5f"]
+  };
+  return M[(seg||"").toLowerCase()] || ["#4c6b8f","#2a3f5a"];
 }
+const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
+/* ---- linha de tarefa (usada em Tarefas e no dia do calendário) ---- */
 const linha = t => '<div class="row">'+
   '<div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
-  '<div class="tarefa">'+t.tarefa+'<em>'+(t.detalhe||"")+'</em></div>'+
-  '<div class="cli">'+t.cliente+'</div>'+
+  '<div class="tarefa">'+esc(t.tarefa)+(t.detalhe?'<em>'+esc(t.detalhe)+'</em>':'')+'</div>'+
   '<div class="data">'+fmt(t.data)+' <span class="dow">'+dow(t.data)+'</span></div>'+
-  '<div class="resp">'+t.resp+'</div></div>';
+  '<div class="resp">'+esc(t.resp)+'</div></div>';
 
-/* ---------------- RENDER ---------------- */
-function render(){
-  const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
-
-  $("nav").innerHTML =
-    '<button class="'+(VISTA.aba==="painel" && !VISTA.escopo ? "on":"")+'" data-nav="geral">Visão geral</button>'+
-    '<button class="'+(VISTA.aba==="calendario"?"on":"")+'" data-nav="calendario">Calendário</button>'+
-    '<button class="'+(VISTA.aba==="historico"?"on":"")+'" data-nav="historico">Histórico</button>'+
-    '<button class="'+(VISTA.aba==="clientes"?"on":"")+'" data-nav="clientes">Clientes <b>'+CLIENTES.length+'</b></button>'+
-    (c ? '<button class="'+(VISTA.aba==="painel"?"on":"")+'" data-nav="cliente">'+c.nome+'</button>' : "");
-
-  $("aba-painel").hidden     = VISTA.aba!=="painel";
-  $("aba-calendario").hidden = VISTA.aba!=="calendario";
-  $("aba-historico").hidden  = VISTA.aba!=="historico";
-  $("aba-clientes").hidden   = VISTA.aba!=="clientes";
-
-  if(VISTA.aba==="clientes"){   renderGrade(); return; }
-  if(VISTA.aba==="calendario"){ $("chipsCal").innerHTML  = chipsHTML(c,false); renderCal(c);  return; }
-  if(VISTA.aba==="historico"){  $("chipsHist").innerHTML = chipsHTML(c,false); renderHist(c); return; }
-
-  $("chips").innerHTML = chipsHTML(c,true);
-
-  const base = noEscopo();
-  $("semaforo").innerHTML = BUCKETS.map(k =>
-    '<div class="sf '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'">'+
-    '<b>'+base.filter(t=>t.st.k===k).length+'</b><small>'+ROTULO[k]+'</small></div>').join("");
-
-  $("tituloFila").textContent =
-    (VISTA.filtro ? ROTULO[VISTA.filtro] : "Fila de execução") + (c ? " · "+c.nome : " · todos os clientes");
-
-  const lista = visiveis().sort((a,b)=>
-    ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
-  $("fila").innerHTML = lista.length
-    ? '<div class="fila">'+lista.map(linha).join("")+'</div>'
-    : '<div class="vazio">Nada aqui'+(VISTA.filtro?" em <strong>"+ROTULO[VISTA.filtro]+"</strong>":"")+
-      (c?" para "+c.nome:"")+'.</div>';
-
-  const c48 = (c?[c]:CLIENTES).flatMap(contadores);
-  $("c48").innerHTML = c48.length
-    ? '<div class="fila">'+c48.map(x=>{
-        const n=dias(x.vencimento);
-        const k=n<0?"atrasado":n===0?"hoje":n===1?"umdia":"semana";
-        const txt=n<0?"Aprovado automático":n===0?"Vence hoje":"Faltam "+n+" dias";
-        return '<div class="row"><div class="tag t-'+k+'">'+txt+'</div>'+
-          '<div class="tarefa">Aprovação de '+x.tipo+'<em>Enviado '+fmt(x.enviado)+' · lembrete '+fmt(x.lembrete)+'</em></div>'+
-          '<div class="cli">'+x.cliente+'</div>'+
-          '<div class="data">'+fmt(x.vencimento)+' <span class="dow">'+dow(x.vencimento)+'</span></div>'+
-          '<div class="resp">Cliente</div></div>';
-      }).join("")+'</div>'
-    : '<div class="vazio">Nenhum contador ativo. Ele nasce quando você me avisar que enviou algo — por exemplo '+
-      '<code>enviei o planejamento do Lorenzo hoje</code>. Aí eu marco o lembrete de 1 dia útil e a aprovação '+
-      'automática em 2 dias úteis, e a cadeia inteira se re-ancora nessa data.</div>';
-
-  /* ---- atrasos ---- */
-  const atr = (c?[c]:CLIENTES).flatMap(atrasos).sort((a,b)=>b.dias-a.dias);
-  const contam  = atr.filter(a=>!a.previsto && !a.justificado);   // entram no placar
-  const jus     = atr.filter(a=>a.justificado);
-  const prev    = atr.filter(a=>a.previsto && !a.justificado);
-  const somaMK3 = contam.filter(a=>a.quem==="MK3").reduce((s,a)=>s+a.dias,0);
-  const somaCli = contam.filter(a=>a.quem==="Cliente").reduce((s,a)=>s+a.dias,0);
-  const somaJus = jus.reduce((s,a)=>s+a.dias,0);
-  $("tituloAtrasos").textContent = "Atrasos" +
-    (contam.length ? "  ·  placar — MK3: "+somaMK3+"d · Cliente: "+somaCli+"d" : "") +
-    (jus.length  ? "  ·  "+somaJus+"d justificados (fora do placar)" : "") +
-    (prev.length ? "  ·  "+prev.length+" previsto"+(prev.length>1?"s":"") : "");
-  $("atrasos").innerHTML = atr.length
-    ? '<div class="fila">'+atr.map(a=>
-        '<div class="atr'+(a.justificado?" just":a.previsto?" prev":"")+'">'+
-          '<div class="etapa">'+a.etapa+
-            (a.justificado?' <span class="badge-just">Justificado</span>'
-             : a.previsto?' <span class="badge-prev">Vai atrasar</span>':'')+
-            '<em>'+a.cliente+(a.motivo?" · "+a.motivo:(a.causa?" · "+a.causa:""))+'</em></div>'+
-          '<div class="data">limite '+fmt(a.limite)+'</div>'+
-          '<div class="data">'+(a.previsto?"só em ":"saiu ")+fmt(a.real)+'</div>'+
-          '<div class="n">+'+a.dias+' '+(a.dias===1?"dia útil":"dias úteis")+'</div>'+
-          '<div class="quem q-'+a.quem+'">'+a.quem+'</div>'+
-        '</div>').join("")+'</div>'
-    : '<div class="ok-prazo">Nenhum atraso'+(c?" para "+c.nome:"")+'. Tudo dentro do prazo.</div>';
-
-  $("detalhe").innerHTML = (c && !VISTA.filtro) ? "<h2>Linha do tempo · "+c.nome+"</h2>"+ficha(c) : "";
+/* ---------------- HOME: CARDS ---------------- */
+function cardsHTML(){
+  return CLIENTES.map(c=>{
+    const ts = tarefasCli(c);
+    const n  = ks => ts.filter(t=>ks.includes(t.st.k)).length;
+    const cor = coresSeg(c.segmento);
+    const tiles = [
+      ["atrasado","Atrasado",     n(["atrasado"])],
+      ["hoje","Vence hoje",       n(["hoje","umdia"])],
+      ["semana","A fazer",        n(["semana","futuro","sem"])],
+      ["ok","Concluído",          n(["ok"])]
+    ];
+    return '<button class="ccard" data-cliente="'+c.id+'">'+
+      '<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
+      '<div class="ccard-av" style="background:'+cor[1]+'">'+esc(iniciais(c.marca||c.nome))+'</div>'+
+      '<div class="ccard-body">'+
+        '<div class="ccard-top"><h3>'+esc(c.marca||c.nome)+'</h3><span class="badge-ativo">Ativo</span></div>'+
+        (c.segmento?'<span class="seg">'+esc(c.segmento)+'</span>':'')+
+        '<div class="ccard-stats">'+tiles.map(t=>
+          '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
+      '</div></button>';
+  }).join("");
 }
 
-/* ---------------- CALENDÁRIO ---------------- */
-function renderCal(c){
-  /* barra de filtros — por enquanto: Cliente. Fácil de crescer. */
-  const btn = (rot,val,ativo) =>
-    '<button class="opt '+(ativo?"on":"")+'" data-fcliente="'+val+'">'+rot+'</button>';
-  $("filtros").innerHTML =
-    '<h3>Filtros</h3>'+
-    '<div class="filtro-linha"><span class="rot">Cliente</span>'+
-      btn("Todos","", !VISTA.escopo)+
-      CLIENTES.map(x=>btn(x.nome, x.id, VISTA.escopo===x.id)).join("")+
-    '</div>';
-
-  const base = (c ? TODAS.filter(t=>t.clienteId===c.id) : TODAS).filter(t=>t.data);
+/* ---------------- CALENDÁRIO DO CLIENTE ---------------- */
+function calHTML(c){
+  const base = tarefasCli(c).filter(t=>t.data);
   const ref  = new Date(HOJE.getFullYear(), HOJE.getMonth()+VISTA.mes, 1);
   const ano  = ref.getFullYear(), mes = ref.getMonth();
-
-  $("mesRef").textContent = ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
-
-  const desloc = (new Date(ano,mes,1).getDay()+6)%7;   // semana começa na segunda
+  const desloc = new Date(ano,mes,1).getDay();          // domingo = 0 (semana começa no domingo)
   const ini = new Date(ano,mes,1-desloc);
   const hojeIso = iso(HOJE);
-  const donos = c?[c]:CLIENTES;
-
-  /* quantas semanas o mês realmente ocupa (5 ou 6) — não força 6 sempre */
   const diasNoMes = new Date(ano,mes+1,0).getDate();
-  const semanas = Math.ceil((desloc + diasNoMes)/7);
+  const semanas = Math.ceil((desloc+diasNoMes)/7);
 
-  let html="";
+  let cells="";
   for(let i=0;i<semanas*7;i++){
     const dt = new Date(ini); dt.setDate(ini.getDate()+i);
     const s = iso(dt);
     const fora = dt.getMonth()!==mes;
     const fds  = dt.getDay()===0 || dt.getDay()===6;
     const evs  = base.filter(t=>t.data===s);
-    const mk   = donos.flatMap(x=>x.marcos.filter(m=>m.data===s));
-    const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":"", s===VISTA.dia?"sel":""]
-                 .filter(Boolean).join(" ");
-    const marco = mk.length
-      ? '<div class="ev t-ok" title="'+mk[0].titulo+'">◆ '+mk[0].titulo+'</div>' : "";
+    const mk   = c.marcos.filter(m=>m.data===s);
+    const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":"", s===VISTA.dia?"sel":""].filter(Boolean).join(" ");
+    const marco = mk.length ? '<div class="ev t-ok" title="'+esc(mk[0].titulo)+'">◆ '+esc(mk[0].titulo)+'</div>' : "";
     const teto = mk.length ? 2 : 3;
     const evsHtml = evs.slice(0,teto).map(t=>
-      '<div class="ev t-'+t.st.k+'" title="'+t.tarefa+' — '+t.cliente+'">'+
-      (c?"":t.cliente+": ")+t.tarefa+'</div>').join("");
+      '<div class="ev t-'+t.st.k+(t.st.atraso?' okatraso':'')+'" title="'+esc(t.tarefa)+'">'+esc(t.tarefa)+'</div>').join("");
     const resto = evs.length - teto;
     const extra = resto>0 ? '<div class="mais">+'+resto+' '+(resto===1?"tarefa":"tarefas")+'</div>' : "";
-    html += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+
-            marco+evsHtml+extra+'</div>';
+    cells += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+marco+evsHtml+extra+'</div>';
   }
-  $("calGrid").innerHTML = html;
 
-  if(!VISTA.dia){ $("calDia").innerHTML = ""; return; }
-  const evs = base.filter(t=>t.data===VISTA.dia).sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
-  const titulo = d(VISTA.dia).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
-  $("calDia").innerHTML = "<h2>"+titulo+"</h2>" + (evs.length
-    ? '<div class="fila">'+evs.map(linha).join("")+'</div>'
-    : '<div class="vazio">Nenhuma tarefa neste dia.</div>');
+  let dayList="";
+  if(VISTA.dia){
+    const evs = base.filter(t=>t.data===VISTA.dia).sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
+    const titulo = d(VISTA.dia).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+    dayList = '<div class="calDia"><h2>'+titulo+'</h2>'+(evs.length
+      ? '<div class="fila">'+evs.map(linha).join("")+'</div>'
+      : '<div class="vazio">Nenhuma tarefa neste dia.</div>')+'</div>';
+  }
+
+  return '<div class="cal-nav"><button data-mes="-1">&lsaquo;</button>'+
+      '<strong>'+ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})+'</strong>'+
+      '<button data-mes="1">&rsaquo;</button><button class="hj" data-mes="0">Hoje</button></div>'+
+    '<div class="cal"><div class="cal-dow">'+
+      '<div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div>'+
+      '<div class="cal-grid">'+cells+'</div></div>'+dayList;
 }
 
-/* ---------------- HISTÓRICO ---------------- */
-function renderHist(c){
-  const alvo = c ? [c] : CLIENTES;
+/* ---------------- TAREFAS DO CLIENTE ---------------- */
+function tarefasHTML(c){
+  const ts = tarefasCli(c);
+  const semaf = '<div class="semaforo">'+BUCKETS.map(k=>
+    '<div class="sf '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'">'+
+    '<b>'+ts.filter(t=>t.st.k===k).length+'</b><small>'+ROTULO[k]+'</small></div>').join("")+'</div>';
+
+  const lista = (VISTA.filtro ? ts.filter(t=>t.st.k===VISTA.filtro) : ts.filter(t=>t.st.k!=="ok"))
+    .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
+  let html = semaf +
+    '<h2>'+(VISTA.filtro?ROTULO[VISTA.filtro]:"Fila de execução")+'</h2>'+
+    (lista.length ? '<div class="fila">'+lista.map(linha).join("")+'</div>'
+                  : '<div class="vazio">Nada aqui'+(VISTA.filtro?" em <strong>"+ROTULO[VISTA.filtro]+"</strong>":"")+'.</div>');
+
+  if(VISTA.area==="mkt"){
+    const c48 = contadores(c);
+    if(c48.length) html += '<h2>Contadores de 48h úteis — na mão do cliente</h2><div class="fila">'+c48.map(x=>{
+        const nn=dias(x.vencimento);
+        const k=nn<0?"atrasado":nn===0?"hoje":nn===1?"umdia":"semana";
+        const txt=nn<0?"Aprovado automático":nn===0?"Vence hoje":"Faltam "+nn+" dias";
+        return '<div class="row"><div class="tag t-'+k+'">'+txt+'</div>'+
+          '<div class="tarefa">Aprovação de '+esc(x.tipo)+'<em>Enviado '+fmt(x.enviado)+' · lembrete '+fmt(x.lembrete)+'</em></div>'+
+          '<div class="data">'+fmt(x.vencimento)+' <span class="dow">'+dow(x.vencimento)+'</span></div>'+
+          '<div class="resp">Cliente</div></div>';
+      }).join("")+'</div>';
+
+    const atr = atrasos(c).sort((a,b)=>b.dias-a.dias);
+    const contam=atr.filter(a=>!a.previsto && !a.justificado);
+    const jus=atr.filter(a=>a.justificado), prev=atr.filter(a=>a.previsto && !a.justificado);
+    const sMK3=contam.filter(a=>a.quem==="MK3").reduce((s,a)=>s+a.dias,0);
+    const sCli=contam.filter(a=>a.quem==="Cliente").reduce((s,a)=>s+a.dias,0);
+    const sJus=jus.reduce((s,a)=>s+a.dias,0);
+    html += '<h2>Atrasos'+
+      (contam.length?"  ·  placar — MK3: "+sMK3+"d · Cliente: "+sCli+"d":"")+
+      (jus.length?"  ·  "+sJus+"d justificados (fora do placar)":"")+
+      (prev.length?"  ·  "+prev.length+" previsto"+(prev.length>1?"s":""):"")+'</h2>';
+    html += atr.length
+      ? '<div class="fila">'+atr.map(a=>
+          '<div class="atr'+(a.justificado?" just":a.previsto?" prev":"")+'">'+
+            '<div class="etapa">'+esc(a.etapa)+
+              (a.justificado?' <span class="badge-just">Justificado</span>'
+               : a.previsto?' <span class="badge-prev">Vai atrasar</span>':'')+
+              '<em>'+esc(a.cliente)+(a.motivo?" · "+esc(a.motivo):(a.causa?" · "+esc(a.causa):""))+'</em></div>'+
+            '<div class="data">limite '+fmt(a.limite)+'</div>'+
+            '<div class="data">'+(a.previsto?"só em ":"saiu ")+fmt(a.real)+'</div>'+
+            '<div class="n">+'+a.dias+' '+(a.dias===1?"dia útil":"dias úteis")+'</div>'+
+            '<div class="quem q-'+a.quem+'">'+a.quem+'</div>'+
+          '</div>').join("")+'</div>'
+      : '<div class="ok-prazo">Nenhum atraso. Tudo dentro do prazo.</div>';
+  }
+  return html;
+}
+
+/* ---------------- HISTÓRICO DO CLIENTE ---------------- */
+function histHTML(c){
   const hojeIso = iso(HOJE);
-  $("historico").innerHTML = alvo.map(x=>{
-    const ms = [...x.marcos].sort((a,b)=>a.data.localeCompare(b.data));
-    if(!ms.length) return '<div class="vazio">Sem marcos registrados para '+x.nome+'.</div>';
-    return '<h2 style="margin-top:0">'+x.nome+'</h2><div class="hist"><ol>'+ms.map(m=>{
-      const passado = m.data <= hojeIso;
-      const cls = m.data===hojeIso ? "hj" : (passado ? "feito" : "");
-      return '<li class="'+cls+'">'+
-        '<div class="qd">'+d(m.data).toLocaleDateString("pt-BR",{weekday:"long"})+'</div>'+
-        '<div class="tt">'+m.titulo+(passado?"":'<span class="prev">previsto</span>')+'</div>'+
-        '<div class="dt">'+d(m.data).toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})+
-        (m.detalhe?" · "+m.detalhe:"")+'</div></li>';
-    }).join("")+'</ol></div>';
-  }).join('<div style="height:28px"></div>');
+  const ms = [...c.marcos].sort((a,b)=>a.data.localeCompare(b.data));
+  if(!ms.length) return '<div class="vazio">Sem marcos registrados para '+esc(c.nome)+'.</div>';
+  return '<div class="hist"><ol>'+ms.map(m=>{
+    const passado = m.data <= hojeIso;
+    const cls = m.data===hojeIso ? "hj" : (passado ? "feito" : "");
+    return '<li class="'+cls+'">'+
+      '<div class="qd">'+d(m.data).toLocaleDateString("pt-BR",{weekday:"long"})+'</div>'+
+      '<div class="tt">'+esc(m.titulo)+(passado?"":'<span class="prev">previsto</span>')+'</div>'+
+      '<div class="dt">'+d(m.data).toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})+
+      (m.detalhe?" · "+esc(m.detalhe):"")+'</div></li>';
+  }).join("")+'</ol></div>';
 }
 
-/* ---------------- GRADE DE CLIENTES ---------------- */
-function renderGrade(){
-  $("grade").innerHTML = CLIENTES.map(c=>{
-    const ts = TODAS.filter(t=>t.clienteId===c.id);
-    const n  = k => ts.filter(t=>t.st.k===k).length;
-    const pin = k => n(k) ? '<span class="tag t-'+k+'">'+n(k)+' '+ROTULO[k].toLowerCase()+'</span>' : "";
-    return '<button class="cli-card" data-cliente="'+c.id+'">'+
-      '<h3>'+c.nome+'</h3>'+
-      '<div class="sub">'+(c.segmento||"segmento pendente")+' · entrada '+fmt(c.entrada)+'</div>'+
-      '<div class="mini">'+pin("atrasado")+pin("hoje")+pin("umdia")+pin("semana")+pin("sem")+'</div></button>';
-  }).join("");
-}
+/* ---------------- RENDER ---------------- */
+function render(){
+  $("areas").innerHTML = AREAS.map(a=>
+    '<button class="areabtn '+(VISTA.area===a.k?"on":"")+'" data-area="'+a.k+'">'+a.rot+'</button>').join("");
 
-/* ---------------- FICHA DO CLIENTE ---------------- */
-function ficha(c){
-  const ts = TODAS.filter(t=>t.clienteId===c.id);
-  const bloco = f => {
-    const its = ts.filter(t=>t.fase===f);
-    if(!its.length) return "";
-    return '<div class="fase"><h4>'+f+'</h4>'+its.map(t=>
-      '<div class="li"><div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
-      '<div class="tarefa">'+t.tarefa+'</div>'+
-      '<div class="data">'+fmt(t.data)+' <span class="dow">'+dow(t.data)+'</span></div></div>').join("")+'</div>';
-  };
-  const p = v => v ? v : '<span class="pend">pendente</span>';
-  return '<div class="card"><div class="cabec"><h3>'+c.nome+'</h3><div class="meta">'+
-    '<div><span>Segmento</span>'+p(c.segmento)+'</div>'+
-    '<div><span>Plano</span>'+p(c.plano)+'</div>'+
-    '<div><span>Entrada</span>'+fmt(c.entrada)+'</div>'+
-    '<div><span>Vencimento</span>'+p(c.vencimentoContrato && fmt(c.vencimentoContrato))+'</div>'+
-    '</div></div>'+
-    bloco("Entrada")+bloco("1º ciclo")+bloco("Ciclo padrão")+bloco("Recorrente")+bloco("Contrato")+'</div>';
+  const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
+
+  if(!c){
+    $("view").innerHTML = '<div class="cards">'+cardsHTML()+'</div>';
+    return;
+  }
+
+  const cor = coresSeg(c.segmento);
+  const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["hist","Histórico"]];
+  const bar =
+    '<div class="cli-bar"><button class="voltar" data-nav="home">&larr; Clientes</button>'+
+    '<div class="cli-title"><span class="cli-av2" style="background:'+cor[1]+'">'+esc(iniciais(c.marca||c.nome))+'</span>'+
+      '<strong>'+esc(c.marca||c.nome)+'</strong>'+(c.segmento?' <span class="seg">'+esc(c.segmento)+'</span>':'')+'</div>'+
+    '<div class="cli-tabs">'+tabs.map(t=>
+      '<button class="'+(VISTA.aba===t[0]?"on":"")+'" data-cliaba="'+t[0]+'">'+t[1]+'</button>').join("")+'</div></div>';
+
+  const body = VISTA.aba==="cal" ? calHTML(c)
+             : VISTA.aba==="tarefas" ? tarefasHTML(c)
+             : histHTML(c);
+  $("view").innerHTML = bar + body;
 }
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-nav],[data-bucket],[data-cliente],[data-limpa],[data-mes],[data-dia],[data-fcliente]");
+  const alvo = ev.target.closest("[data-area],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket]");
   if(!alvo) return;
   const D = alvo.dataset;
   let topo = true;
 
-  if(D.nav==="geral"){      VISTA.aba="painel";     VISTA.escopo=null; VISTA.filtro=null; }
-  if(D.nav==="calendario"){ VISTA.aba="calendario"; VISTA.mes=0; VISTA.dia=null; }
-  if(D.nav==="historico"){  VISTA.aba="historico"; }
-  if(D.nav==="clientes"){   VISTA.aba="clientes"; }
-  if(D.nav==="cliente"){    VISTA.aba="painel"; }
-
-  if(D.cliente){ VISTA.aba="painel"; VISTA.escopo=D.cliente; VISTA.filtro=null; }
-
-  /* filtro de cliente dentro do calendário (não troca de aba) */
-  if(D.fcliente!==undefined){ VISTA.escopo = D.fcliente || null; VISTA.dia=null; topo=false; }
-
-  if(D.bucket) VISTA.filtro = (VISTA.filtro===D.bucket) ? null : D.bucket;
-
-  if(D.mes!==undefined){
-    const n = Number(D.mes);
-    VISTA.mes = (n===0) ? 0 : VISTA.mes + n;
-    VISTA.dia = null;
-    topo = false;
-  }
-  if(D.dia){ VISTA.dia = (VISTA.dia===D.dia) ? null : D.dia; topo = false; }
-
-  if(D.limpa==="filtro") VISTA.filtro=null;
-  if(D.limpa==="escopo") VISTA.escopo=null;
-  if(D.limpa==="tudo"){  VISTA.escopo=null; VISTA.filtro=null; }
+  if(D.area){ VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; }
+  if(D.cliente){ VISTA.escopo=D.cliente; VISTA.aba="cal"; VISTA.mes=0; VISTA.dia=null; VISTA.filtro=null; }
+  if(D.nav==="home"){ VISTA.escopo=null; VISTA.filtro=null; VISTA.dia=null; }
+  if(D.cliaba){ VISTA.aba=D.cliaba; VISTA.filtro=null; VISTA.dia=null; }
+  if(D.mes!==undefined){ const nn=Number(D.mes); VISTA.mes=(nn===0)?0:VISTA.mes+nn; VISTA.dia=null; topo=false; }
+  if(D.dia){ VISTA.dia=(VISTA.dia===D.dia)?null:D.dia; topo=false; }
+  if(D.bucket){ VISTA.filtro=(VISTA.filtro===D.bucket)?null:D.bucket; topo=false; }
 
   render();
   if(topo) window.scrollTo({top:0,behavior:"smooth"});

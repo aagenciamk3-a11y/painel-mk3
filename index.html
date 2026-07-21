@@ -8,7 +8,7 @@
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
-    --txt:#e6e8ec; --mut:#8b909c;
+    --txt:#e6e8ec; --mut:#8b909c; --roxo:#a78bfa;
     --atrasado:#e5484d; --hoje:#ff8a3d; --umdia:#f5c518;
     --semana:#4c9aff; --futuro:#6e7481; --ok:#3fb950; --sem:#a855f7;
   }
@@ -22,24 +22,54 @@
   .hoje{font-size:13px;color:var(--mut)}
   h2{font-size:13px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);margin:36px 0 14px;font-weight:600}
 
-  nav{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-  nav button{background:none;border:none;color:var(--mut);font:inherit;font-size:14px;font-weight:500;
-    padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
-  nav button:hover{color:var(--txt)}
-  nav button.on{color:var(--txt);border-bottom-color:var(--semana)}
-  nav button b{background:var(--panel2);border-radius:20px;font-size:11px;padding:1px 7px;margin-left:6px;color:var(--mut)}
+  /* ---- barra de áreas (filtro do topo) ---- */
+  .areas{display:flex;gap:8px;margin-bottom:26px;flex-wrap:wrap}
+  .areabtn{background:var(--panel);border:1px solid var(--line);color:var(--mut);font:inherit;
+    font-size:14px;font-weight:600;padding:10px 20px;border-radius:11px;cursor:pointer;transition:.12s}
+  .areabtn:hover{color:var(--txt);border-color:var(--mut)}
+  .areabtn.on{background:var(--semana);border-color:var(--semana);color:#fff}
 
-  .chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;min-height:30px}
-  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);
-    border-radius:20px;padding:5px 8px 5px 12px;font-size:12px}
-  .chip i{font-style:normal;color:var(--mut);font-size:11px}
-  .chip button{background:rgba(255,255,255,.07);border:none;color:var(--mut);border-radius:50%;width:17px;height:17px;
-    cursor:pointer;font-size:12px;display:grid;place-items:center;padding:0;line-height:1}
-  .chip button:hover{background:var(--atrasado);color:#fff}
-  .limpar{background:none;border:1px solid var(--line);color:var(--mut);border-radius:20px;padding:5px 12px;
-    font:inherit;font-size:12px;cursor:pointer}
-  .limpar:hover{border-color:var(--semana);color:var(--semana)}
+  /* ---- home: cards de cliente ---- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+  .ccard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;cursor:pointer;text-align:left;color:inherit;font:inherit;padding:0;transition:.14s}
+  .ccard:hover{border-color:var(--mut);transform:translateY(-2px)}
+  .ccard-banner{height:84px;width:100%}
+  .ccard-av{position:absolute;top:50px;left:18px;width:64px;height:64px;border-radius:16px;
+    display:grid;place-items:center;font-size:21px;font-weight:700;color:#fff;
+    border:3px solid var(--panel);letter-spacing:.02em}
+  .ccard-body{padding:24px 18px 18px}
+  .ccard-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+  .ccard-top h3{font-size:18px;letter-spacing:-.01em}
+  .badge-ativo{background:rgba(167,139,250,.16);color:var(--roxo);font-size:11px;font-weight:600;
+    padding:3px 11px;border-radius:20px;white-space:nowrap}
+  .seg{display:inline-block;background:var(--panel2);border:1px solid var(--line);color:var(--mut);
+    font-size:11px;font-weight:600;padding:3px 11px;border-radius:8px;margin-top:9px}
+  .ccard-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+  .stat{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;padding:9px 11px;font-size:12.5px;font-weight:600;color:var(--mut)}
+  .stat i{width:8px;height:8px;border-radius:50%;flex:none}
+  .stat b{color:var(--txt)}
+  .s-atrasado i{background:var(--atrasado)} .s-atrasado b{color:var(--atrasado)}
+  .s-hoje i{background:var(--hoje)}         .s-hoje b{color:var(--hoje)}
+  .s-semana i{background:var(--semana)}     .s-semana b{color:var(--semana)}
+  .s-ok i{background:var(--ok)}             .s-ok b{color:var(--ok)}
 
+  /* ---- barra do cliente aberto ---- */
+  .cli-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:22px}
+  .voltar{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:9px;
+    padding:9px 13px;font:inherit;font-size:13px;cursor:pointer}
+  .voltar:hover{border-color:var(--semana);color:var(--semana)}
+  .cli-title{display:flex;align-items:center;gap:11px;font-size:19px;font-weight:600}
+  .cli-av2{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;
+    font-weight:700;font-size:13px}
+  .cli-tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+  .cli-tabs button{background:none;border:none;color:var(--mut);font:inherit;font-size:14px;font-weight:500;
+    padding:9px 15px;border-radius:9px;cursor:pointer}
+  .cli-tabs button:hover{color:var(--txt)}
+  .cli-tabs button.on{background:var(--panel2);color:var(--txt)}
+
+  /* ---- semáforo (dentro de Tarefas) ---- */
   .semaforo{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
   .sf{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
     border-left:3px solid var(--futuro);cursor:pointer;transition:.12s;position:relative}
@@ -55,8 +85,9 @@
   .sf.sem{border-left-color:var(--sem)}           .sf.sem b{color:var(--sem)}
   .sf.ok{border-left-color:var(--ok)}             .sf.ok b{color:var(--ok)}
 
+  /* ---- listas de tarefa ---- */
   .fila{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .row{display:grid;grid-template-columns:118px 1fr 120px 108px 118px;gap:14px;align-items:center;
+  .row{display:grid;grid-template-columns:120px 1fr 132px 96px;gap:14px;align-items:center;
     padding:13px 16px;border-top:1px solid var(--line);font-size:14px}
   .row:first-child{border-top:none}
   .row:hover{background:var(--panel2)}
@@ -72,11 +103,11 @@
   .tag.okatraso{background:rgba(245,197,24,.16);color:var(--umdia)}
   .tarefa{font-weight:500}
   .tarefa em{display:block;font-style:normal;font-size:12px;color:var(--mut);margin-top:2px}
-  .cli{color:var(--mut);font-size:13px}
   .data{color:var(--mut);font-size:13px;font-variant-numeric:tabular-nums}
   .dow{color:#5d626d;font-size:11px}
   .resp{color:var(--mut);font-size:12px}
 
+  /* ---- calendário ---- */
   .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
   .cal-nav strong{font-size:16px;text-transform:capitalize;min-width:190px}
   .cal-nav button{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:8px;
@@ -84,7 +115,6 @@
   .cal-nav button:hover{border-color:var(--semana);color:var(--semana)}
   .cal-nav .hj{width:auto;padding:0 12px;font:inherit;font-size:12px;color:var(--mut)}
   .cal{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  /* minmax(0,1fr) é o que impede a coluna de esticar com o conteúdo */
   .cal-dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--panel2);
     border-bottom:1px solid var(--line)}
   .cal-dow div{padding:9px 8px;text-align:left;font-size:10px;text-transform:uppercase;
@@ -98,18 +128,18 @@
   .cel:hover{background:var(--panel2)}
   .cel.fds{background:rgba(255,255,255,.02)}
   .cel.sel{box-shadow:inset 0 0 0 2px var(--semana)}
-
   .cel .n{display:flex;align-items:center;justify-content:center;width:24px;height:24px;
     font-size:13px;font-weight:600;color:var(--txt);font-variant-numeric:tabular-nums;
     border-radius:50%;flex:none}
   .cel.fora .n{color:#4a4f5a;font-weight:400}
   .cel.fora .ev,.cel.fora .mais{opacity:.4}
   .cel.hj .n{background:var(--semana);color:#fff;font-weight:700}
-
   .ev{min-width:0;max-width:100%;font-size:10px;line-height:1.3;padding:3px 5px;border-radius:4px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
   .mais{font-size:10px;color:var(--mut);padding-left:5px;margin-top:1px}
+  .calDia{margin-top:18px}
 
+  /* ---- histórico ---- */
   .hist{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:24px 26px}
   .hist ol{list-style:none;position:relative;padding-left:26px}
   .hist ol::before{content:"";position:absolute;left:5px;top:7px;bottom:7px;width:2px;background:var(--line)}
@@ -125,42 +155,7 @@
   .hist .prev{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--futuro);
     border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-left:7px}
 
-  /* barra de filtros do calendário */
-  .filtros{background:var(--panel);border:1px solid var(--line);border-radius:10px;
-    padding:14px 16px;margin-bottom:16px}
-  .filtros h3{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);
-    font-weight:700;margin-bottom:10px}
-  .filtro-linha{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .filtro-linha .rot{font-size:12px;color:var(--mut);min-width:54px}
-  .opt{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;
-    font-size:13px;padding:6px 13px;border-radius:20px;cursor:pointer;transition:.12s}
-  .opt:hover{border-color:var(--semana)}
-  .opt.on{background:var(--semana);border-color:var(--semana);color:#fff;font-weight:600}
-
-  .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-  .cli-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;width:100%;
-    cursor:pointer;text-align:left;color:inherit;font:inherit;transition:.12s}
-  .cli-card:hover{border-color:var(--semana);background:var(--panel2)}
-  .cli-card h3{font-size:17px;margin-bottom:3px}
-  .cli-card .sub{font-size:12px;color:var(--mut);margin-bottom:14px}
-  .mini{display:flex;gap:6px;flex-wrap:wrap}
-
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
-  .cabec{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;
-    padding-bottom:16px;border-bottom:1px solid var(--line)}
-  .cabec h3{font-size:18px}
-  .meta{display:flex;gap:22px;flex-wrap:wrap}
-  .meta div{font-size:12px}
-  .meta span{display:block;color:var(--mut);font-size:10px;text-transform:uppercase;
-    letter-spacing:.07em;margin-bottom:2px}
-  .pend{color:var(--sem);font-style:italic}
-  .fase{margin-top:18px}
-  .fase h4{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
-    margin-bottom:8px;font-weight:600}
-  .li{display:grid;grid-template-columns:120px 1fr auto;gap:12px;align-items:center;padding:8px 0;
-    border-top:1px dashed var(--line);font-size:13px}
-  .li:first-of-type{border-top:none}
-
+  /* ---- atrasos ---- */
   .atr{display:grid;grid-template-columns:1fr 108px 108px 96px 88px;gap:14px;align-items:center;
     padding:13px 16px;border-top:1px solid var(--line);font-size:14px}
   .atr:first-child{border-top:none}
@@ -171,12 +166,10 @@
     padding:4px 7px;border-radius:5px;text-align:center}
   .q-MK3{background:rgba(229,72,77,.15);color:var(--atrasado)}
   .q-Cliente{background:rgba(245,197,24,.15);color:var(--umdia)}
-  .atr.prev{background:rgba(245,197,24,.05)}
-  .atr.prev .n{color:var(--umdia)}
+  .atr.prev{background:rgba(245,197,24,.05)} .atr.prev .n{color:var(--umdia)}
   .badge-prev{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
     background:rgba(245,197,24,.18);color:var(--umdia);padding:2px 6px;border-radius:4px;margin-left:7px}
-  .atr.just{opacity:.72}
-  .atr.just .n{color:var(--mut)}
+  .atr.just{opacity:.72} .atr.just .n{color:var(--mut)}
   .badge-just{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
     background:rgba(139,144,156,.16);color:var(--mut);padding:2px 6px;border-radius:4px;margin-left:7px}
   .ok-prazo{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 22px;
@@ -184,65 +177,24 @@
 
   .vazio{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:22px;
     color:var(--mut);font-size:14px}
-  .vazio code{background:var(--panel2);padding:2px 6px;border-radius:4px;color:var(--txt)}
   footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
   @media(max-width:760px){
-    .row{grid-template-columns:106px 1fr;row-gap:6px}
+    .row{grid-template-columns:110px 1fr;row-gap:6px}
     .row .data,.row .resp{grid-column:2}
-    .li{grid-template-columns:110px 1fr}
-    .cel{min-height:70px}
+    .cli-tabs{margin-left:0;width:100%}
+    .cel{min-height:74px}
   }
 </style>
 </head>
 <body>
 <div class="wrap">
-
   <header>
     <h1>MK3 <span>· Painel de Prazos</span></h1>
     <div class="hoje" id="hoje"></div>
   </header>
 
-  <nav id="nav"></nav>
-
-  <section id="aba-painel">
-    <div class="chips" id="chips"></div>
-    <div class="semaforo" id="semaforo"></div>
-    <h2 id="tituloFila">Fila de execução</h2>
-    <div id="fila"></div>
-    <h2>Contadores de 48h úteis — na mão do cliente</h2>
-    <div id="c48"></div>
-    <h2 id="tituloAtrasos">Atrasos registrados</h2>
-    <div id="atrasos"></div>
-    <div id="detalhe"></div>
-  </section>
-
-  <section id="aba-calendario" hidden>
-    <div class="filtros" id="filtros"></div>
-    <div class="chips" id="chipsCal"></div>
-    <div class="cal-nav">
-      <button data-mes="-1">&lsaquo;</button>
-      <strong id="mesRef"></strong>
-      <button data-mes="1">&rsaquo;</button>
-      <button class="hj" data-mes="0">Hoje</button>
-    </div>
-    <div class="cal">
-      <div class="cal-dow">
-        <div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div><div>Dom</div>
-      </div>
-      <div class="cal-grid" id="calGrid"></div>
-    </div>
-    <div id="calDia"></div>
-  </section>
-
-  <section id="aba-historico" hidden>
-    <div class="chips" id="chipsHist"></div>
-    <div id="historico"></div>
-  </section>
-
-  <section id="aba-clientes" hidden>
-    <h2 style="margin-top:0">Selecione um cliente</h2>
-    <div class="grade" id="grade"></div>
-  </section>
+  <div class="areas" id="areas"></div>
+  <div id="view"></div>
 
   <footer>
     Regras do Manual de Processos Internos MK3 v1.0. Prazos de aprovação e produção contam
