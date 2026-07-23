@@ -289,7 +289,7 @@ function areaBase(id){
 }
 const areaMatch = t => VISTA.area==="all" || t.area===VISTA.area;
 
-const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, edit:false };
+const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, edit:false, pano:null, pmes:0, psem:null };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
@@ -347,6 +347,39 @@ function marcar(cid,tid,data,tipo){
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
 }
+const baseId = id => id.replace(/_\d{4}-\d{2}$/,"");
+const segOf = isoStr => { const x=d(isoStr); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); return iso(x); };
+const chaveTarefa = (cid,tid) => cid+"|"+tid;
+function xInfo(week,cid,tid){ return (ESTADO.semanal&&ESTADO.semanal[week]&&ESTADO.semanal[week][chaveTarefa(cid,tid)])||null; }
+function setNaoFeito(cid,tid,day,motivo){
+  snapshot();
+  const wk=segOf(day);
+  ESTADO.semanal=ESTADO.semanal||{}; ESTADO.semanal[wk]=ESTADO.semanal[wk]||{};
+  if(motivo){ ESTADO.semanal[wk][chaveTarefa(cid,tid)]={motivo:motivo,data:day}; }
+  else { delete ESTADO.semanal[wk][chaveTarefa(cid,tid)]; }
+  ESTADO.concluidas[cid]=(ESTADO.concluidas[cid]||[]).filter(e=>e.id!==tid);
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,acao:"naofeito",id:tid,data:day,motivo:motivo});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
+}
+function marcarFeitoSemana(cid,tid,day){
+  const wk=segOf(day);
+  if(ESTADO.semanal&&ESTADO.semanal[wk]) delete ESTADO.semanal[wk][chaveTarefa(cid,tid)];
+  marcar(cid,tid,day,"concluir");
+}
+function abrirMotivo(cid,tid,day){
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  const cur=xInfo(segOf(day),cid,tid);
+  const rot=t?(EXEC[baseId(t.id)]+" — "+t.cliente):tid;
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>Não deu pra fazer</h3>'+
+    '<p class="msub">'+esc(rot)+' · '+fmt(day)+'</p>'+
+    '<label class="mlab">Motivo<textarea id="mmotivo" rows="3" placeholder="Escreva o que impediu...">'+esc(cur?cur.motivo:"")+'</textarea></label>'+
+    '<div class="mbtns"><button data-macao="motivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Salvar motivo</button>'+
+    '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
+  mm.style.display="flex";
+}
 function desfazer(){ if(!UNDO.length)return; REDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(UNDO.pop()); persist(); rebuild(); render(); }
 function refazer(){ if(!REDO.length)return; UNDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(REDO.pop()); persist(); rebuild(); render(); }
 
@@ -372,6 +405,7 @@ function abrirEditor(cid,tid){
 function fecharModal(){ const mm=$("modal"); mm.style.display="none"; mm.innerHTML=""; }
 function handleModal(D){
   if(D.macao==="fechar"){ fecharModal(); return; }
+  if(D.macao==="motivo"){ const mot=(($("mmotivo")&&$("mmotivo").value)||"").trim(); setNaoFeito(D.mcid,D.mtid,D.mday,mot); fecharModal(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
   const dv = (D.macao==="hoje") ? iso(HOJE) : (($("mdata")&&$("mdata").value)||iso(HOJE));
@@ -397,9 +431,10 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
+  for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
   return r;
 }
 async function init(){
@@ -407,7 +442,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[];
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={};
   rebuild(); render(); montarTooltip();
 }
 
@@ -546,20 +581,56 @@ function listaGlobalHTML(){
                   : '<div class="vazio">Nada aqui'+(VISTA.filtro?" em <strong>"+ROTULO[VISTA.filtro]+"</strong>":"")+'.</div>');
 }
 
-/* ---------------- PRIORIDADES DIÁRIAS ---------------- */
+/* ---------------- PRIORIDADES DIÁRIAS (quadro semanal) ---------------- */
+const EXEC = {
+  c1_plan:"Planejamento", planej:"Planejamento", envPlanej:"Enviar planejamento",
+  c1_artes:"Artes", midia:"Artes",
+  c1_gravacao:"Gravação", c1_roteiro:"Roteiro",
+  c1_aprPlan:"Aprovação do planejamento", c1_aprMid:"Aprovação das artes",
+  c1_podepostar:"Pode Postar", c1_entrega:"Entrega das peças"
+};
+const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+function semanasDoMes(ano,mes){
+  const set=new Set(); const last=new Date(ano,mes+1,0).getDate();
+  for(let dia=1; dia<=last; dia++) set.add(segOf(iso(new Date(ano,mes,dia))));
+  return [...set].sort();
+}
 function prioridadesHTML(){
-  const areas=[{k:"mkt",rot:"Marketing Digital"},{k:"fin",rot:"Financeiro"},{k:"com",rot:"Comercial"}];
-  const urgente = t => t.st.k==="atrasado" || t.st.k==="hoje" || t.st.k==="umdia";
-  const total = TODAS.filter(urgente).length;
-  return '<div class="priohead">Prioridades de hoje · '+HOJE.toLocaleDateString("pt-BR",{day:"2-digit",month:"long"})+
-      ' <span class="pcount">'+total+'</span></div>'+
-    areas.map(a=>{
-      const ts=TODAS.filter(t=>t.area===a.k && urgente(t))
-        .sort((x,y)=>ORDEM[x.st.k]-ORDEM[y.st.k] || String(x.data).localeCompare(String(y.data)));
-      return '<h2 class="prioh">'+a.rot+' <span class="pcount'+(ts.length?" on":"")+'">'+ts.length+'</span></h2>'+
-        (ts.length ? '<div class="fila">'+ts.map(t=>linha(t,true)).join("")+'</div>'
-                   : '<div class="vazio">Nada urgente hoje em '+a.rot+'.</div>');
-    }).join("");
+  if(VISTA.pano==null){ VISTA.pano=HOJE.getFullYear(); VISTA.pmes=HOJE.getMonth(); }
+  if(VISTA.psem==null) VISTA.psem=segOf(iso(HOJE));
+  const anos=[...new Set(TODAS.filter(t=>t.data).map(t=>+t.data.slice(0,4)).concat([HOJE.getFullYear()]))].sort();
+  let semanas=semanasDoMes(VISTA.pano,VISTA.pmes);
+  if(!semanas.includes(VISTA.psem)) VISTA.psem=semanas[0];
+
+  const selAno='<select data-sel="ano">'+anos.map(a=>'<option value="'+a+'"'+(a===VISTA.pano?" selected":"")+'>'+a+'</option>').join("")+'</select>';
+  const selMes='<select data-sel="mes">'+MESES.map((n,i)=>'<option value="'+i+'"'+(i===VISTA.pmes?" selected":"")+'>'+n+'</option>').join("")+'</select>';
+  const selSem='<select data-sel="semana">'+semanas.map(mon=>'<option value="'+mon+'"'+(mon===VISTA.psem?" selected":"")+'>'+fmt(mon).slice(0,5)+' a '+fmt(addD(mon,4)).slice(0,5)+'</option>').join("")+'</select>';
+
+  const dias=["Segunda","Terça","Quarta","Quinta","Sexta"];
+  const hojeIso=iso(HOJE);
+  let cols="";
+  for(let i=0;i<5;i++){
+    const dayIso=addD(VISTA.psem,i);
+    const cards=TODAS.filter(t=>t.data===dayIso && EXEC[baseId(t.id)]).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
+    const body=cards.length ? cards.map(t=>{
+      const feita=t.st.k==="ok";
+      const x=xInfo(VISTA.psem,t.clienteId,t.id);
+      const st=feita?"ok":(x?"x":"none");
+      const rot=EXEC[baseId(t.id)];
+      return '<div class="bcard st-'+st+'">'+
+        '<div class="bcard-t">'+esc(rot)+'</div>'+
+        '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
+        '<div class="bcard-chk">'+
+          '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito">&#10003;</button>'+
+          '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito">&#10007;</button>'+
+        '</div>'+
+        (x&&x.motivo?'<div class="bcard-motivo" title="'+escAttr(x.motivo)+'">&#10007; '+esc(x.motivo)+'</div>':'')+
+      '</div>';
+    }).join("") : '<div class="bcol-vazio">Nada</div>';
+    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div></div>';
+  }
+  return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+'</div>'+
+         '<div class="board">'+cols+'</div>';
 }
 
 /* ---------------- TAREFAS DO CLIENTE ---------------- */
@@ -672,11 +743,13 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx]");
   if(!alvo) return;
   const D = alvo.dataset;
 
   if(D.macao){ handleModal(D); return; }
+  if(D.wkok){ marcarFeitoSemana(D.mcid,D.mtid,D.mday); return; }
+  if(D.wkx){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
@@ -694,6 +767,15 @@ document.addEventListener("click", function(ev){
 
   render();
   if(topo) window.scrollTo({top:0,behavior:"smooth"});
+});
+
+document.addEventListener("change", function(ev){
+  const el=ev.target.closest("[data-sel]"); if(!el) return;
+  const w=el.dataset.sel, v=el.value;
+  if(w==="ano"){ VISTA.pano=Number(v); const ws=semanasDoMes(VISTA.pano,VISTA.pmes); VISTA.psem=ws[0]||VISTA.psem; }
+  else if(w==="mes"){ VISTA.pmes=Number(v); const ws=semanasDoMes(VISTA.pano,VISTA.pmes); VISTA.psem=ws[0]||VISTA.psem; }
+  else if(w==="semana"){ VISTA.psem=v; }
+  render();
 });
 
 init();
