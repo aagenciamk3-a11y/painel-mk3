@@ -289,7 +289,7 @@ function areaBase(id){
 }
 const areaMatch = t => VISTA.area==="all" || t.area===VISTA.area;
 
-const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"prio", mes:0, dia:null, filtro:null, edit:false };
+const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, edit:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
@@ -643,7 +643,7 @@ function render(){
   const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
 
   if(!c){
-    const modos = [["prio","Prioridades"],["cards","Cartões"],["cal","Calendário"],["lista","Lista"]];
+    const modos = [["cards","Cartões"],["prio","Prioridades"],["cal","Calendário"],["lista","Lista"]];
     const toggle = '<div class="modos">'+modos.map(m=>
       '<button class="'+(VISTA.modo===m[0]?"on":"")+'" data-modo="'+m[0]+'">'+m[1]+'</button>').join("")+'</div>';
     let body;
