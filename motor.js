@@ -289,7 +289,7 @@ function areaBase(id){
 }
 const areaMatch = t => VISTA.area==="all" || t.area===VISTA.area;
 
-const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, edit:false };
+const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"prio", mes:0, dia:null, filtro:null, edit:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
@@ -546,6 +546,22 @@ function listaGlobalHTML(){
                   : '<div class="vazio">Nada aqui'+(VISTA.filtro?" em <strong>"+ROTULO[VISTA.filtro]+"</strong>":"")+'.</div>');
 }
 
+/* ---------------- PRIORIDADES DIÁRIAS ---------------- */
+function prioridadesHTML(){
+  const areas=[{k:"mkt",rot:"Marketing Digital"},{k:"fin",rot:"Financeiro"},{k:"com",rot:"Comercial"}];
+  const urgente = t => t.st.k==="atrasado" || t.st.k==="hoje" || t.st.k==="umdia";
+  const total = TODAS.filter(urgente).length;
+  return '<div class="priohead">Prioridades de hoje · '+HOJE.toLocaleDateString("pt-BR",{day:"2-digit",month:"long"})+
+      ' <span class="pcount">'+total+'</span></div>'+
+    areas.map(a=>{
+      const ts=TODAS.filter(t=>t.area===a.k && urgente(t))
+        .sort((x,y)=>ORDEM[x.st.k]-ORDEM[y.st.k] || String(x.data).localeCompare(String(y.data)));
+      return '<h2 class="prioh">'+a.rot+' <span class="pcount'+(ts.length?" on":"")+'">'+ts.length+'</span></h2>'+
+        (ts.length ? '<div class="fila">'+ts.map(t=>linha(t,true)).join("")+'</div>'
+                   : '<div class="vazio">Nada urgente hoje em '+a.rot+'.</div>');
+    }).join("");
+}
+
 /* ---------------- TAREFAS DO CLIENTE ---------------- */
 function tarefasHTML(c){
   const ts = tarefasCli(c);
@@ -627,11 +643,12 @@ function render(){
   const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
 
   if(!c){
-    const modos = [["cards","Cartões"],["cal","Calendário"],["lista","Lista"]];
+    const modos = [["prio","Prioridades"],["cards","Cartões"],["cal","Calendário"],["lista","Lista"]];
     const toggle = '<div class="modos">'+modos.map(m=>
       '<button class="'+(VISTA.modo===m[0]?"on":"")+'" data-modo="'+m[0]+'">'+m[1]+'</button>').join("")+'</div>';
     let body;
-    if(VISTA.modo==="cards")      body = '<div class="cards">'+cardsHTML()+'</div>';
+    if(VISTA.modo==="prio")       body = prioridadesHTML();
+    else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
     else                          body = listaGlobalHTML();
     $("view").innerHTML = toggle + body;
