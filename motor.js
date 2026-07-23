@@ -623,7 +623,7 @@ function render(){
       '<button class="'+(VISTA.modo===m[0]?"on":"")+'" data-modo="'+m[0]+'">'+m[1]+'</button>').join("")+'</div>';
     let body;
     if(VISTA.modo==="cards")      body = '<div class="cards">'+cardsHTML()+'</div>';
-    else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), CLIENTES.flatMap(x=>x.marcos), true);
+    else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
     else                          body = listaGlobalHTML();
     $("view").innerHTML = toggle + body;
     return;
@@ -638,7 +638,7 @@ function render(){
     '<div class="cli-tabs">'+tabs.map(t=>
       '<button class="'+(VISTA.aba===t[0]?"on":"")+'" data-cliaba="'+t[0]+'">'+t[1]+'</button>').join("")+'</div></div>';
 
-  const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), c.marcos, false)
+  const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), (VISTA.area==="all"||VISTA.area==="mkt")?c.marcos:[], false)
              : VISTA.aba==="tarefas" ? tarefasHTML(c)
              : histHTML(c);
   $("view").innerHTML = bar + body;
