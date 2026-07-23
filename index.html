@@ -229,7 +229,7 @@
     display:flex;align-items:center;justify-content:space-between}
   .bcol-h span{font-size:12px;color:var(--mut);font-weight:600}
   .bcol.hoje .bcol-h{color:var(--semana)}
-  .bcol-body{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:60px}
+  .bcol-body{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:60px;flex:1 1 auto}
   .bcol-vazio{color:#4a4f5a;font-size:12px;text-align:center;padding:10px 0}
   .bcard{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--futuro);
     border-radius:8px;padding:9px 10px}
@@ -248,6 +248,23 @@
     overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .mlab textarea{display:block;margin-top:6px;background:var(--panel2);border:1px solid var(--line);
     color:var(--txt);border-radius:8px;padding:9px 11px;font:inherit;font-size:14px;width:100%;resize:vertical}
+  /* notas por dia + mostrar motivo */
+  .bnota{border-top:1px solid var(--line);padding:9px 12px;cursor:pointer;display:flex;flex-direction:column;gap:3px;
+    background:rgba(255,255,255,.015)}
+  .bnota:hover{background:rgba(245,197,24,.08)}
+  .bnota-h{font-size:10px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+  .bnota-add{font-size:11px;color:#5a5f6a;font-style:italic}
+  .bnota-prev{font-size:11.5px;color:var(--txt);line-height:1.3;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .bnota.tem{background:rgba(245,197,24,.09)} .bnota.tem .bnota-h{color:var(--umdia)}
+  .ver-motivo{margin-top:8px;width:100%;background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.32);
+    color:var(--atrasado);font:inherit;font-size:11px;font-weight:600;padding:5px 9px;border-radius:6px;cursor:pointer}
+  .ver-motivo:hover{background:rgba(229,72,77,.22)}
+  .mbox.notepad h3{font-size:16px}
+  .notepad-ta{display:block;width:100%;margin-top:8px;border:1px solid #d9cfa8;border-radius:8px;
+    background:#fbf5df;color:#2c2a20;font:inherit;font-size:14px;padding:10px 14px;line-height:26px;resize:vertical;
+    background-image:repeating-linear-gradient(#fbf5df,#fbf5df 25px,#e7ddba 26px);margin-bottom:16px}
+  .notepad-ta::placeholder{color:#9a936f}
   /* ---- edição (sem token) ---- */
   #editbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-10px 0 20px}
   .ubtn{background:var(--panel);border:1px solid var(--line);color:var(--txt);font:inherit;font-size:12px;

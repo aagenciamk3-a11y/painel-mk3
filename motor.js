@@ -368,6 +368,22 @@ function marcarFeitoSemana(cid,tid,day){
   if(ESTADO.semanal&&ESTADO.semanal[wk]) delete ESTADO.semanal[wk][chaveTarefa(cid,tid)];
   marcar(cid,tid,day,"concluir");
 }
+function setNota(day, texto){
+  snapshot();
+  ESTADO.notas=ESTADO.notas||{};
+  if(texto && texto.trim()) ESTADO.notas[day]=texto; else delete ESTADO.notas[day];
+  persist(); render();
+}
+function abrirNota(day){
+  const cur=(ESTADO.notas&&ESTADO.notas[day])||"";
+  const titulo=d(day).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox notepad"><h3>&#128221; Notas</h3><p class="msub">'+esc(titulo)+'</p>'+
+    '<textarea id="mnota" class="notepad-ta" rows="9" placeholder="Escreva suas notas do dia...">'+esc(cur)+'</textarea>'+
+    '<div class="mbtns"><button data-macao="salvarnota" data-mday="'+day+'">Salvar</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mm.style.display="flex";
+}
 function abrirMotivo(cid,tid,day){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
   const cur=xInfo(segOf(day),cid,tid);
@@ -377,6 +393,7 @@ function abrirMotivo(cid,tid,day){
     '<p class="msub">'+esc(rot)+' · '+fmt(day)+'</p>'+
     '<label class="mlab">Motivo<textarea id="mmotivo" rows="3" placeholder="Escreva o que impediu...">'+esc(cur?cur.motivo:"")+'</textarea></label>'+
     '<div class="mbtns"><button data-macao="motivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Salvar motivo</button>'+
+    (cur?'<button class="danger" data-macao="removermotivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Remover</button>':'')+
     '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
   mm.style.display="flex";
 }
@@ -406,6 +423,8 @@ function fecharModal(){ const mm=$("modal"); mm.style.display="none"; mm.innerHT
 function handleModal(D){
   if(D.macao==="fechar"){ fecharModal(); return; }
   if(D.macao==="motivo"){ const mot=(($("mmotivo")&&$("mmotivo").value)||"").trim(); setNaoFeito(D.mcid,D.mtid,D.mday,mot); fecharModal(); return; }
+  if(D.macao==="removermotivo"){ setNaoFeito(D.mcid,D.mtid,D.mday,""); fecharModal(); return; }
+  if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
   const dv = (D.macao==="hoje") ? iso(HOJE) : (($("mdata")&&$("mdata").value)||iso(HOJE));
@@ -431,10 +450,11 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
+  for(const k in (b.notas||{})) r.notas[k]=b.notas[k];
   return r;
 }
 async function init(){
@@ -442,7 +462,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={};
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={};
   rebuild(); render(); montarTooltip();
 }
 
@@ -624,10 +644,13 @@ function prioridadesHTML(){
           '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito">&#10003;</button>'+
           '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito">&#10007;</button>'+
         '</div>'+
-        (x&&x.motivo?'<div class="bcard-motivo" title="'+escAttr(x.motivo)+'">&#10007; '+esc(x.motivo)+'</div>':'')+
+        (x&&x.motivo?'<button class="ver-motivo" data-vermotivo="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'">Mostrar motivo</button>':'')+
       '</div>';
     }).join("") : '<div class="bcol-vazio">Nada</div>';
-    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div></div>';
+    const nota=(ESTADO.notas&&ESTADO.notas[dayIso])||"";
+    const notaEl='<div class="bnota'+(nota?" tem":"")+'" data-nota="'+dayIso+'"><span class="bnota-h">&#128221; Notas</span>'+
+      (nota?'<span class="bnota-prev">'+esc(nota.length>70?nota.slice(0,70)+"\u2026":nota)+'</span>':'<span class="bnota-add">anotar\u2026</span>')+'</div>';
+    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
   }
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+'</div>'+
          '<div class="board">'+cols+'</div>';
@@ -743,13 +766,15 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo]");
   if(!alvo) return;
   const D = alvo.dataset;
 
   if(D.macao){ handleModal(D); return; }
   if(D.wkok){ marcarFeitoSemana(D.mcid,D.mtid,D.mday); return; }
   if(D.wkx){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
+  if(D.vermotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
+  if(D.nota){ abrirNota(D.nota); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
