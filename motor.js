@@ -286,11 +286,90 @@ function areaBase(id){
 }
 const areaMatch = t => VISTA.area==="all" || t.area===VISTA.area;
 
-const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null };
-const TODAS  = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})));
+const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, edit:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
+
+/* ================= ESTADO EDITÁVEL (grava no GitHub) ================= */
+let TODAS = [];
+let ESTADO = { concluidas:{}, datas:{}, log:[] };
+const ORIG = JSON.parse(JSON.stringify(CLIENTES));
+const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","aprovacaoMidia","gravacao","alteracaoPedida"];
+
+function rebuild(){
+  CLIENTES.forEach((c,i)=>{
+    const o=ORIG[i];
+    c.concluidas=(o.concluidas||[]).slice();
+    CAMPOS_DATA.forEach(k=>c[k]=o[k]);
+    const dd=ESTADO.datas[c.id]||{};
+    for(const k in dd){ if(dd[k]) c[k]=dd[k]; }
+    for(const e of (ESTADO.concluidas[c.id]||[])){
+      c.concluidas=c.concluidas.filter(x=>((x&&x.id)?x.id:x)!==e.id);
+      if(!e.remove) c.concluidas.push(e.data?{id:e.id,data:e.data}:e.id);
+    }
+  });
+  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})));
+}
+
+const tokenGet=()=>localStorage.getItem("mk3_ghtoken")||"";
+function pedirToken(){
+  const t=prompt("Cole seu token do GitHub (fine-grained, permissão Contents: Read and write no repositório painel-mk3). Fica salvo só neste navegador.");
+  if(t && t.trim()){ localStorage.setItem("mk3_ghtoken", t.trim()); return true; }
+  return false;
+}
+async function salvarEstado(msg){
+  const tk=tokenGet(); if(!tk) return false;
+  const api="https://api.github.com/repos/aagenciamk3-a11y/painel-mk3/contents/estado.json";
+  let sha=null;
+  try{ const cur=await fetch(api+"?ts="+Date.now(),{headers:{Authorization:"Bearer "+tk,Accept:"application/vnd.github+json"}}).then(r=>r.json()); sha=cur.sha||null; }catch(e){}
+  ESTADO.log=(ESTADO.log||[]).slice(0,200);
+  const content=btoa(unescape(encodeURIComponent(JSON.stringify(ESTADO,null,2))));
+  try{
+    const r=await fetch(api,{method:"PUT",headers:{Authorization:"Bearer "+tk,Accept:"application/vnd.github+json","Content-Type":"application/json"},
+      body:JSON.stringify({message:msg, content, sha})});
+    return r.ok;
+  }catch(e){ return false; }
+}
+function setConcluida(cid,tid,data){
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); const nome=t?t.tarefa:tid;
+  ESTADO.concluidas[cid]=(ESTADO.concluidas[cid]||[]).filter(e=>e.id!==tid);
+  if(data){ ESTADO.concluidas[cid].push({id:tid,data:data});
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:"concluir",id:tid,data:data}); }
+  else { ESTADO.concluidas[cid].push({id:tid,remove:true});
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:"desfazer",id:tid}); }
+}
+function abrirEditor(cid,tid){
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
+  const feita=t.st.k==="ok"; const cli=cliente(cid);
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox">'+
+    '<h3>'+esc(t.tarefa)+'</h3>'+
+    '<p class="msub">'+esc(cli.nome)+(t.detalhe?" · "+esc(t.detalhe):"")+'</p>'+
+    (feita
+      ? '<p class="mok">Já está concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
+        '<div class="mbtns"><button data-macao="desfazer" data-mcid="'+cid+'" data-mtid="'+esc(tid)+'">Desfazer</button>'+
+        '<button class="sec" data-macao="fechar">Cancelar</button></div>'
+      : '<label class="mlab">Concluído na data<input type="date" id="mdata" value="'+iso(HOJE)+'"></label>'+
+        '<div class="mbtns"><button data-macao="concluir" data-mcid="'+cid+'" data-mtid="'+esc(tid)+'">Salvar</button>'+
+        '<button class="sec" data-macao="fechar">Cancelar</button></div>')+
+    '</div>';
+  mm.style.display="flex";
+}
+function fecharModal(){ const mm=$("modal"); mm.style.display="none"; mm.innerHTML=""; }
+async function handleModal(D){
+  if(D.macao==="fechar"){ fecharModal(); return; }
+  const cid=D.mcid, tid=D.mtid;
+  if(D.macao==="concluir"){ const dv=($("mdata")&&$("mdata").value)||iso(HOJE); setConcluida(cid,tid,dv); }
+  else if(D.macao==="desfazer"){ setConcluida(cid,tid,null); }
+  fecharModal(); rebuild(); render();
+  const ok=await salvarEstado("painel: "+D.macao+" "+cid+"/"+tid);
+  if(!ok){ alert("Não consegui salvar no GitHub. Verifique o token (botão Trocar token). A mudança está só na tela."); }
+}
+async function init(){
+  try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); ESTADO={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
+  rebuild(); render();
+}
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
 
@@ -316,7 +395,7 @@ function avatarHTML(c, cls){
 }
 
 /* ---- linha de tarefa (lista) ---- */
-const linha = (t, showCli) => '<div class="row'+(showCli?" rowc":"")+'">'+
+const linha = (t, showCli) => '<div class="row'+(showCli?" rowc":"")+(VISTA.edit?" editavel":"")+'"'+(VISTA.edit?(' data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+esc(t.id)+'"'):"")+'>'+
   '<div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
   '<div class="tarefa">'+esc(t.tarefa)+(t.detalhe?'<em>'+esc(t.detalhe)+'</em>':'')+'</div>'+
   (showCli?'<div class="cli">'+esc(t.cliente)+'</div>':'')+
@@ -487,6 +566,11 @@ function histHTML(c){
 
 /* ---------------- RENDER ---------------- */
 function render(){
+  $("editbar").innerHTML = VISTA.edit
+    ? '<button class="editbtn on" data-edit="toggle">● Edição ligada — clique para desligar</button>'+
+      '<span class="edithint">Abra um cliente em <b>Tarefas</b> (ou clique num dia do calendário) e clique numa tarefa para marcar <b>Concluído</b>. Salva sozinho.</span>'+
+      '<button class="editbtn sec" data-edit="token">Trocar token</button>'
+    : '<button class="editbtn" data-edit="toggle">✎ Modo edição</button>';
   $("areas").innerHTML = AREAS.map(a=>
     '<button class="areabtn '+(VISTA.area===a.k?"on":"")+'" data-area="'+a.k+'">'+a.rot+'</button>').join("");
 
@@ -521,9 +605,15 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-edit],[data-editar],[data-macao]");
   if(!alvo) return;
   const D = alvo.dataset;
+
+  if(D.macao){ handleModal(D); return; }
+  if(D.editar && VISTA.edit){ abrirEditor(D.mcid, D.mtid); return; }
+  if(D.edit==="token"){ pedirToken(); return; }
+  if(D.edit==="toggle"){ if(!VISTA.edit && !tokenGet()){ if(!pedirToken()) return; } VISTA.edit=!VISTA.edit; render(); return; }
+
   let topo = true;
 
   if(D.area){ VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; }
@@ -539,4 +629,4 @@ document.addEventListener("click", function(ev){
   if(topo) window.scrollTo({top:0,behavior:"smooth"});
 });
 
-render();
+init();

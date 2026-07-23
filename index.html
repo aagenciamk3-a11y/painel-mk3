@@ -208,6 +208,29 @@
     .cli-tabs{margin-left:0;width:100%}
     .cel{min-height:88px}
   }
+
+  /* ---- modo edição ---- */
+  #editbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:-10px 0 20px}
+  .editbtn{background:var(--panel);border:1px solid var(--line);color:var(--mut);font:inherit;
+    font-size:13px;font-weight:600;padding:8px 14px;border-radius:9px;cursor:pointer}
+  .editbtn:hover{color:var(--txt);border-color:var(--mut)}
+  .editbtn.on{background:var(--ok);border-color:var(--ok);color:#0b160e}
+  .edithint{font-size:12px;color:var(--mut);max-width:640px}
+  .editavel{cursor:pointer}
+  .editavel:hover{background:rgba(76,154,255,.10)!important;box-shadow:inset 3px 0 0 var(--semana)}
+  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:1000;
+    align-items:center;justify-content:center;padding:20px}
+  .mbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:430px;width:100%}
+  .mbox h3{font-size:16px;margin-bottom:4px}
+  .msub{font-size:12px;color:var(--mut);margin-bottom:16px}
+  .mok{font-size:14px;color:var(--ok);margin-bottom:16px}
+  .mlab{display:block;font-size:12px;color:var(--mut);margin-bottom:18px}
+  .mlab input{display:block;margin-top:6px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--txt);border-radius:8px;padding:9px 11px;font:inherit;font-size:14px;width:100%;color-scheme:dark}
+  .mbtns{display:flex;gap:8px;justify-content:flex-end}
+  .mbtns button{background:var(--semana);border:none;color:#fff;font:inherit;font-size:13px;
+    font-weight:600;padding:9px 16px;border-radius:8px;cursor:pointer}
+  .mbtns button.sec{background:var(--panel2);color:var(--mut)}
 </style>
 </head>
 <body>
@@ -218,6 +241,7 @@
   </header>
 
   <div class="areas" id="areas"></div>
+  <div id="editbar"></div>
   <div id="view"></div>
 
   <footer>
@@ -225,6 +249,8 @@
     <strong>dias úteis</strong>. Status recalculados a cada abertura da página.
   </footer>
 </div>
+
+<div id="modal" class="modal"></div>
 
 <script src="dados.js"></script>
 <script src="motor.js"></script>
