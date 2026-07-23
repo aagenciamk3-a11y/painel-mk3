@@ -209,15 +209,25 @@
     .cel{min-height:88px}
   }
 
-  /* ---- modo edição ---- */
-  #editbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:-10px 0 20px}
-  .editbtn{background:var(--panel);border:1px solid var(--line);color:var(--mut);font:inherit;
-    font-size:13px;font-weight:600;padding:8px 14px;border-radius:9px;cursor:pointer}
-  .editbtn:hover{color:var(--txt);border-color:var(--mut)}
-  .editbtn.on{background:var(--ok);border-color:var(--ok);color:#0b160e}
-  .edithint{font-size:12px;color:var(--mut);max-width:640px}
+  /* ---- edição (sem token) ---- */
+  #editbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-10px 0 20px}
+  .ubtn{background:var(--panel);border:1px solid var(--line);color:var(--txt);font:inherit;font-size:12px;
+    font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer}
+  .ubtn:hover:not([disabled]){border-color:var(--semana);color:var(--semana)}
+  .ubtn[disabled]{opacity:.4;cursor:default}
+  .umud{font-size:12px;color:var(--mut)}
+  .umud.dim{opacity:.85}
   .editavel{cursor:pointer}
-  .editavel:hover{background:rgba(76,154,255,.10)!important;box-shadow:inset 3px 0 0 var(--semana)}
+  .row.editavel:hover{background:rgba(76,154,255,.10)!important;box-shadow:inset 3px 0 0 var(--semana)}
+  .ev.editavel:hover{filter:brightness(1.35);outline:1px solid var(--semana)}
+  /* tooltip */
+  #tip{position:fixed;z-index:2000;display:none;max-width:300px;background:#0b0d12;border:1px solid var(--line);
+    border-radius:8px;padding:8px 11px;font-size:12px;color:var(--txt);pointer-events:none;
+    box-shadow:0 10px 26px rgba(0,0,0,.55);line-height:1.35}
+  #tip b{display:block;font-size:12.5px;margin-bottom:3px}
+  #tip .tl{display:block;color:var(--mut);font-size:11px}
+  #tip .tl.tk{color:var(--semana);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:9.5px}
+  /* modal */
   .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:1000;
     align-items:center;justify-content:center;padding:20px}
   .mbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:430px;width:100%}
@@ -227,10 +237,12 @@
   .mlab{display:block;font-size:12px;color:var(--mut);margin-bottom:18px}
   .mlab input{display:block;margin-top:6px;background:var(--panel2);border:1px solid var(--line);
     color:var(--txt);border-radius:8px;padding:9px 11px;font:inherit;font-size:14px;width:100%;color-scheme:dark}
-  .mbtns{display:flex;gap:8px;justify-content:flex-end}
+  .mbtns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+  .mbtns.wrap{margin-bottom:14px;justify-content:flex-start}
   .mbtns button{background:var(--semana);border:none;color:#fff;font:inherit;font-size:13px;
     font-weight:600;padding:9px 16px;border-radius:8px;cursor:pointer}
   .mbtns button.sec{background:var(--panel2);color:var(--mut)}
+  .mbtns button.danger{background:var(--atrasado)}
 </style>
 </head>
 <body>
@@ -251,6 +263,7 @@
 </div>
 
 <div id="modal" class="modal"></div>
+<div id="tip"></div>
 
 <script src="dados.js"></script>
 <script src="motor.js"></script>

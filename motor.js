@@ -291,11 +291,20 @@ const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
 
-/* ================= ESTADO EDITÁVEL (grava no GitHub) ================= */
+/* ================= EDIÇÃO LOCAL (sem token; salva neste navegador) ================= */
 let TODAS = [];
 let ESTADO = { concluidas:{}, datas:{}, log:[] };
+let UNDO = [], REDO = [];
 const ORIG = JSON.parse(JSON.stringify(CLIENTES));
 const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","aprovacaoMidia","gravacao","alteracaoPedida"];
+const ANCORA = {
+  c1_plan:{campo:"envioPlanejamento", verbo:"Enviado ao cliente"},
+  c1_aprPlan:{campo:"aprovacaoPlanejamento", verbo:"Cliente aprovou o planejamento"},
+  c1_artes:{campo:"envioMidia", verbo:"Artes enviadas"},
+  c1_aprMid:{campo:"aprovacaoMidia", verbo:"Cliente aprovou as artes"},
+  c1_gravacao:{campo:"gravacao", verbo:"Gravado"}
+};
+const escAttr = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
 function rebuild(){
   CLIENTES.forEach((c,i)=>{
@@ -312,63 +321,91 @@ function rebuild(){
   TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})));
 }
 
-const tokenGet=()=>localStorage.getItem("mk3_ghtoken")||"";
-function pedirToken(){
-  const t=prompt("Cole seu token do GitHub (fine-grained, permissão Contents: Read and write no repositório painel-mk3). Fica salvo só neste navegador.");
-  if(t && t.trim()){ localStorage.setItem("mk3_ghtoken", t.trim()); return true; }
-  return false;
-}
-async function salvarEstado(msg){
-  const tk=tokenGet(); if(!tk) return false;
-  const api="https://api.github.com/repos/aagenciamk3-a11y/painel-mk3/contents/estado.json";
-  let sha=null;
-  try{ const cur=await fetch(api+"?ts="+Date.now(),{headers:{Authorization:"Bearer "+tk,Accept:"application/vnd.github+json"}}).then(r=>r.json()); sha=cur.sha||null; }catch(e){}
-  ESTADO.log=(ESTADO.log||[]).slice(0,200);
-  const content=btoa(unescape(encodeURIComponent(JSON.stringify(ESTADO,null,2))));
-  try{
-    const r=await fetch(api,{method:"PUT",headers:{Authorization:"Bearer "+tk,Accept:"application/vnd.github+json","Content-Type":"application/json"},
-      body:JSON.stringify({message:msg, content, sha})});
-    return r.ok;
-  }catch(e){ return false; }
-}
-function setConcluida(cid,tid,data){
+const tdOf = t => escAttr([t.cliente, (t.st&&t.st.txt), (t.data?fmt(t.data)+" "+dow(t.data):""), t.resp, t.detalhe].filter(Boolean).join(" · "));
+const attrsEdit = t => ' data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-tt="'+escAttr(t.tarefa||t.titulo||"")+'" data-td="'+tdOf(t)+'"';
+
+function persist(){ try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){} }
+function snapshot(){ UNDO.push(JSON.stringify(ESTADO)); if(UNDO.length>80)UNDO.shift(); REDO.length=0; }
+function nMud(){ let n=0; for(const k in ESTADO.concluidas)n+=(ESTADO.concluidas[k]||[]).filter(e=>!e.remove).length; return n; }
+
+function marcar(cid,tid,data,tipo){
+  snapshot();
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); const nome=t?t.tarefa:tid;
+  const anc=ANCORA[tid];
   ESTADO.concluidas[cid]=(ESTADO.concluidas[cid]||[]).filter(e=>e.id!==tid);
-  if(data){ ESTADO.concluidas[cid].push({id:tid,data:data});
-    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:"concluir",id:tid,data:data}); }
-  else { ESTADO.concluidas[cid].push({id:tid,remove:true});
-    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:"desfazer",id:tid}); }
+  if(tipo==="desfazer"){
+    if(anc && ESTADO.datas[cid]) delete ESTADO.datas[cid][anc.campo];
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:"desfazer",id:tid});
+  } else {
+    ESTADO.concluidas[cid].push({id:tid,data:data});
+    if(anc){ ESTADO.datas[cid]=ESTADO.datas[cid]||{}; ESTADO.datas[cid][anc.campo]=data; }
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:(anc?"registrar":"concluir"),campo:(anc?anc.campo:null),id:tid,data:data});
+  }
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
 }
+function desfazer(){ if(!UNDO.length)return; REDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(UNDO.pop()); persist(); rebuild(); render(); }
+function refazer(){ if(!REDO.length)return; UNDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(REDO.pop()); persist(); rebuild(); render(); }
+
 function abrirEditor(cid,tid){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
-  const feita=t.st.k==="ok"; const cli=cliente(cid);
+  const feita=t.st.k==="ok"; const cli=cliente(cid); const anc=ANCORA[tid];
+  const verbo = anc ? anc.verbo : "Concluído";
   const mm=$("modal");
   mm.innerHTML='<div class="mbox">'+
     '<h3>'+esc(t.tarefa)+'</h3>'+
     '<p class="msub">'+esc(cli.nome)+(t.detalhe?" · "+esc(t.detalhe):"")+'</p>'+
     (feita
-      ? '<p class="mok">Já está concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
-        '<div class="mbtns"><button data-macao="desfazer" data-mcid="'+cid+'" data-mtid="'+esc(tid)+'">Desfazer</button>'+
-        '<button class="sec" data-macao="fechar">Cancelar</button></div>'
-      : '<label class="mlab">Concluído na data<input type="date" id="mdata" value="'+iso(HOJE)+'"></label>'+
-        '<div class="mbtns"><button data-macao="concluir" data-mcid="'+cid+'" data-mtid="'+esc(tid)+'">Salvar</button>'+
+      ? '<p class="mok">Já marcada como concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
+        '<div class="mbtns"><button class="danger" data-macao="desfazer" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Desfazer</button>'+
+        '<button class="sec" data-macao="fechar">Fechar</button></div>'
+      : '<div class="mbtns wrap"><button data-macao="hoje" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">'+esc(verbo)+' hoje</button></div>'+
+        '<label class="mlab">Ou em outra data<input type="date" id="mdata" value="'+iso(HOJE)+'"></label>'+
+        '<div class="mbtns"><button data-macao="data" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">'+esc(verbo)+' nesta data</button>'+
         '<button class="sec" data-macao="fechar">Cancelar</button></div>')+
     '</div>';
   mm.style.display="flex";
 }
 function fecharModal(){ const mm=$("modal"); mm.style.display="none"; mm.innerHTML=""; }
-async function handleModal(D){
+function handleModal(D){
   if(D.macao==="fechar"){ fecharModal(); return; }
   const cid=D.mcid, tid=D.mtid;
-  if(D.macao==="concluir"){ const dv=($("mdata")&&$("mdata").value)||iso(HOJE); setConcluida(cid,tid,dv); }
-  else if(D.macao==="desfazer"){ setConcluida(cid,tid,null); }
-  fecharModal(); rebuild(); render();
-  const ok=await salvarEstado("painel: "+D.macao+" "+cid+"/"+tid);
-  if(!ok){ alert("Não consegui salvar no GitHub. Verifique o token (botão Trocar token). A mudança está só na tela."); }
+  if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
+  const dv = (D.macao==="hoje") ? iso(HOJE) : (($("mdata")&&$("mdata").value)||iso(HOJE));
+  marcar(cid,tid,dv,"concluir"); fecharModal();
+}
+
+function montarTooltip(){
+  const tip=$("tip"); if(!tip) return;
+  document.addEventListener("mouseover", e=>{
+    const el=e.target.closest("[data-tt]"); if(!el) return;
+    tip.innerHTML='<b>'+esc(el.dataset.tt)+'</b>'+(el.dataset.td?'<span class="tl">'+esc(el.dataset.td)+'</span>':'')+
+      (el.dataset.editar?'<span class="tl tk">clique para marcar</span>':'');
+    tip.style.display="block";
+  });
+  document.addEventListener("mousemove", e=>{
+    if(tip.style.display!=="block") return;
+    let x=e.clientX+14, y=e.clientY+16;
+    if(x+tip.offsetWidth>window.innerWidth-8) x=e.clientX-tip.offsetWidth-14;
+    if(y+tip.offsetHeight>window.innerHeight-8) y=e.clientY-tip.offsetHeight-16;
+    tip.style.left=x+"px"; tip.style.top=y+"px";
+  });
+  document.addEventListener("mouseout", e=>{ if(e.target.closest("[data-tt]")) tip.style.display="none"; });
+}
+function mergeEstado(a,b){
+  if(!b) return a;
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, log:(b.log&&b.log.length?b.log:a.log)||[]};
+  for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
+  for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
+  return r;
 }
 async function init(){
-  try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); ESTADO={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
-  rebuild(); render();
+  let base={concluidas:{},datas:{},log:[]};
+  try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
+  let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
+  ESTADO = mergeEstado(base, local);
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[];
+  rebuild(); render(); montarTooltip();
 }
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
@@ -395,7 +432,7 @@ function avatarHTML(c, cls){
 }
 
 /* ---- linha de tarefa (lista) ---- */
-const linha = (t, showCli) => '<div class="row'+(showCli?" rowc":"")+(VISTA.edit?" editavel":"")+'"'+(VISTA.edit?(' data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+esc(t.id)+'"'):"")+'>'+
+const linha = (t, showCli) => '<div class="row editavel'+(showCli?" rowc":"")+'"'+attrsEdit(t)+'>'+
   '<div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
   '<div class="tarefa">'+esc(t.tarefa)+(t.detalhe?'<em>'+esc(t.detalhe)+'</em>':'')+'</div>'+
   (showCli?'<div class="cli">'+esc(t.cliente)+'</div>':'')+
@@ -407,7 +444,8 @@ function evCard(t, showCli, isMarco){
   const cls  = isMarco ? "marco" : t.st.k;
   const meta = isMarco ? "Marco" : (showCli ? t.cliente : t.resp);
   const tt   = (isMarco?"◆ ":"")+esc(t.tarefa || t.titulo);
-  return '<div class="ev ev-'+cls+'" title="'+esc(t.tarefa||t.titulo)+'">'+
+  const dattr = isMarco ? (' data-tt="'+escAttr(t.titulo||t.tarefa||"")+'"') : attrsEdit(t);
+  return '<div class="ev ev-'+cls+(isMarco?"":" editavel")+'"'+dattr+'>'+
     '<div class="ev-tt">'+tt+'</div>'+
     '<div class="ev-meta"><span class="ev-dot"></span>'+esc(meta)+'</div></div>';
 }
@@ -566,11 +604,11 @@ function histHTML(c){
 
 /* ---------------- RENDER ---------------- */
 function render(){
-  $("editbar").innerHTML = VISTA.edit
-    ? '<button class="editbtn on" data-edit="toggle">● Edição ligada — clique para desligar</button>'+
-      '<span class="edithint">Abra um cliente em <b>Tarefas</b> (ou clique num dia do calendário) e clique numa tarefa para marcar <b>Concluído</b>. Salva sozinho.</span>'+
-      '<button class="editbtn sec" data-edit="token">Trocar token</button>'
-    : '<button class="editbtn" data-edit="toggle">✎ Modo edição</button>';
+  $("editbar").innerHTML =
+    '<button class="ubtn" data-undo="1"'+(UNDO.length?"":" disabled")+' title="Desfazer">&#8624; Desfazer</button>'+
+    '<button class="ubtn" data-redo="1"'+(REDO.length?"":" disabled")+' title="Refazer">&#8625; Refazer</button>'+
+    (nMud()?'<span class="umud">'+nMud()+' '+(nMud()>1?"tarefas marcadas":"tarefa marcada")+' por você · salvo neste navegador</span>'
+           :'<span class="umud dim">Clique numa tarefa (na lista ou no calendário) para marcar concluído, enviado ou aprovado.</span>');
   $("areas").innerHTML = AREAS.map(a=>
     '<button class="areabtn '+(VISTA.area===a.k?"on":"")+'" data-area="'+a.k+'">'+a.rot+'</button>').join("");
 
@@ -605,14 +643,14 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-edit],[data-editar],[data-macao]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo]");
   if(!alvo) return;
   const D = alvo.dataset;
 
   if(D.macao){ handleModal(D); return; }
-  if(D.editar && VISTA.edit){ abrirEditor(D.mcid, D.mtid); return; }
-  if(D.edit==="token"){ pedirToken(); return; }
-  if(D.edit==="toggle"){ if(!VISTA.edit && !tokenGet()){ if(!pedirToken()) return; } VISTA.edit=!VISTA.edit; render(); return; }
+  if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
+  if(D.undo){ desfazer(); return; }
+  if(D.redo){ refazer(); return; }
 
   let topo = true;
 
