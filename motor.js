@@ -121,8 +121,11 @@ function regras(c){
   /* GATILHOS RECORRENTES */
   add("reserva3m","Recorrente","Atualizar código de reserva","A cada 3 meses",addM(D0,3),"Estagiário");
   add("pesq6m","Recorrente","Atualizar as duas pesquisas","A cada 6 meses",addM(D0,6),"Analista");
-  add("renov","Recorrente","Aviso de renovação / ação comercial","20 dias antes do vencimento",
+  add("renov","Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
       c.vencimentoContrato?addD(c.vencimentoContrato,-20):null,"Gestão");
+  if(c.vencimentoContrato)
+    add("acaoComercial","Contrato","Ação comercial — contrato encerra em 1 semana",
+        "Contato para renovação/negociação com o cliente",addD(c.vencimentoContrato,-7),"Gestão");
   add("fimContrato","Contrato","Encerramento do contrato",
       c.contrato?("Contrato "+c.contrato):"",c.vencimentoContrato,"Gestão");
 
@@ -280,8 +283,8 @@ const BUCKETS = ["atrasado","hoje","umdia","semana","sem","ok"];
 const AREAS = [{k:"all",rot:"Visão Geral"},{k:"mkt",rot:"Marketing Digital"},
                {k:"fin",rot:"Financeiro"},{k:"com",rot:"Comercial"}];
 function areaBase(id){
-  if(/^pag_/.test(id) || /^fotos_/.test(id)) return "fin";
-  if(["fimContrato","entregaMateriais","renov","renovacao_atrasada"].includes(id)) return "com";
+  if(/^pag_/.test(id) || /^fotos_/.test(id) || id==="renov" || id==="renovacao_atrasada") return "fin";
+  if(id==="acaoComercial") return "com";
   return "mkt";
 }
 const areaMatch = t => VISTA.area==="all" || t.area===VISTA.area;
