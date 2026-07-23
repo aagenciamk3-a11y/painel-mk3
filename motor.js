@@ -422,6 +422,15 @@ function coresSeg(seg){
   };
   return M[(seg||"").toLowerCase()] || ["#4c6b8f","#2a3f5a"];
 }
+/* cor fixa por cliente (banner + avatar) */
+const CORCLI = {
+  adriana:  ["#d8ab4c","#8c6a1c"],   // Dinha Mais — dourado
+  suelem:   ["#8a3b5e","#4b1930"],   // Suelem — roxo vinho
+  leonardo: ["#2bb7c0","#116169"],   // Leonardo — azul-turquesa
+  cynthia:  ["#cbb693","#9a8461"],   // Cynthia — bege
+  oceanus:  ["#2a30df","#1414a2"]    // Oceanus — azul da logo
+};
+const coresDe = c => CORCLI[c.id] || coresSeg(c.segmento);
 const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
 const FOTO = {
@@ -429,7 +438,7 @@ const FOTO = {
   oceanus:"fotos/oceanus.jpg", adriana:"fotos/dinha.jpg"
 };
 function avatarHTML(c, cls){
-  const cor=coresSeg(c.segmento), f=FOTO[c.id];
+  const cor=coresDe(c), f=FOTO[c.id];
   return '<div class="'+cls+'" style="background:'+cor[1]+'">'+esc(iniciais(c.nome))+
     (f?'<img src="'+f+'" alt="" loading="lazy" onerror="this.remove()">':'')+'</div>';
 }
@@ -458,7 +467,7 @@ function cardsHTML(){
   return CLIENTES.map(c=>{
     const ts = tarefasCli(c);
     const n  = ks => ts.filter(t=>ks.includes(t.st.k)).length;
-    const cor = coresSeg(c.segmento);
+    const cor = coresDe(c);
     const tiles = [
       ["atrasado","Atrasado", n(["atrasado"])],
       ["hoje","Vence hoje",   n(["hoje","umdia"])],
@@ -629,7 +638,7 @@ function render(){
     return;
   }
 
-  const cor = coresSeg(c.segmento);
+  const cor = coresDe(c);
   const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["hist","Histórico"]];
   const bar =
     '<div class="cli-bar"><button class="voltar" data-nav="home">&larr; Todos os clientes</button>'+
