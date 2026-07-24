@@ -17,7 +17,7 @@
   body{background:var(--bg);color:var(--txt);line-height:1.5;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
   .app{display:flex;min-height:100vh}
-  .main{flex:1 1 auto;min-width:0;padding:24px 30px 70px;max-width:1360px}
+  .main{flex:1 1 auto;min-width:0;padding:22px 28px 60px}
   .wrap{max-width:1180px;margin:0 auto}
   /* sidebar (estilo Pode Postar) */
   .side{width:232px;flex:none;background:var(--side);border-right:1px solid var(--line);
@@ -154,35 +154,35 @@
   .cli{color:var(--mut);font-size:13px}
 
   /* ---- calendário ---- */
-  .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:10px}
   .cal-nav strong{font-size:16px;text-transform:capitalize;min-width:190px}
   .cal-nav button{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:8px;
     width:32px;height:32px;cursor:pointer;font-size:15px;line-height:1}
   .cal-nav button:hover{border-color:var(--semana);color:var(--semana)}
   .cal-nav .hj{width:auto;padding:0 12px;font:inherit;font-size:12px;color:var(--mut)}
   .cal{background:transparent;border:none;overflow:visible}
-  .cal-dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:8px;padding:0 2px}
+  .cal-dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px;padding:0 2px}
   .cal-dow div{text-align:left;font-size:10px;text-transform:uppercase;
     letter-spacing:.09em;color:var(--mut);font-weight:700;min-width:0}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
-  .cel{min-width:0;overflow:hidden;min-height:122px;background:var(--panel);
+  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+  .cel{min-width:0;overflow:hidden;min-height:80px;background:var(--panel);
     border:1px solid var(--line);border-radius:9px;
-    padding:7px;cursor:pointer;display:flex;flex-direction:column;gap:3px;transition:.12s}
+    padding:5px 6px;cursor:pointer;display:flex;flex-direction:column;gap:2px;transition:.12s}
   .cel:hover{border-color:var(--mut)}
   .cel.fds{background:rgba(255,255,255,.015)}
   .cel.fora{background:rgba(255,255,255,.01);border-color:rgba(42,47,58,.5)}
   .cel.sel{box-shadow:0 0 0 2px var(--semana);border-color:var(--semana)}
-  .cel .n{display:flex;align-items:center;justify-content:center;width:24px;height:24px;
+  .cel .n{display:flex;align-items:center;justify-content:center;width:22px;height:22px;
     font-size:13px;font-weight:600;color:var(--txt);font-variant-numeric:tabular-nums;
     border-radius:50%;flex:none}
   .cel.fora .n{color:#4a4f5a;font-weight:400}
   .cel.fora .ev,.cel.fora .mais{opacity:.4}
   .cel.hj .n{background:var(--semana);color:#fff;font-weight:700}
   .ev{min-width:0;max-width:100%;background:var(--panel2);border-left:3px solid var(--futuro);
-    border-radius:5px;padding:4px 7px 5px;margin-bottom:3px;overflow:hidden;cursor:pointer}
+    border-radius:5px;padding:3px 6px;margin-bottom:2px;overflow:hidden;cursor:pointer}
   .ev-tt{font-size:10.5px;font-weight:600;line-height:1.25;color:var(--txt);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ev-meta{display:flex;align-items:center;gap:5px;margin-top:2px;font-size:9px;color:var(--mut);
+  .ev-meta{display:flex;align-items:center;gap:4px;margin-top:1px;font-size:9px;color:var(--mut);
     text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev-dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--futuro)}
   .ev-atrasado{border-left-color:var(--atrasado);background:rgba(229,72,77,.10)} .ev-atrasado .ev-dot{background:var(--atrasado)}
@@ -236,6 +236,22 @@
   .vazio{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:22px;
     color:var(--mut);font-size:14px}
   footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
+  @media(max-width:1000px){
+    .side{width:60px}
+    .side .snav-t,.side .side-sec,.side .snav-b{display:none}
+    .side .side-brand{justify-content:center}
+    .side .snav{justify-content:center;gap:0;padding:9px 0;border-left-width:0}
+    .side-toggle{display:none}
+    .main{padding:18px 16px 56px}
+    .cel{min-height:70px}
+  }
+  @media(max-width:600px){
+    .side{width:50px;padding:12px 5px}
+    .main{padding:14px 10px 48px}
+    .semsel-area{margin-left:0}
+    .cel{min-height:58px}
+    .cel .ev-meta{display:none}
+  }
   @media(max-width:760px){
     .row{grid-template-columns:110px 1fr;row-gap:6px}
     .row .data,.row .resp{grid-column:2}
@@ -253,6 +269,8 @@
   /* ---- quadro semanal (Prioridades) ---- */
   .semsel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 18px}
   .semsel-l{font-size:12px;color:var(--mut);font-weight:600}
+  .semsel-area{margin-left:auto;font-size:12px;font-weight:700;color:var(--mk3o);
+    background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);padding:5px 12px;border-radius:8px}
   .semsel select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;
     font-size:13px;padding:7px 10px;border-radius:8px;cursor:pointer;color-scheme:dark}
   .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}

@@ -416,7 +416,7 @@ function bcardHTML(t, dayIso, dupOrig){
   const feita=t.st.k==="ok";
   const x=xInfo(VISTA.psem,t.clienteId,t.id);
   const st=feita?"ok":(x?"x":"none");
-  const rot=EXEC[baseId(t.id)];
+  const rot=EXEC[baseId(t.id)]||t.tarefa;
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
@@ -678,6 +678,10 @@ function semanasDoMes(ano,mes){
   for(let dia=1; dia<=last; dia++) set.add(segOf(iso(new Date(ano,mes,dia))));
   return [...set].sort();
 }
+function relevanteBoard(t){
+  if(VISTA.area==="fin" || VISTA.area==="com") return t.area===VISTA.area;
+  return !!EXEC[baseId(t.id)];   // Visão Geral / Marketing: entregas de execução
+}
 function prioridadesHTML(){
   if(VISTA.pano==null){ VISTA.pano=HOJE.getFullYear(); VISTA.pmes=HOJE.getMonth(); }
   if(VISTA.psem==null) VISTA.psem=segOf(iso(HOJE));
@@ -694,7 +698,7 @@ function prioridadesHTML(){
   let cols="";
   for(let i=0;i<5;i++){
     const dayIso=addD(VISTA.psem,i);
-    const reais=TODAS.filter(t=>t.data===dayIso && EXEC[baseId(t.id)]).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
+    const reais=TODAS.filter(t=>t.data===dayIso && relevanteBoard(t)).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
     const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso).map(e=>({t:TODAS.find(x=>x.clienteId===e.cid&&x.id===e.tid),orig:e.orig})).filter(o=>o.t);
     const cs=reais.map(t=>bcardHTML(t,dayIso,null)).concat(dups.map(o=>bcardHTML(o.t,dayIso,o.orig)));
     const body=cs.length ? cs.join("") : '<div class="bcol-vazio">Nada</div>';
@@ -703,7 +707,9 @@ function prioridadesHTML(){
       (nota?'<span class="bnota-prev">'+esc(nota.length>70?nota.slice(0,70)+"\u2026":nota)+'</span>':'<span class="bnota-add">anotar\u2026</span>')+'</div>';
     cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
   }
-  return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+'</div>'+
+  const rotArea={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[VISTA.area]||"";
+  return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+
+           '<span class="semsel-area">'+esc(rotArea)+'</span></div>'+
          '<div class="board">'+cols+'</div>';
 }
 
@@ -825,7 +831,7 @@ document.addEventListener("click", function(ev){
   if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
-  if(D.area){ VISTA.escopo=null; VISTA.area=D.area; VISTA.modo="cards"; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(D.area){ VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
