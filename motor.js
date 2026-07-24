@@ -418,7 +418,7 @@ function bcardHTML(t, dayIso, dupOrig){
   const st=feita?"ok":(x?"x":"none");
   const rot=EXEC[baseId(t.id)];
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
-  return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" draggable="true" data-drag="'+escAttr(drag)+'">'+
+  return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     '<div class="bcard-t">'+esc(rot)+'</div>'+
     '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
@@ -852,10 +852,38 @@ document.addEventListener("change", function(ev){
   render();
 });
 
-document.addEventListener("dragstart", function(e){ const c=e.target&&e.target.closest&&e.target.closest("[data-drag]"); if(!c)return; e.dataTransfer.setData("text/plain", c.getAttribute("data-drag")); e.dataTransfer.effectAllowed="copy"; c.classList.add("dragging"); });
-document.addEventListener("dragend", function(e){ const c=e.target&&e.target.closest&&e.target.closest("[data-drag]"); if(c)c.classList.remove("dragging"); document.querySelectorAll(".bcol.dragover").forEach(x=>x.classList.remove("dragover")); });
-document.addEventListener("dragover", function(e){ const col=e.target&&e.target.closest&&e.target.closest("[data-daycol]"); if(col){ e.preventDefault(); e.dataTransfer.dropEffect="copy"; col.classList.add("dragover"); } });
-document.addEventListener("dragleave", function(e){ const col=e.target&&e.target.closest&&e.target.closest("[data-daycol]"); if(col && !col.contains(e.relatedTarget)) col.classList.remove("dragover"); });
-document.addEventListener("drop", function(e){ const col=e.target&&e.target.closest&&e.target.closest("[data-daycol]"); if(!col)return; e.preventDefault(); col.classList.remove("dragover"); const data=e.dataTransfer.getData("text/plain"); if(!data)return; const p=data.split("|"); duplicarTarefa(p[0],p[1],col.getAttribute("data-daycol")); });
+/* drag por ponteiro (funciona no mouse real e é robusto) */
+let DRAG=null;
+function limparDragover(){ document.querySelectorAll(".bcol.dragover").forEach(x=>x.classList.remove("dragover")); }
+document.addEventListener("mousedown", function(e){
+  const card=e.target&&e.target.closest&&e.target.closest("[data-drag]");
+  if(!card) return;
+  if(e.target.closest("button")) return;   // clicar nos botões não arrasta
+  e.preventDefault();
+  const r=card.getBoundingClientRect();
+  const ghost=card.cloneNode(true); ghost.classList.add("drag-ghost"); ghost.style.width=r.width+"px";
+  document.body.appendChild(ghost);
+  DRAG={data:card.getAttribute("data-drag"), ghost, ox:e.clientX-r.left, oy:e.clientY-r.top, moved:false, card};
+  ghost.style.left=(e.clientX-DRAG.ox)+"px"; ghost.style.top=(e.clientY-DRAG.oy)+"px";
+});
+document.addEventListener("mousemove", function(e){
+  if(!DRAG) return;
+  DRAG.moved=true; DRAG.card.classList.add("dragging");
+  DRAG.ghost.style.left=(e.clientX-DRAG.ox)+"px"; DRAG.ghost.style.top=(e.clientY-DRAG.oy)+"px";
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const col=el&&el.closest?el.closest("[data-daycol]"):null;
+  limparDragover(); if(col) col.classList.add("dragover");
+});
+document.addEventListener("mouseup", function(e){
+  if(!DRAG) return;
+  const st=DRAG; DRAG=null;
+  st.ghost.remove(); st.card.classList.remove("dragging"); limparDragover();
+  if(!st.moved) return;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const col=el&&el.closest?el.closest("[data-daycol]"):null;
+  if(!col) return;
+  const p=st.data.split("|");
+  duplicarTarefa(p[0],p[1],col.getAttribute("data-daycol"));
+});
 
 init();

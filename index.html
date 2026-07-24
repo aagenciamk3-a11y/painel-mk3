@@ -41,8 +41,10 @@
   .app.side-col .side-brand{justify-content:center}
   .app.side-col .snav{justify-content:center;gap:0;padding:9px 0;border-left-width:0}
   /* drag & drop (duplicar tarefa) */
-  .bcard[draggable="true"]{cursor:grab}
-  .bcard.dragging{opacity:.4}
+  .bcard[data-drag]{cursor:grab}
+  .bcard.dragging{opacity:.35}
+  .drag-ghost{position:fixed;z-index:3000;pointer-events:none;opacity:.92;transform:rotate(-2deg);
+    box-shadow:0 14px 34px rgba(0,0,0,.55)}
   .bcol.dragover{outline:2px dashed var(--mk3o);outline-offset:-4px;background:rgba(249,115,22,.06)}
   .bcard.dup{border-style:dashed}
   .dup-badge{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--mk3o);font-weight:700;margin-bottom:4px}
@@ -254,7 +256,7 @@
   .semsel select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;
     font-size:13px;padding:7px 10px;border-radius:8px;cursor:pointer;color-scheme:dark}
   .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
-  .bcol{flex:1 1 0;min-width:200px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  .bcol{flex:1 1 0;min-width:165px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
     display:flex;flex-direction:column;overflow:hidden}
   .bcol.hoje{border-color:var(--semana);box-shadow:0 0 0 1px var(--semana)}
   .bcol-h{padding:11px 13px;font-size:13px;font-weight:700;background:var(--panel2);border-bottom:1px solid var(--line);
