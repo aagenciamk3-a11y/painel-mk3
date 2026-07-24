@@ -418,6 +418,8 @@ function bcardHTML(t, dayIso, dupOrig){
   const st=feita?"ok":(x?"x":"none");
   const rot=EXEC[baseId(t.id)]||t.tarefa;
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
+  const p=PESSOA[t.area];
+  const face=p?'<span class="card-face" title="'+esc(p.nome)+'">'+esc(p.nome.slice(0,1))+'<img src="'+p.foto+'" alt="" onerror="this.remove()"></span>':'';
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     '<div class="bcard-t">'+esc(rot)+'</div>'+
@@ -425,6 +427,7 @@ function bcardHTML(t, dayIso, dupOrig){
     '<div class="bcard-chk">'+
       '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito">&#10003;</button>'+
       '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito">&#10007;</button>'+
+      face+
     '</div>'+
     (x&&x.motivo?'<button class="ver-motivo" data-vermotivo="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'">Mostrar motivo</button>':'')+
   '</div>';
@@ -720,12 +723,8 @@ function prioridadesHTML(){
     cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
   }
   const rotArea={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[VISTA.area]||"";
-  let respHTML="";
-  if(VISTA.area==="mkt") respHTML=faceHTML(PESSOA.mkt);
-  else if(VISTA.area==="fin") respHTML=faceHTML(PESSOA.fin);
-  else if(VISTA.area==="all") respHTML=faceHTML(PESSOA.mkt)+faceHTML(PESSOA.fin);
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+
-           '<span class="semsel-area">'+respHTML+'<span>'+esc(rotArea)+'</span></span></div>'+
+           '<span class="semsel-area">'+esc(rotArea)+'</span></div>'+
          '<div class="board">'+cols+'</div>';
 }
 
