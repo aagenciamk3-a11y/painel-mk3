@@ -452,10 +452,12 @@
   .vaziox button{background:var(--mk3);border:none;color:#fff;font:inherit;font-size:13px;font-weight:600;
     padding:9px 18px;border-radius:var(--r1);cursor:pointer;min-height:32px}
   .vaziox button:hover{background:var(--mk3s)}
-  .bcol-vaziox{padding:14px 10px;text-align:center}
+  .bcol-vaziox{padding:14px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px}
   .bcol-vaziox span{display:block;font-size:11.5px;color:var(--dim);margin-bottom:8px;line-height:1.4}
-  .bcol-vaziox button{background:none;border:1px dashed var(--line);color:var(--mut);font:inherit;font-size:11.5px;
-    font-weight:600;padding:6px 12px;border-radius:var(--r1);cursor:pointer;min-height:28px}
+  .bcol-vaziox button{display:inline-block;width:auto;max-width:100%;align-self:center;
+    background:none;border:1px dashed var(--line);color:var(--mut);font:inherit;font-size:11.5px;
+    font-weight:600;padding:7px 12px;border-radius:var(--r1);cursor:pointer;min-height:28px;
+    text-align:center;line-height:1.3}
   .bcol-vaziox button:hover{border-color:var(--mk3o);color:var(--mk3o)}
   .bcol-vaziox button.atr{border-style:solid;border-color:rgba(242,85,90,.45);color:#FF9DA0;background:rgba(242,85,90,.10)}
   .bcol-vaziox button.atr:hover{border-color:var(--atrasado);color:#fff;background:rgba(242,85,90,.22)}

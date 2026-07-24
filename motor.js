@@ -948,8 +948,8 @@ function prioridadesHTML(){
     if(!cs.length){
       const nAtr=atrasadasDisponiveis(dayIso).length;
       vazioBody='<div class="bcol-vaziox">'+
-        (nAtr ? '<span>Sem entregas. Dia livre para tirar atrasos.</span>'+
-                '<button class="atr" data-atrasadas="1" data-mday="'+dayIso+'">Fazer '+nAtr+' atrasada'+(nAtr>1?'s':'')+'</button>'
+        (nAtr ? '<span>Sem entregas neste dia.</span>'+
+                '<button class="atr" data-atrasadas="1" data-mday="'+dayIso+'">Fazer tarefas atrasadas ('+nAtr+')</button>'
               : '<span>Sem entregas neste dia.</span>'+
                 '<button data-demanda="1" data-demdia="'+dayIso+'">+ Demanda</button>')+
       '</div>';
