@@ -299,7 +299,8 @@ const IC = {
   mkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
   fin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
   com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
-  add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
+  add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+  equipe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-3-4.9"/></svg>'
 };
 function navItem(key,label,icon,kind,on,n){
   return '<button class="snav'+(on?" on":"")+'" data-'+kind+'="'+key+'" title="'+esc(label)+'">'+
@@ -318,6 +319,7 @@ function sidebarHTML(){
   h+=areas.map(a=>navItem(a[0],a[1],a[2],"area",(VISTA.area===a[0]))).join("");
   h+='<div class="side-sec">Demandas</div>';
   h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
+  h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
   return h;
 }
 
@@ -428,8 +430,8 @@ function bcardHTML(t, dayIso, dupOrig){
   const st=feita?"ok":(x?"x":"none");
   const rot=EXEC[baseId(t.id)]||t.tarefa;
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
-  const p=(t.fase==="Demanda")?PESSOAS[t.resp]:PESSOA[t.area];
-  const face=p?'<span class="card-face" title="'+esc(p.nome)+'">'+esc((p.nome||"?").slice(0,1))+'<img src="'+p.foto+'" alt="" onerror="this.remove()"></span>':'';
+  const nomeResp=(t.fase==="Demanda")?t.resp:AREARESP[t.area];
+  const face=faceDe(nomeResp);
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     '<div class="bcard-t">'+esc(rot)+'</div>'+
@@ -457,8 +459,9 @@ function addDemanda(texto,area,data,resp){
   persist(); rebuild(); render();
 }
 function removeDemanda(id){ snapshot(); ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>x.id!==id); persist(); rebuild(); render(); }
+function demConcluida(id){ const e=(ESTADO.concluidas["_dem"]||[]).find(x=>((x&&x.id)?x.id:x)===id); return !!(e&&!e.remove); }
 function listaDemandas(){
-  const ds=(ESTADO.demandas||[]).slice().sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  const ds=(ESTADO.demandas||[]).filter(x=>!demConcluida(x.id)).slice().sort((a,b)=>String(a.data).localeCompare(String(b.data)));
   if(!ds.length) return '';
   const A={mkt:"Marketing",fin:"Financeiro",com:"Comercial"};
   return '<div class="dem-lista"><div class="dem-lista-h">Demandas cadastradas</div>'+ds.map(x=>
@@ -467,9 +470,23 @@ function listaDemandas(){
     '<span class="dem-r">'+esc(x.resp)+'</span>'+
     '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover">&#215;</button></div>').join("")+'</div>';
 }
+function abrirEquipe(){
+  const ps=ESTADO.pessoas||[];
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox equipe"><h3>Equipe / responsáveis</h3>'+
+    '<p class="msub">Adicione, remova ou cadastre a foto de quem pode ser responsável por uma demanda.</p>'+
+    '<div class="eq-lista">'+ps.map(p=>
+      '<div class="eq-row">'+faceDe(p.nome)+'<span class="eq-nome">'+esc(p.nome)+'</span>'+
+      '<button class="eq-foto" data-trocarfoto="'+escAttr(p.nome)+'">'+(p.foto?"Trocar foto":"Adicionar foto")+'</button>'+
+      '<button class="eq-x" data-pessoax="'+escAttr(p.nome)+'" title="Remover">&#215;</button></div>').join("")+'</div>'+
+    '<div class="eq-add"><input type="text" id="enome" placeholder="Nome do novo responsável" autocomplete="off">'+
+      '<button data-macao="addpessoa">Adicionar</button></div>'+
+    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mm.style.display="flex";
+}
 function abrirDemanda(){
   const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]];
-  const pessoas=["Guilherme","Carla","Bia","Alda","Marlon"];
+  const pessoas=(ESTADO.pessoas||[]).map(p=>p.nome);
   const mm=$("modal");
   mm.innerHTML='<div class="mbox demform"><h3>Nova demanda</h3>'+
     '<label class="mlab">O que é a demanda<input type="text" id="dtexto" placeholder="Descreva a demanda..." autocomplete="off"></label>'+
@@ -552,6 +569,7 @@ function handleModal(D){
   if(D.macao==="motivo"){ const mot=(($("mmotivo")&&$("mmotivo").value)||"").trim(); setNaoFeito(D.mcid,D.mtid,D.mday,mot); fecharModal(); return; }
   if(D.macao==="removermotivo"){ setNaoFeito(D.mcid,D.mtid,D.mday,""); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
+  if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); abrirEquipe(); return; }
   if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value); abrirDemanda(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
@@ -578,7 +596,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -592,7 +610,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[];
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   rebuild(); render(); montarTooltip();
 }
 
@@ -735,15 +753,17 @@ function semanasDoMes(ano,mes){
   for(let dia=1; dia<=last; dia++) set.add(segOf(iso(new Date(ano,mes,dia))));
   return [...set].sort();
 }
-const PESSOA = { mkt:{nome:"Carla",foto:"fotos/carla.jpg"}, fin:{nome:"Bia",foto:"fotos/bia.jpg"} };
-const PESSOAS = {
-  "Guilherme":{nome:"Guilherme",foto:"fotos/guilherme.jpg"},
-  "Carla":{nome:"Carla",foto:"fotos/carla.jpg"},
-  "Bia":{nome:"Bia",foto:"fotos/bia.jpg"},
-  "Alda":{nome:"Alda",foto:"fotos/alda.jpg"},
-  "Marlon":{nome:"Marlon",foto:"fotos/marlon.jpg"}
-};
-function faceHTML(p){ return '<span class="resp-face" title="'+esc(p.nome)+'">'+esc(p.nome.slice(0,1))+'<img src="'+p.foto+'" alt="" onerror="this.remove()"></span>'; }
+const AREARESP = { mkt:"Carla", fin:"Bia" };
+const SEED_PESSOAS = [{nome:"Guilherme",foto:null},{nome:"Carla",foto:"fotos/carla.jpg"},{nome:"Bia",foto:"fotos/bia.jpg"},{nome:"Alda",foto:null},{nome:"Marlon",foto:null}];
+const pessoaPorNome = n => (ESTADO.pessoas||[]).find(p=>p.nome===n);
+function faceDe(nome){
+  if(!nome) return '';
+  const p=pessoaPorNome(nome), foto=p&&p.foto;
+  return '<span class="card-face" title="'+esc(nome)+'">'+esc(nome.slice(0,1))+(foto?'<img src="'+foto+'" alt="" onerror="this.remove()">':'')+'</span>';
+}
+function addPessoa(nome){ nome=(nome||"").trim(); if(!nome) return; ESTADO.pessoas=ESTADO.pessoas||[]; if(ESTADO.pessoas.some(p=>p.nome===nome)) return; snapshot(); ESTADO.pessoas.push({nome:nome,foto:null}); persist(); render(); }
+function removePessoa(nome){ snapshot(); ESTADO.pessoas=(ESTADO.pessoas||[]).filter(p=>p.nome!==nome); persist(); rebuild(); render(); }
+function setFotoPessoa(nome,url){ const p=pessoaPorNome(nome); if(!p) return; snapshot(); p.foto=url; persist(); rebuild(); render(); }
 function relevanteBoard(t){
   if(t.fase==="Demanda") return VISTA.area==="all" || t.area===VISTA.area;
   if(VISTA.area==="fin" || VISTA.area==="com") return t.area===VISTA.area;
@@ -886,7 +906,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -898,6 +918,9 @@ document.addEventListener("click", function(ev){
   if(D.dia){ abrirDia(D.dia); return; }
   if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
   if(D.demanda){ abrirDemanda(); return; }
+  if(D.equipe){ abrirEquipe(); return; }
+  if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
+  if(D.pessoax){ removePessoa(D.pessoax); abrirEquipe(); return; }
   if(D.demx){ removeDemanda(D.demx); abrirDemanda(); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
@@ -960,5 +983,20 @@ document.addEventListener("mouseup", function(e){
   const p=st.data.split("|");
   duplicarTarefa(p[0],p[1],col.getAttribute("data-daycol"));
 });
+
+let fotoAlvo=null;
+(function(){ const fi=document.getElementById("fotoInput"); if(!fi) return;
+  fi.addEventListener("change", function(e){
+    const f=e.target.files&&e.target.files[0]; if(!f||!fotoAlvo) return;
+    const rd=new FileReader();
+    rd.onload=function(){ const img=new Image();
+      img.onload=function(){ const s=Math.min(img.width,img.height),sx=(img.width-s)/2,sy=(img.height-s)/2;
+        const cv=document.createElement("canvas"); cv.width=128; cv.height=128;
+        cv.getContext("2d").drawImage(img,sx,sy,s,s,0,0,128,128);
+        setFotoPessoa(fotoAlvo, cv.toDataURL("image/jpeg",0.82)); fotoAlvo=null; abrirEquipe(); };
+      img.src=rd.result; };
+    rd.readAsDataURL(f);
+  });
+})();
 
 init();

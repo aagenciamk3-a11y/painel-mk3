@@ -328,6 +328,23 @@
     background:#fbf5df;color:#2c2a20;font:inherit;font-size:14px;padding:10px 14px;line-height:26px;resize:vertical;
     background-image:repeating-linear-gradient(#fbf5df,#fbf5df 25px,#e7ddba 26px);margin-bottom:16px}
   .notepad-ta::placeholder{color:#9a936f}
+  /* equipe / responsáveis */
+  .equipe{max-width:440px;max-height:86vh;display:flex;flex-direction:column;overflow:auto}
+  .eq-lista{display:flex;flex-direction:column;gap:8px;margin:8px 0 14px}
+  .eq-row{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;padding:8px 11px}
+  .eq-nome{flex:1;min-width:0;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .eq-foto{background:none;border:1px solid var(--line);color:var(--mut);font:inherit;font-size:11px;font-weight:600;
+    padding:5px 10px;border-radius:7px;cursor:pointer;flex:none}
+  .eq-foto:hover{border-color:var(--mk3o);color:var(--mk3o)}
+  .eq-x{background:none;border:none;color:var(--mut);cursor:pointer;font-size:17px;line-height:1;padding:0 2px;flex:none}
+  .eq-x:hover{color:var(--atrasado)}
+  .eq-add{display:flex;gap:8px;margin-top:2px}
+  .eq-add input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:8px;padding:9px 11px;font:inherit;font-size:14px}
+  .eq-add button{background:var(--mk3);border:none;color:#fff;font:inherit;font-size:13px;font-weight:600;
+    padding:9px 16px;border-radius:8px;cursor:pointer;flex:none}
+  .card-face img{background:var(--mk3)}
   /* adicionador de demandas */
   .snav-add{color:var(--mk3o)}
   .demform{max-width:460px;max-height:86vh;display:flex;flex-direction:column;overflow:auto}
@@ -397,6 +414,7 @@
 
 <div id="modal" class="modal"></div>
 <div id="tip"></div>
+<input type="file" id="fotoInput" accept="image/*" style="display:none">
 
 <script src="dados.js"></script>
 <script src="motor.js"></script>
