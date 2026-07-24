@@ -7,16 +7,48 @@
 <title>MK3 — Painel de Prazos</title>
 <style>
   :root{
-    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
-    --txt:#e6e8ec; --mut:#8b909c; --roxo:#a78bfa;
+    --bg:#17102b; --panel:#221839; --panel2:#2d2249; --line:#3a2c58;
+    --txt:#ece9f6; --mut:#a99fc4; --roxo:#a78bfa;
+    --mk3:#8b5cf6; --mk3o:#f97316; --side:#120b22;
     --atrasado:#e5484d; --hoje:#ff8a3d; --umdia:#f5c518;
     --semana:#4c9aff; --futuro:#6e7481; --ok:#3fb950; --sem:#a855f7;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--txt);line-height:1.5;padding:32px 24px 80px;
+  body{background:var(--bg);color:var(--txt);line-height:1.5;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+  .app{display:flex;min-height:100vh}
+  .main{flex:1 1 auto;min-width:0;padding:24px 30px 70px;max-width:1360px}
   .wrap{max-width:1180px;margin:0 auto}
-  header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+  /* sidebar (estilo Pode Postar) */
+  .side{width:232px;flex:none;background:var(--side);border-right:1px solid var(--line);
+    padding:16px 12px 24px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .side-brand{display:flex;align-items:center;justify-content:space-between;padding:2px 8px 14px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+  .side-brand .b{font-size:20px;font-weight:800;letter-spacing:-.02em;color:var(--txt)}
+  .side-brand .b span{color:var(--mk3o)}
+  .side-sec{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;padding:14px 10px 6px}
+  .snav{display:flex;align-items:center;gap:11px;width:100%;background:none;border:none;color:var(--mut);
+    font:inherit;font-size:14px;font-weight:500;padding:9px 10px;border-radius:9px;cursor:pointer;text-align:left;border-left:3px solid transparent}
+  .snav:hover{background:rgba(255,255,255,.05);color:var(--txt)}
+  .snav.on{background:rgba(139,92,246,.18);color:#fff;border-left-color:var(--mk3o)}
+  .snav-i{width:22px;height:22px;flex:none;display:grid;place-items:center;color:inherit}
+  .snav-i svg{width:19px;height:19px}
+  .snav-t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .snav-b{background:var(--atrasado);color:#fff;font-size:10px;font-weight:700;border-radius:20px;min-width:18px;height:18px;padding:0 5px;display:grid;place-items:center;flex:none}
+  .side-toggle{background:none;border:1px solid var(--line);color:var(--mut);width:26px;height:26px;border-radius:7px;cursor:pointer;display:grid;place-items:center;font-size:11px}
+  .side-toggle:hover{color:var(--txt);border-color:var(--mut)}
+  .app.side-col .side{width:62px}
+  .app.side-col .snav-t,.app.side-col .side-sec,.app.side-col .snav-b{display:none}
+  .app.side-col .side-brand{justify-content:center}
+  .app.side-col .snav{justify-content:center;gap:0;padding:9px 0;border-left-width:0}
+  /* drag & drop (duplicar tarefa) */
+  .bcard[draggable="true"]{cursor:grab}
+  .bcard.dragging{opacity:.4}
+  .bcol.dragover{outline:2px dashed var(--mk3o);outline-offset:-4px;background:rgba(249,115,22,.06)}
+  .bcard.dup{border-style:dashed}
+  .dup-badge{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--mk3o);font-weight:700;margin-bottom:4px}
+  .dup-x{background:none;border:none;color:var(--mut);cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
+  .dup-x:hover{color:var(--atrasado)}
+  header{display:flex;align-items:baseline;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px}
   h1{font-size:22px;letter-spacing:-.02em}
   h1 span{color:var(--mut);font-weight:400}
   .hoje{font-size:13px;color:var(--mut)}
@@ -302,20 +334,19 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>MK3 <span>· Painel de Prazos</span></h1>
-    <div class="hoje" id="hoje"></div>
-  </header>
-
-  <div class="areas" id="areas"></div>
-  <div id="editbar"></div>
-  <div id="view"></div>
-
-  <footer>
-    Regras do Manual de Processos Internos MK3 v1.0. Prazos de aprovação e produção contam
-    <strong>dias úteis</strong>. Status recalculados a cada abertura da página.
-  </footer>
+<div class="app" id="app">
+  <aside class="side" id="side"></aside>
+  <main class="main">
+    <header>
+      <div class="hoje" id="hoje"></div>
+    </header>
+    <div id="editbar"></div>
+    <div id="view"></div>
+    <footer>
+      Regras do Manual de Processos Internos MK3 v1.0. Prazos de aprovação e produção contam
+      <strong>dias úteis</strong>. Status recalculados a cada abertura da página.
+    </footer>
+  </main>
 </div>
 
 <div id="modal" class="modal"></div>

@@ -289,7 +289,36 @@ function areaBase(id){
 }
 const areaMatch = t => VISTA.area==="all" || t.area===VISTA.area;
 
-const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, edit:false, pano:null, pmes:0, psem:null };
+/* ---- sidebar (estilo Pode Postar) ---- */
+const IC = {
+  cards:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  prio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 12l3 3 5-6"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
+  lista:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  geral:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18"/></svg>',
+  mkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+  fin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+  com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+};
+function navItem(key,label,icon,kind,on,n){
+  return '<button class="snav'+(on?" on":"")+'" data-'+kind+'="'+key+'" title="'+esc(label)+'">'+
+    '<span class="snav-i">'+icon+'</span><span class="snav-t">'+esc(label)+'</span>'+
+    (n?'<span class="snav-b">'+n+'</span>':'')+'</button>';
+}
+function sidebarHTML(){
+  const c=VISTA.escopo?cliente(VISTA.escopo):null;
+  const urg=TODAS.filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
+  const views=[["cards","Cartões",IC.cards],["prio","Prioridades",IC.prio],["cal","Calendário",IC.cal],["lista","Lista",IC.lista]];
+  const areas=[["all","Visão Geral",IC.geral],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]];
+  let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
+  h+='<div class="side-sec">Ver</div>';
+  h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
+  h+='<div class="side-sec">Áreas</div>';
+  h+=areas.map(a=>navItem(a[0],a[1],a[2],"area",(VISTA.area===a[0]))).join("");
+  return h;
+}
+
+const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, edit:false, pano:null, pmes:0, psem:null, side:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
@@ -367,6 +396,38 @@ function marcarFeitoSemana(cid,tid,day){
   const wk=segOf(day);
   if(ESTADO.semanal&&ESTADO.semanal[wk]) delete ESTADO.semanal[wk][chaveTarefa(cid,tid)];
   marcar(cid,tid,day,"concluir");
+}
+function duplicarTarefa(cid,tid,dia){
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
+  if(t.data===dia) return;
+  ESTADO.dup=ESTADO.dup||[];
+  if(ESTADO.dup.some(e=>e.cid===cid&&e.tid===tid&&e.dia===dia)) return;
+  snapshot();
+  ESTADO.dup.push({cid:cid,tid:tid,dia:dia,orig:t.data});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t.tarefa,acao:"replanejar",id:tid,data:dia});
+  persist(); render();
+}
+function removeDup(cid,tid,dia){
+  snapshot();
+  ESTADO.dup=(ESTADO.dup||[]).filter(e=>!(e.cid===cid&&e.tid===tid&&e.dia===dia));
+  persist(); render();
+}
+function bcardHTML(t, dayIso, dupOrig){
+  const feita=t.st.k==="ok";
+  const x=xInfo(VISTA.psem,t.clienteId,t.id);
+  const st=feita?"ok":(x?"x":"none");
+  const rot=EXEC[baseId(t.id)];
+  const drag=t.clienteId+"|"+t.id+"|"+t.data;
+  return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" draggable="true" data-drag="'+escAttr(drag)+'">'+
+    (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
+    '<div class="bcard-t">'+esc(rot)+'</div>'+
+    '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
+    '<div class="bcard-chk">'+
+      '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito">&#10003;</button>'+
+      '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito">&#10007;</button>'+
+    '</div>'+
+    (x&&x.motivo?'<button class="ver-motivo" data-vermotivo="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'">Mostrar motivo</button>':'')+
+  '</div>';
 }
 function setNota(day, texto){
   snapshot();
@@ -450,7 +511,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -458,11 +519,13 @@ function mergeEstado(a,b){
   return r;
 }
 async function init(){
+  try{ VISTA.side=localStorage.getItem("mk3_side")==="1"; }catch(e){}
+  { const ap=$("app"); if(ap) ap.classList.toggle("side-col", !!VISTA.side); }
   let base={concluidas:{},datas:{},log:[]};
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={};
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[];
   rebuild(); render(); montarTooltip();
 }
 
@@ -631,26 +694,14 @@ function prioridadesHTML(){
   let cols="";
   for(let i=0;i<5;i++){
     const dayIso=addD(VISTA.psem,i);
-    const cards=TODAS.filter(t=>t.data===dayIso && EXEC[baseId(t.id)]).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
-    const body=cards.length ? cards.map(t=>{
-      const feita=t.st.k==="ok";
-      const x=xInfo(VISTA.psem,t.clienteId,t.id);
-      const st=feita?"ok":(x?"x":"none");
-      const rot=EXEC[baseId(t.id)];
-      return '<div class="bcard st-'+st+'">'+
-        '<div class="bcard-t">'+esc(rot)+'</div>'+
-        '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
-        '<div class="bcard-chk">'+
-          '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito">&#10003;</button>'+
-          '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito">&#10007;</button>'+
-        '</div>'+
-        (x&&x.motivo?'<button class="ver-motivo" data-vermotivo="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'">Mostrar motivo</button>':'')+
-      '</div>';
-    }).join("") : '<div class="bcol-vazio">Nada</div>';
+    const reais=TODAS.filter(t=>t.data===dayIso && EXEC[baseId(t.id)]).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
+    const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso).map(e=>({t:TODAS.find(x=>x.clienteId===e.cid&&x.id===e.tid),orig:e.orig})).filter(o=>o.t);
+    const cs=reais.map(t=>bcardHTML(t,dayIso,null)).concat(dups.map(o=>bcardHTML(o.t,dayIso,o.orig)));
+    const body=cs.length ? cs.join("") : '<div class="bcol-vazio">Nada</div>';
     const nota=(ESTADO.notas&&ESTADO.notas[dayIso])||"";
     const notaEl='<div class="bnota'+(nota?" tem":"")+'" data-nota="'+dayIso+'"><span class="bnota-h">&#128221; Notas</span>'+
       (nota?'<span class="bnota-prev">'+esc(nota.length>70?nota.slice(0,70)+"\u2026":nota)+'</span>':'<span class="bnota-add">anotar\u2026</span>')+'</div>';
-    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
+    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
   }
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+'</div>'+
          '<div class="board">'+cols+'</div>';
@@ -731,21 +782,17 @@ function render(){
     '<button class="ubtn" data-redo="1"'+(REDO.length?"":" disabled")+' title="Refazer">&#8625; Refazer</button>'+
     (nMud()?'<span class="umud">'+nMud()+' '+(nMud()>1?"tarefas marcadas":"tarefa marcada")+' por você · salvo neste navegador</span>'
            :'<span class="umud dim">Clique numa tarefa (na lista ou no calendário) para marcar concluído, enviado ou aprovado.</span>');
-  $("areas").innerHTML = AREAS.map(a=>
-    '<button class="areabtn '+(VISTA.area===a.k?"on":"")+'" data-area="'+a.k+'">'+a.rot+'</button>').join("");
+  $("side").innerHTML = sidebarHTML();
 
   const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
 
   if(!c){
-    const modos = [["cards","Cartões"],["prio","Prioridades"],["cal","Calendário"],["lista","Lista"]];
-    const toggle = '<div class="modos">'+modos.map(m=>
-      '<button class="'+(VISTA.modo===m[0]?"on":"")+'" data-modo="'+m[0]+'">'+m[1]+'</button>').join("")+'</div>';
     let body;
     if(VISTA.modo==="prio")       body = prioridadesHTML();
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
     else                          body = listaGlobalHTML();
-    $("view").innerHTML = toggle + body;
+    $("view").innerHTML = body;
     return;
   }
 
@@ -766,7 +813,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -775,14 +822,16 @@ document.addEventListener("click", function(ev){
   if(D.wkx){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.vermotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.nota){ abrirNota(D.nota); return; }
+  if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
+  if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
+  if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(D.area){ VISTA.escopo=null; VISTA.area=D.area; VISTA.modo="cards"; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
 
   let topo = true;
 
-  if(D.area){ VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; }
-  if(D.modo){ VISTA.modo=D.modo; VISTA.filtro=null; VISTA.dia=null; }
   if(D.cliente){ VISTA.escopo=D.cliente; VISTA.aba="cal"; VISTA.mes=0; VISTA.dia=null; VISTA.filtro=null; }
   if(D.nav==="home"){ VISTA.escopo=null; VISTA.filtro=null; VISTA.dia=null; }
   if(D.cliaba){ VISTA.aba=D.cliaba; VISTA.filtro=null; VISTA.dia=null; }
@@ -802,5 +851,11 @@ document.addEventListener("change", function(ev){
   else if(w==="semana"){ VISTA.psem=v; }
   render();
 });
+
+document.addEventListener("dragstart", function(e){ const c=e.target&&e.target.closest&&e.target.closest("[data-drag]"); if(!c)return; e.dataTransfer.setData("text/plain", c.getAttribute("data-drag")); e.dataTransfer.effectAllowed="copy"; c.classList.add("dragging"); });
+document.addEventListener("dragend", function(e){ const c=e.target&&e.target.closest&&e.target.closest("[data-drag]"); if(c)c.classList.remove("dragging"); document.querySelectorAll(".bcol.dragover").forEach(x=>x.classList.remove("dragover")); });
+document.addEventListener("dragover", function(e){ const col=e.target&&e.target.closest&&e.target.closest("[data-daycol]"); if(col){ e.preventDefault(); e.dataTransfer.dropEffect="copy"; col.classList.add("dragover"); } });
+document.addEventListener("dragleave", function(e){ const col=e.target&&e.target.closest&&e.target.closest("[data-daycol]"); if(col && !col.contains(e.relatedTarget)) col.classList.remove("dragover"); });
+document.addEventListener("drop", function(e){ const col=e.target&&e.target.closest&&e.target.closest("[data-daycol]"); if(!col)return; e.preventDefault(); col.classList.remove("dragover"); const data=e.dataTransfer.getData("text/plain"); if(!data)return; const p=data.split("|"); duplicarTarefa(p[0],p[1],col.getAttribute("data-daycol")); });
 
 init();
