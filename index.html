@@ -284,11 +284,11 @@
   .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
   .bcol{flex:1 1 0;min-width:165px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
     display:flex;flex-direction:column;overflow:hidden}
-  .bcol.hoje{border-color:var(--semana);box-shadow:0 0 0 1px var(--semana)}
+  .bcol.hoje{border-color:rgba(249,115,22,.55);box-shadow:0 0 0 1px rgba(249,115,22,.30),0 6px 18px rgba(0,0,0,.30)}
   .bcol-h{padding:11px 13px;font-size:13px;font-weight:700;background:var(--panel2);border-bottom:1px solid var(--line);
     display:flex;align-items:center;justify-content:space-between}
   .bcol-h span{font-size:12px;color:var(--mut);font-weight:600}
-  .bcol.hoje .bcol-h{color:var(--semana)}
+  .bcol.hoje .bcol-h{color:var(--mk3o);background:rgba(249,115,22,.10)}
   .bcol-body{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:60px;flex:1 1 auto}
   .bcol-vazio{color:#4a4f5a;font-size:12px;text-align:center;padding:10px 0}
   .bcard{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--futuro);
@@ -457,6 +457,15 @@
   .bcol-vaziox button{background:none;border:1px dashed var(--line);color:var(--mut);font:inherit;font-size:11.5px;
     font-weight:600;padding:6px 12px;border-radius:var(--r1);cursor:pointer;min-height:28px}
   .bcol-vaziox button:hover{border-color:var(--mk3o);color:var(--mk3o)}
+  .bcol-vaziox button.atr{border-style:solid;border-color:rgba(242,85,90,.45);color:#FF9DA0;background:rgba(242,85,90,.10)}
+  .bcol-vaziox button.atr:hover{border-color:var(--atrasado);color:#fff;background:rgba(242,85,90,.22)}
+  .atr-lista{display:flex;flex-direction:column;gap:7px;max-height:46vh;overflow-y:auto;margin:4px 0 14px}
+  .atr-item{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:var(--r1);padding:8px 11px;text-align:left;color:inherit;font:inherit;cursor:pointer;width:100%}
+  .atr-item:hover{border-color:var(--mk3o)}
+  .atr-item .at-t{flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .atr-item .at-t i{font-style:normal;color:var(--mut);font-size:12px;font-weight:400}
+  .atr-item .at-add{flex:none;font-size:11px;font-weight:700;color:var(--mk3o)}
   /* ---- ícone de status (2.3) ---- */
   .tag i.si{font-style:normal;margin-right:4px}
   /* ---- ação rápida na linha (4.1) ---- */
@@ -468,7 +477,7 @@
     font-weight:700;border-radius:20px;padding:1px 7px;margin-left:6px}
   .bcol.hoje{position:relative}
   .bcol.hoje::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;
-    background:var(--mk3o);border-radius:12px 12px 0 0;z-index:1}
+    background:var(--mk3o);border-radius:var(--r2) var(--r2) 0 0;z-index:2}
   .bcard-chk{gap:8px}
   .chk{width:28px;height:28px}
   .bcard.st-ok{padding:7px 10px;opacity:.85}

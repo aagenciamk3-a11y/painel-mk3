@@ -594,6 +594,27 @@ function concluirRapido(cid,tid){
   marcar(cid,tid,iso(HOJE),"concluir");
   toast((t?t.tarefa:"Tarefa")+" · concluída hoje", true);
 }
+function atrasadasDisponiveis(dia){
+  const jaNoDia=new Set(TODAS.filter(t=>t.data===dia).map(t=>t.clienteId+"|"+t.id));
+  const dup=new Set((ESTADO.dup||[]).filter(e=>e.dia===dia).map(e=>e.cid+"|"+e.tid));
+  return TODAS.filter(t=>t.st.k==="atrasado" && relevanteBoard(t) && !jaNoDia.has(t.clienteId+"|"+t.id) && !dup.has(t.clienteId+"|"+t.id))
+    .sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+}
+function abrirAtrasadas(dia){
+  const ts=atrasadasDisponiveis(dia);
+  const rot=d(dia).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"2-digit"});
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox diamodal"><h3>Tirar atrasos · '+esc(rot)+'</h3>'+
+    '<p class="msub">Escolha o que fazer neste dia. A tarefa entra no dia e continua contando o atraso original.</p>'+
+    (ts.length?'<div class="atr-lista">'+ts.map(t=>
+      '<button class="atr-item" data-macao="mover" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dia+'">'+
+        tagHTML(t)+'<span class="at-t">'+esc(t.tarefa)+' <i>'+esc(t.cliente)+'</i></span>'+
+        '<span class="at-add">+ neste dia</span></button>').join("")+'</div>'
+      :'<div class="vaziox"><h4>Nenhum atraso por aqui</h4><p>Tudo em dia nesta área. Pode aproveitar para adiantar o que vem.</p><button data-macao="fechar">Fechar</button></div>')+
+    '<div class="mbtns"><button data-demanda="1" data-demdia="'+dia+'">+ Nova demanda</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal();
+}
 function abrirMover(cid,tid,diaAtual){
   const dias=["Segunda","Terça","Quarta","Quinta","Sexta"];
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
@@ -630,7 +651,13 @@ function abrirEditor(cid,tid){
 function handleModal(D){
   if(D.macao==="fechar"){ fecharModal(); return; }
   if(D.macao==="motivo"){ const mot=(($("mmotivo")&&$("mmotivo").value)||"").trim(); setNaoFeito(D.mcid,D.mtid,D.mday,mot); fecharModal(); return; }
-  if(D.macao==="mover"){ duplicarTarefa(D.mcid,D.mtid,D.mday); fecharModal(); toast("Replanejada para "+fmt(D.mday),true); return; }
+  if(D.macao==="mover"){
+    const eraAtr=(TODAS.find(x=>x.clienteId===D.mcid&&x.id===D.mtid)||{}).st;
+    duplicarTarefa(D.mcid,D.mtid,D.mday);
+    toast("Colocada em "+fmt(D.mday),true);
+    if(eraAtr&&eraAtr.k==="atrasado"){ abrirAtrasadas(D.mday); } else { fecharModal(); }
+    return;
+  }
   if(D.macao==="removermotivo"){ setNaoFeito(D.mcid,D.mtid,D.mday,""); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); abrirEquipe(); return; }
@@ -917,9 +944,17 @@ function prioridadesHTML(){
     const reais=TODAS.filter(t=>t.data===dayIso && relevanteBoard(t)).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
     const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso).map(e=>({t:TODAS.find(x=>x.clienteId===e.cid&&x.id===e.tid),orig:e.orig})).filter(o=>o.t);
     const cs=reais.map(t=>bcardHTML(t,dayIso,null)).concat(dups.map(o=>bcardHTML(o.t,dayIso,o.orig)));
-    const body=cs.length ? cs.join("")
-      : '<div class="bcol-vaziox"><span>Sem entregas neste dia.</span>'+
-        '<button data-demanda="1" data-demdia="'+dayIso+'">+ Demanda</button></div>';
+    let vazioBody;
+    if(!cs.length){
+      const nAtr=atrasadasDisponiveis(dayIso).length;
+      vazioBody='<div class="bcol-vaziox">'+
+        (nAtr ? '<span>Sem entregas. Dia livre para tirar atrasos.</span>'+
+                '<button class="atr" data-atrasadas="1" data-mday="'+dayIso+'">Fazer '+nAtr+' atrasada'+(nAtr>1?'s':'')+'</button>'
+              : '<span>Sem entregas neste dia.</span>'+
+                '<button data-demanda="1" data-demdia="'+dayIso+'">+ Demanda</button>')+
+      '</div>';
+    }
+    const body=cs.length ? cs.join("") : vazioBody;
     const nota=(ESTADO.notas&&ESTADO.notas[dayIso])||"";
     const notaEl='<div class="bnota'+(nota?" tem":"")+'" data-nota="'+dayIso+'"><span class="bnota-h">&#128221; Notas</span>'+
       (nota?'<span class="bnota-prev">'+esc(nota.length>70?nota.slice(0,70)+"\u2026":nota)+'</span>':'<span class="bnota-add">anotar\u2026</span>')+'</div>';
@@ -1053,7 +1088,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1066,6 +1101,7 @@ document.addEventListener("click", function(ev){
   if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
   if(D.rowok){ concluirRapido(D.mcid,D.mtid); return; }
   if(D.mover){ abrirMover(D.mcid,D.mtid,D.mday); return; }
+  if(D.atrasadas){ abrirAtrasadas(D.mday); return; }
   if(D.toastundo){ desfazer(); fecharToast(); return; }
   if(D.vertudo){ VISTA.verTudo=true; render(); return; }
   if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
