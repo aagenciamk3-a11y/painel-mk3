@@ -643,11 +643,11 @@ function calendario(tasks, marcos, showCli){
     const evs  = base.filter(t=>t.data===s);
     const mk   = marcos.filter(m=>m.data===s);
     const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":""].filter(Boolean).join(" ");
-    const teto = 3;
+    const maxEv = 2;
     const items = mk.map(m=>({o:m,marco:true})).concat(evs.map(t=>({o:t,marco:false})));
-    const cap = items.length>teto ? teto-1 : teto;
+    const cap = Math.min(items.length, maxEv);
     const evsHtml = items.slice(0,cap).map(it=> it.marco ? evCard(it.o,false,true) : evCard(it.o,showCli,false)).join("");
-    const resto = items.length - Math.min(items.length,cap);
+    const resto = items.length - cap;
     const extra = resto>0 ? '<div class="mais" data-dia="'+s+'">+'+resto+' '+(resto===1?"item":"itens")+'</div>' : "";
     cells += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
   }
@@ -688,6 +688,8 @@ function semanasDoMes(ano,mes){
   for(let dia=1; dia<=last; dia++) set.add(segOf(iso(new Date(ano,mes,dia))));
   return [...set].sort();
 }
+const PESSOA = { mkt:{nome:"Carla",foto:"fotos/carla.jpg"}, fin:{nome:"Bia",foto:"fotos/bia.jpg"} };
+function faceHTML(p){ return '<span class="resp-face" title="'+esc(p.nome)+'">'+esc(p.nome.slice(0,1))+'<img src="'+p.foto+'" alt="" onerror="this.remove()"></span>'; }
 function relevanteBoard(t){
   if(VISTA.area==="fin" || VISTA.area==="com") return t.area===VISTA.area;
   return !!EXEC[baseId(t.id)];   // Visão Geral / Marketing: entregas de execução
@@ -718,8 +720,12 @@ function prioridadesHTML(){
     cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
   }
   const rotArea={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[VISTA.area]||"";
+  let respHTML="";
+  if(VISTA.area==="mkt") respHTML=faceHTML(PESSOA.mkt);
+  else if(VISTA.area==="fin") respHTML=faceHTML(PESSOA.fin);
+  else if(VISTA.area==="all") respHTML=faceHTML(PESSOA.mkt)+faceHTML(PESSOA.fin);
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+
-           '<span class="semsel-area">'+esc(rotArea)+'</span></div>'+
+           '<span class="semsel-area">'+respHTML+'<span>'+esc(rotArea)+'</span></span></div>'+
          '<div class="board">'+cols+'</div>';
 }
 
