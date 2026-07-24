@@ -298,7 +298,8 @@ const IC = {
   geral:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18"/></svg>',
   mkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
   fin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
-  com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+  com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
 };
 function navItem(key,label,icon,kind,on,n){
   return '<button class="snav'+(on?" on":"")+'" data-'+kind+'="'+key+'" title="'+esc(label)+'">'+
@@ -315,6 +316,8 @@ function sidebarHTML(){
   h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
   h+='<div class="side-sec">Áreas</div>';
   h+=areas.map(a=>navItem(a[0],a[1],a[2],"area",(VISTA.area===a[0]))).join("");
+  h+='<div class="side-sec">Demandas</div>';
+  h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
   return h;
 }
 
@@ -351,6 +354,13 @@ function rebuild(){
     }
   });
   TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})));
+  (ESTADO.demandas||[]).forEach(dm=>{
+    const done=(ESTADO.concluidas["_dem"]||[]).filter(e=>((e&&e.id)?e.id:e)===dm.id).pop();
+    const t={id:dm.id, clienteId:"_dem", cliente:dm.resp, tarefa:dm.texto, detalhe:"Demanda", data:dm.data, resp:dm.resp, fase:"Demanda", area:dm.area,
+             feita:!!(done&&!done.remove), dataConclusao:(done&&done.data)||null};
+    t.st=status(t);
+    TODAS.push(t);
+  });
 }
 
 const tdOf = t => escAttr([t.cliente, (t.st&&t.st.txt), (t.data?fmt(t.data)+" "+dow(t.data):""), t.resp, t.detalhe].filter(Boolean).join(" · "));
@@ -418,8 +428,8 @@ function bcardHTML(t, dayIso, dupOrig){
   const st=feita?"ok":(x?"x":"none");
   const rot=EXEC[baseId(t.id)]||t.tarefa;
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
-  const p=PESSOA[t.area];
-  const face=p?'<span class="card-face" title="'+esc(p.nome)+'">'+esc(p.nome.slice(0,1))+'<img src="'+p.foto+'" alt="" onerror="this.remove()"></span>':'';
+  const p=(t.fase==="Demanda")?PESSOAS[t.resp]:PESSOA[t.area];
+  const face=p?'<span class="card-face" title="'+esc(p.nome)+'">'+esc((p.nome||"?").slice(0,1))+'<img src="'+p.foto+'" alt="" onerror="this.remove()"></span>':'';
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     '<div class="bcard-t">'+esc(rot)+'</div>'+
@@ -437,6 +447,39 @@ function setNota(day, texto){
   ESTADO.notas=ESTADO.notas||{};
   if(texto && texto.trim()) ESTADO.notas[day]=texto; else delete ESTADO.notas[day];
   persist(); render();
+}
+function addDemanda(texto,area,data,resp){
+  snapshot();
+  ESTADO.demandas=ESTADO.demandas||[];
+  const id="dem_"+Date.now()+"_"+Math.floor(Math.random()*1000);
+  ESTADO.demandas.push({id:id,texto:texto,area:area,data:data,resp:resp});
+  ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demanda",id:id,nome:texto,area:area,data:data,resp:resp});
+  persist(); rebuild(); render();
+}
+function removeDemanda(id){ snapshot(); ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>x.id!==id); persist(); rebuild(); render(); }
+function listaDemandas(){
+  const ds=(ESTADO.demandas||[]).slice().sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  if(!ds.length) return '';
+  const A={mkt:"Marketing",fin:"Financeiro",com:"Comercial"};
+  return '<div class="dem-lista"><div class="dem-lista-h">Demandas cadastradas</div>'+ds.map(x=>
+    '<div class="dem-row"><span class="dem-d">'+fmt(x.data)+'</span>'+
+    '<span class="dem-t">'+esc(x.texto)+' <i>'+(A[x.area]||"")+'</i></span>'+
+    '<span class="dem-r">'+esc(x.resp)+'</span>'+
+    '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover">&#215;</button></div>').join("")+'</div>';
+}
+function abrirDemanda(){
+  const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]];
+  const pessoas=["Guilherme","Carla","Bia","Alda","Marlon"];
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox demform"><h3>Nova demanda</h3>'+
+    '<label class="mlab">O que é a demanda<input type="text" id="dtexto" placeholder="Descreva a demanda..." autocomplete="off"></label>'+
+    '<label class="mlab">Área<select id="darea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
+    '<label class="mlab">Data<input type="date" id="ddata" value="'+iso(HOJE)+'"></label>'+
+    '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option>'+p+'</option>').join("")+'</select></label>'+
+    '<div class="mbtns"><button data-macao="salvardemanda">Adicionar</button><button class="sec" data-macao="fechar">Fechar</button></div>'+
+    listaDemandas()+
+  '</div>';
+  mm.style.display="flex";
 }
 function diaItem(t,showCli){
   return '<button class="dia-item editavel" data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'">'+
@@ -509,6 +552,7 @@ function handleModal(D){
   if(D.macao==="motivo"){ const mot=(($("mmotivo")&&$("mmotivo").value)||"").trim(); setNaoFeito(D.mcid,D.mtid,D.mday,mot); fecharModal(); return; }
   if(D.macao==="removermotivo"){ setNaoFeito(D.mcid,D.mtid,D.mday,""); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
+  if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value); abrirDemanda(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
   const dv = (D.macao==="hoje") ? iso(HOJE) : (($("mdata")&&$("mdata").value)||iso(HOJE));
@@ -534,7 +578,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -548,7 +592,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[];
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[];
   rebuild(); render(); montarTooltip();
 }
 
@@ -692,8 +736,16 @@ function semanasDoMes(ano,mes){
   return [...set].sort();
 }
 const PESSOA = { mkt:{nome:"Carla",foto:"fotos/carla.jpg"}, fin:{nome:"Bia",foto:"fotos/bia.jpg"} };
+const PESSOAS = {
+  "Guilherme":{nome:"Guilherme",foto:"fotos/guilherme.jpg"},
+  "Carla":{nome:"Carla",foto:"fotos/carla.jpg"},
+  "Bia":{nome:"Bia",foto:"fotos/bia.jpg"},
+  "Alda":{nome:"Alda",foto:"fotos/alda.jpg"},
+  "Marlon":{nome:"Marlon",foto:"fotos/marlon.jpg"}
+};
 function faceHTML(p){ return '<span class="resp-face" title="'+esc(p.nome)+'">'+esc(p.nome.slice(0,1))+'<img src="'+p.foto+'" alt="" onerror="this.remove()"></span>'; }
 function relevanteBoard(t){
+  if(t.fase==="Demanda") return VISTA.area==="all" || t.area===VISTA.area;
   if(VISTA.area==="fin" || VISTA.area==="com") return t.area===VISTA.area;
   return !!EXEC[baseId(t.id)];   // Visão Geral / Marketing: entregas de execução
 }
@@ -834,7 +886,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -845,6 +897,8 @@ document.addEventListener("click", function(ev){
   if(D.nota){ abrirNota(D.nota); return; }
   if(D.dia){ abrirDia(D.dia); return; }
   if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
+  if(D.demanda){ abrirDemanda(); return; }
+  if(D.demx){ removeDemanda(D.demx); abrirDemanda(); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.area){ VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
