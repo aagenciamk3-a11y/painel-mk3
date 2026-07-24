@@ -435,6 +435,11 @@ function setNota(day, texto){
   if(texto && texto.trim()) ESTADO.notas[day]=texto; else delete ESTADO.notas[day];
   persist(); render();
 }
+function diaItem(t,showCli){
+  return '<button class="dia-item editavel" data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'">'+
+    '<span class="tag t-'+t.st.k+(t.st.atraso?" okatraso":"")+'">'+t.st.txt+'</span>'+
+    '<span class="dia-t">'+esc(t.tarefa)+(showCli?' <i>'+esc(t.cliente)+'</i>':'')+'</span></button>';
+}
 function abrirDia(dayIso){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const showCli=!c;
@@ -446,7 +451,7 @@ function abrirDia(dayIso){
   const mm=$("modal");
   mm.innerHTML='<div class="mbox diamodal"><h3>'+esc(titulo)+'</h3>'+
     (mks.length?'<div class="diamarco">'+mks.map(m=>"&#9670; "+esc(m.titulo)).join("<br>")+'</div>':'')+
-    (base.length?'<div class="fila">'+base.map(t=>linha(t,showCli)).join("")+'</div>':'<div class="vazio">Nenhuma tarefa neste dia.</div>')+
+    (base.length?'<div class="dia-lista">'+base.map(t=>diaItem(t,showCli)).join("")+'</div>':'<div class="vazio">Nenhuma tarefa neste dia.</div>')+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mm.style.display="flex";
 }

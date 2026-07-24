@@ -196,7 +196,14 @@
   .cel.fora .ev{opacity:.45}
   .mais{font-size:10px;color:var(--mk3o);font-weight:700;padding-left:5px;margin-top:auto;cursor:pointer}
   .mais:hover{text-decoration:underline}
-  .diamodal{max-width:560px}
+  .diamodal{max-width:600px;max-height:82vh;display:flex;flex-direction:column}
+  .dia-lista{overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin:2px 0 14px;padding-right:2px}
+  .dia-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:8px 11px;cursor:pointer;color:inherit;font:inherit}
+  .dia-item:hover{border-color:var(--mk3o)}
+  .dia-item .tag{flex:none}
+  .dia-t{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .dia-t i{font-style:normal;color:var(--mut);font-size:12px}
   .diamarco{font-size:12px;color:var(--ok);margin-bottom:12px;line-height:1.5}
   .calDia{margin-top:18px}
 
