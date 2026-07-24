@@ -435,6 +435,21 @@ function setNota(day, texto){
   if(texto && texto.trim()) ESTADO.notas[day]=texto; else delete ESTADO.notas[day];
   persist(); render();
 }
+function abrirDia(dayIso){
+  const c=VISTA.escopo?cliente(VISTA.escopo):null;
+  const showCli=!c;
+  const base=(c?TODAS.filter(t=>t.clienteId===c.id):tarefasArea()).filter(t=>t.data===dayIso)
+    .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
+  const mostraMarco=(VISTA.area==="all"||VISTA.area==="mkt");
+  const mks=mostraMarco?((c?c.marcos:CLIENTES.flatMap(x=>x.marcos)).filter(m=>m.data===dayIso)):[];
+  const titulo=d(dayIso).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox diamodal"><h3>'+esc(titulo)+'</h3>'+
+    (mks.length?'<div class="diamarco">'+mks.map(m=>"&#9670; "+esc(m.titulo)).join("<br>")+'</div>':'')+
+    (base.length?'<div class="fila">'+base.map(t=>linha(t,showCli)).join("")+'</div>':'<div class="vazio">Nenhuma tarefa neste dia.</div>')+
+    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mm.style.display="flex";
+}
 function abrirNota(day){
   const cur=(ESTADO.notas&&ESTADO.notas[day])||"";
   const titulo=d(day).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
@@ -622,24 +637,14 @@ function calendario(tasks, marcos, showCli){
     const fds  = dt.getDay()===0 || dt.getDay()===6;
     const evs  = base.filter(t=>t.data===s);
     const mk   = marcos.filter(m=>m.data===s);
-    const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":"", s===VISTA.dia?"sel":""].filter(Boolean).join(" ");
+    const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":""].filter(Boolean).join(" ");
     const teto = 3;
-    let evsHtml = mk.slice(0,1).map(m=>evCard(m,false,true)).join("");
-    evsHtml += evs.slice(0, teto - (mk.length?1:0)).map(t=>evCard(t,showCli,false)).join("");
-    const total = evs.length + mk.length;
-    const mostrados = Math.min(evs.length, teto-(mk.length?1:0)) + Math.min(mk.length,1);
-    const resto = total - mostrados;
-    const extra = resto>0 ? '<div class="mais">+'+resto+' '+(resto===1?"item":"itens")+'</div>' : "";
+    const items = mk.map(m=>({o:m,marco:true})).concat(evs.map(t=>({o:t,marco:false})));
+    const cap = items.length>teto ? teto-1 : teto;
+    const evsHtml = items.slice(0,cap).map(it=> it.marco ? evCard(it.o,false,true) : evCard(it.o,showCli,false)).join("");
+    const resto = items.length - Math.min(items.length,cap);
+    const extra = resto>0 ? '<div class="mais" data-dia="'+s+'">+'+resto+' '+(resto===1?"item":"itens")+'</div>' : "";
     cells += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
-  }
-
-  let dayList="";
-  if(VISTA.dia){
-    const evs = base.filter(t=>t.data===VISTA.dia).sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
-    const titulo = d(VISTA.dia).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
-    dayList = '<div class="calDia"><h2>'+titulo+'</h2>'+(evs.length
-      ? '<div class="fila">'+evs.map(t=>linha(t,showCli)).join("")+'</div>'
-      : '<div class="vazio">Nenhuma tarefa neste dia.</div>')+'</div>';
   }
 
   return '<div class="cal-nav"><button data-mes="-1">&lsaquo;</button>'+
@@ -647,7 +652,7 @@ function calendario(tasks, marcos, showCli){
       '<button data-mes="1">&rsaquo;</button><button class="hj" data-mes="0">Hoje</button></div>'+
     '<div class="cal"><div class="cal-dow">'+
       '<div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div>'+
-      '<div class="cal-grid">'+cells+'</div></div>'+dayList;
+      '<div class="cal-grid">'+cells+'</div></div>';
 }
 
 /* ---------------- LISTA GLOBAL (todos os clientes) ---------------- */
@@ -828,6 +833,7 @@ document.addEventListener("click", function(ev){
   if(D.wkx){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.vermotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.nota){ abrirNota(D.nota); return; }
+  if(D.dia){ abrirDia(D.dia); return; }
   if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
@@ -842,7 +848,6 @@ document.addEventListener("click", function(ev){
   if(D.nav==="home"){ VISTA.escopo=null; VISTA.filtro=null; VISTA.dia=null; }
   if(D.cliaba){ VISTA.aba=D.cliaba; VISTA.filtro=null; VISTA.dia=null; }
   if(D.mes!==undefined){ const nn=Number(D.mes); VISTA.mes=(nn===0)?0:VISTA.mes+nn; VISTA.dia=null; topo=false; }
-  if(D.dia){ VISTA.dia=(VISTA.dia===D.dia)?null:D.dia; topo=false; }
   if(D.bucket){ VISTA.filtro=(VISTA.filtro===D.bucket)?null:D.bucket; topo=false; }
 
   render();
