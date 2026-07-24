@@ -274,6 +274,50 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s)
   .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
+/* ---- ícone de status: não depender só de cor (2.3) ---- */
+const SIC = {atrasado:"&#9650;",hoje:"&#9679;",umdia:"&#9686;",semana:"&#9675;",futuro:"&#9675;",sem:"?",ok:"&#10003;"};
+const tagHTML = t => '<span class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+
+  '<i class="si" aria-hidden="true">'+(SIC[t.st.k]||"")+'</i>'+esc(t.st.txt)+'</span>';
+
+/* ---- toast com desfazer (4.1) + marcador salvo (J) ---- */
+let toastTimer=null;
+function toast(msg, acao){
+  const el=$("toast"); if(!el) return;
+  el.innerHTML='<b>'+esc(msg)+'</b>'+(acao?'<button data-toastundo="1">Desfazer</button>':'');
+  el.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove("on"), 5000);
+}
+function fecharToast(){ const el=$("toast"); if(el){ el.classList.remove("on"); clearTimeout(toastTimer); } }
+let salvoTimer=null;
+function marcarSalvo(){
+  const el=document.getElementById("salvo"); if(!el) return;
+  el.textContent="Salvo \u2713"; el.classList.add("on");
+  clearTimeout(salvoTimer); salvoTimer=setTimeout(()=>el.classList.remove("on"),2000);
+}
+
+/* ---- modal acessível: foco preso, Esc, retorno de foco (3.4) ---- */
+let focoAnterior=null;
+const FOCAVEIS='button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])';
+function mostrarModal(){
+  const mm=$("modal");
+  const h=mm.querySelector("h3"); if(h) h.id="modalTitulo";
+  focoAnterior=document.activeElement;
+  mm.style.display="flex";
+  const ap=$("app"); if(ap) ap.setAttribute("inert","");
+  const f=mm.querySelectorAll(FOCAVEIS);
+  const alvo=mm.querySelector("input,textarea,select")||f[0];
+  if(alvo && alvo.focus) setTimeout(()=>alvo.focus(),20);
+}
+function fecharModal(){
+  const mm=$("modal"); if(!mm) return;
+  mm.style.display="none"; mm.innerHTML="";
+  const ap=$("app"); if(ap) ap.removeAttribute("inert");
+  if(focoAnterior && focoAnterior.focus) focoAnterior.focus();
+  focoAnterior=null;
+}
+const modalAberto = () => { const mm=$("modal"); return mm && mm.style.display==="flex"; };
+
 const ORDEM   = {atrasado:0,hoje:1,umdia:2,semana:3,sem:4,futuro:5,ok:6};
 const ROTULO  = {atrasado:"Atrasado",hoje:"Vence hoje",umdia:"Falta 1 dia",
                  semana:"Esta semana",sem:"Sem data",futuro:"Programado",ok:"Concluído"};
@@ -303,7 +347,7 @@ const IC = {
   equipe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-3-4.9"/></svg>'
 };
 function navItem(key,label,icon,kind,on,n){
-  return '<button class="snav'+(on?" on":"")+'" data-'+kind+'="'+key+'" title="'+esc(label)+'">'+
+  return '<button class="snav'+(on?" on":"")+'" data-'+kind+'="'+key+'" title="'+esc(label)+'"'+(on?' aria-current="true"':'')+'>'+
     '<span class="snav-i">'+icon+'</span><span class="snav-t">'+esc(label)+'</span>'+
     (n?'<span class="snav-b">'+n+'</span>':'')+'</button>';
 }
@@ -323,7 +367,7 @@ function sidebarHTML(){
   return h;
 }
 
-const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, edit:false, pano:null, pmes:0, psem:null, side:false };
+const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, verTudo:false, edit:false, pano:null, pmes:0, psem:null, side:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
@@ -368,7 +412,7 @@ function rebuild(){
 const tdOf = t => escAttr([t.cliente, (t.st&&t.st.txt), (t.data?fmt(t.data)+" "+dow(t.data):""), t.resp, t.detalhe].filter(Boolean).join(" · "));
 const attrsEdit = t => ' data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-tt="'+escAttr(t.tarefa||t.titulo||"")+'" data-td="'+tdOf(t)+'"';
 
-function persist(){ try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){} }
+function persist(){ try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){} setTimeout(marcarSalvo,0); }
 function snapshot(){ UNDO.push(JSON.stringify(ESTADO)); if(UNDO.length>80)UNDO.shift(); REDO.length=0; }
 function nMud(){ let n=0; for(const k in ESTADO.concluidas)n+=(ESTADO.concluidas[k]||[]).filter(e=>!e.remove).length; return n; }
 
@@ -438,7 +482,8 @@ function bcardHTML(t, dayIso, dupOrig){
     '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
     '<div class="bcard-chk">'+
       '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito">&#10003;</button>'+
-      '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito">&#10007;</button>'+
+      '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito" aria-label="Não feito">&#10007;</button>'+
+      '<button class="mover" data-mover="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Replanejar para outro dia" aria-label="Replanejar para outro dia">&#8618;</button>'+
       face+
     '</div>'+
     (x&&x.motivo?'<button class="ver-motivo" data-vermotivo="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'">Mostrar motivo</button>':'')+
@@ -482,21 +527,21 @@ function abrirEquipe(){
     '<div class="eq-add"><input type="text" id="enome" placeholder="Nome do novo responsável" autocomplete="off">'+
       '<button data-macao="addpessoa">Adicionar</button></div>'+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
-  mm.style.display="flex";
+  mostrarModal();
 }
-function abrirDemanda(){
+function abrirDemanda(diaSugerido){
   const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]];
   const pessoas=(ESTADO.pessoas||[]).map(p=>p.nome);
   const mm=$("modal");
   mm.innerHTML='<div class="mbox demform"><h3>Nova demanda</h3>'+
     '<label class="mlab">O que é a demanda<input type="text" id="dtexto" placeholder="Descreva a demanda..." autocomplete="off"></label>'+
     '<label class="mlab">Área<select id="darea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
-    '<label class="mlab">Data<input type="date" id="ddata" value="'+iso(HOJE)+'"></label>'+
+    '<label class="mlab">Data<input type="date" id="ddata" value="'+(diaSugerido||iso(HOJE))+'"></label>'+
     '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option>'+p+'</option>').join("")+'</select></label>'+
     '<div class="mbtns"><button data-macao="salvardemanda">Adicionar</button><button class="sec" data-macao="fechar">Fechar</button></div>'+
     listaDemandas()+
   '</div>';
-  mm.style.display="flex";
+  mostrarModal();
 }
 function diaItem(t,showCli){
   return '<button class="dia-item editavel" data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'">'+
@@ -516,7 +561,7 @@ function abrirDia(dayIso){
     (mks.length?'<div class="diamarco">'+mks.map(m=>"&#9670; "+esc(m.titulo)).join("<br>")+'</div>':'')+
     (base.length?'<div class="dia-lista">'+base.map(t=>diaItem(t,showCli)).join("")+'</div>':'<div class="vazio">Nenhuma tarefa neste dia.</div>')+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
-  mm.style.display="flex";
+  mostrarModal();
 }
 function abrirNota(day){
   const cur=(ESTADO.notas&&ESTADO.notas[day])||"";
@@ -526,7 +571,7 @@ function abrirNota(day){
     '<textarea id="mnota" class="notepad-ta" rows="9" placeholder="Escreva suas notas do dia...">'+esc(cur)+'</textarea>'+
     '<div class="mbtns"><button data-macao="salvarnota" data-mday="'+day+'">Salvar</button>'+
     '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
-  mm.style.display="flex";
+  mostrarModal();
 }
 function abrirMotivo(cid,tid,day){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
@@ -539,11 +584,30 @@ function abrirMotivo(cid,tid,day){
     '<div class="mbtns"><button data-macao="motivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Salvar motivo</button>'+
     (cur?'<button class="danger" data-macao="removermotivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Remover</button>':'')+
     '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
-  mm.style.display="flex";
+  mostrarModal();
 }
 function desfazer(){ if(!UNDO.length)return; REDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(UNDO.pop()); persist(); rebuild(); render(); }
 function refazer(){ if(!REDO.length)return; UNDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(REDO.pop()); persist(); rebuild(); render(); }
 
+function concluirRapido(cid,tid){
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  marcar(cid,tid,iso(HOJE),"concluir");
+  toast((t?t.tarefa:"Tarefa")+" · concluída hoje", true);
+}
+function abrirMover(cid,tid,diaAtual){
+  const dias=["Segunda","Terça","Quarta","Quinta","Sexta"];
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>Replanejar para outro dia</h3>'+
+    '<p class="msub">'+esc(t?t.tarefa:"")+(t?" · "+esc(t.cliente):"")+'</p>'+
+    '<p class="msub">Cria uma cópia no dia escolhido. A tarefa original continua na data dela.</p>'+
+    '<div class="mbtns wrap">'+dias.map((d0,i)=>{
+      const dd=addD(VISTA.psem,i);
+      return '<button'+(dd===diaAtual?' class="sec"':'')+' data-macao="mover" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+dd+'">'+d0+' '+fmt(dd).slice(0,5)+'</button>';
+    }).join("")+'</div>'+
+    '<div class="mbtns"><button class="sec" data-macao="fechar">Cancelar</button></div></div>';
+  mostrarModal();
+}
 function abrirEditor(cid,tid){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   const feita=t.st.k==="ok"; const cli=cliente(cid); const anc=ANCORA[tid];
@@ -561,12 +625,12 @@ function abrirEditor(cid,tid){
         '<div class="mbtns"><button data-macao="data" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">'+esc(verbo)+' nesta data</button>'+
         '<button class="sec" data-macao="fechar">Cancelar</button></div>')+
     '</div>';
-  mm.style.display="flex";
+  mostrarModal();
 }
-function fecharModal(){ const mm=$("modal"); mm.style.display="none"; mm.innerHTML=""; }
 function handleModal(D){
   if(D.macao==="fechar"){ fecharModal(); return; }
   if(D.macao==="motivo"){ const mot=(($("mmotivo")&&$("mmotivo").value)||"").trim(); setNaoFeito(D.mcid,D.mtid,D.mday,mot); fecharModal(); return; }
+  if(D.macao==="mover"){ duplicarTarefa(D.mcid,D.mtid,D.mday); fecharModal(); toast("Replanejada para "+fmt(D.mday),true); return; }
   if(D.macao==="removermotivo"){ setNaoFeito(D.mcid,D.mtid,D.mday,""); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); abrirEquipe(); return; }
@@ -579,20 +643,46 @@ function handleModal(D){
 
 function montarTooltip(){
   const tip=$("tip"); if(!tip) return;
-  document.addEventListener("mouseover", e=>{
-    const el=e.target.closest("[data-tt]"); if(!el) return;
+  let alvoAtual=null, dispensado=false;
+  const pos=(x,y)=>{
+    let px=x+14, py=y+16;
+    if(px+tip.offsetWidth>window.innerWidth-8) px=x-tip.offsetWidth-14;
+    if(py+tip.offsetHeight>window.innerHeight-8) py=y-tip.offsetHeight-16;
+    tip.style.left=Math.max(8,px)+"px"; tip.style.top=Math.max(8,py)+"px";
+  };
+  const abrir=(el,x,y)=>{
+    if(dispensado && el===alvoAtual) return;
+    alvoAtual=el; dispensado=false;
     tip.innerHTML='<b>'+esc(el.dataset.tt)+'</b>'+(el.dataset.td?'<span class="tl">'+esc(el.dataset.td)+'</span>':'')+
-      (el.dataset.editar?'<span class="tl tk">clique para marcar</span>':'');
-    tip.style.display="block";
+      (el.dataset.editar?'<span class="tl tk">clique para marcar · Esc fecha</span>':'');
+    tip.style.display="block"; pos(x,y);
+  };
+  const fechar=()=>{ tip.style.display="none"; alvoAtual=null; };
+  document.addEventListener("mouseover", e=>{
+    if(e.target.closest && e.target.closest("#tip")) return;   /* hoverable */
+    const el=e.target.closest("[data-tt]"); if(!el){ return; }
+    abrir(el,e.clientX,e.clientY);
   });
   document.addEventListener("mousemove", e=>{
     if(tip.style.display!=="block") return;
-    let x=e.clientX+14, y=e.clientY+16;
-    if(x+tip.offsetWidth>window.innerWidth-8) x=e.clientX-tip.offsetWidth-14;
-    if(y+tip.offsetHeight>window.innerHeight-8) y=e.clientY-tip.offsetHeight-16;
-    tip.style.left=x+"px"; tip.style.top=y+"px";
+    if(e.target.closest && e.target.closest("#tip")) return;
+    pos(e.clientX,e.clientY);
   });
-  document.addEventListener("mouseout", e=>{ if(e.target.closest("[data-tt]")) tip.style.display="none"; });
+  document.addEventListener("mouseout", e=>{
+    const el=e.target.closest && e.target.closest("[data-tt]");
+    if(!el) return;
+    const para=e.relatedTarget;
+    if(para && para.closest && (para.closest("#tip")||para.closest("[data-tt]")===el)) return;  /* hoverable */
+    fechar();
+  });
+  /* aparece também no foco por teclado */
+  document.addEventListener("focusin", e=>{
+    const el=e.target.closest && e.target.closest("[data-tt]"); if(!el) return;
+    const r=el.getBoundingClientRect(); abrir(el, r.left, r.bottom-16);
+  });
+  document.addEventListener("focusout", e=>{ if(e.target.closest && e.target.closest("[data-tt]")) fechar(); });
+  /* dismissível sem mover o mouse */
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape" && tip.style.display==="block"){ dispensado=true; fechar(); } });
 }
 function mergeEstado(a,b){
   if(!b) return a;
@@ -648,11 +738,14 @@ function avatarHTML(c, cls){
 
 /* ---- linha de tarefa (lista) ---- */
 const linha = (t, showCli) => '<div class="row editavel'+(showCli?" rowc":"")+'"'+attrsEdit(t)+'>'+
-  '<div class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+t.st.txt+'</div>'+
+  tagHTML(t)+
   '<div class="tarefa">'+esc(t.tarefa)+(t.detalhe?'<em>'+esc(t.detalhe)+'</em>':'')+'</div>'+
   (showCli?'<div class="cli">'+esc(t.cliente)+'</div>':'')+
   '<div class="data">'+fmt(t.data)+' <span class="dow">'+dow(t.data)+'</span></div>'+
-  '<div class="resp">'+esc(t.resp)+'</div></div>';
+  '<div class="resp">'+esc(t.resp)+'</div>'+
+  (t.st.k==="ok" ? '<span class="row-ok" aria-hidden="true" style="opacity:.5">&#10003;</span>'
+    : '<button class="row-ok" data-rowok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" title="Concluir hoje" aria-label="Concluir hoje">&#10003;</button>')+
+  '</div>';
 
 /* ---- bloco de evento no calendário (estilo referência) ---- */
 function evCard(t, showCli, isMarco){
@@ -667,7 +760,9 @@ function evCard(t, showCli, isMarco){
 
 /* ---------------- CARDS DE CLIENTE ---------------- */
 function cardsHTML(){
-  return CLIENTES.map(c=>{
+  const crit=c=>{ const ts=tarefasCli(c);
+    return ts.filter(t=>t.st.k==="atrasado").length*100 + ts.filter(t=>t.st.k==="hoje").length*10 + ts.filter(t=>t.st.k==="umdia").length; };
+  return CLIENTES.slice().sort((a,b)=>crit(b)-crit(a)).map(c=>{
     const ts = tarefasCli(c);
     const n  = ks => ts.filter(t=>ks.includes(t.st.k)).length;
     const cor = coresDe(c);
@@ -726,6 +821,15 @@ function calendario(tasks, marcos, showCli){
 }
 
 /* ---------------- LISTA GLOBAL (todos os clientes) ---------------- */
+function vazioHTML(filtro){
+  const A={all:"nas suas áreas",mkt:"no Marketing",fin:"no Financeiro",com:"no Comercial"}[VISTA.area]||"";
+  if(filtro) return '<div class="vaziox"><h4>Nada em "'+esc(ROTULO[filtro])+'"</h4>'+
+    '<p>Nenhuma tarefa neste status '+esc(A)+' agora.</p>'+
+    '<button data-limpafiltro="1">Ver todos os status</button></div>';
+  return '<div class="vaziox"><h4>Tudo em dia '+esc(A)+'</h4>'+
+    '<p>Nenhuma pendência aberta. Aproveite para adiantar o que vem pela frente.</p>'+
+    '<button data-demanda="1">+ Nova demanda</button></div>';
+}
 function listaGlobalHTML(){
   const ts = tarefasArea();
   const semaf = '<div class="semaforo">'+BUCKETS.map(k=>
@@ -735,8 +839,9 @@ function listaGlobalHTML(){
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
   return semaf +
     '<h2>'+(VISTA.filtro?ROTULO[VISTA.filtro]:"Fila de execução")+' · todos os clientes</h2>'+
-    (lista.length ? '<div class="fila">'+lista.map(t=>linha(t,true)).join("")+'</div>'
-                  : '<div class="vazio">Nada aqui'+(VISTA.filtro?" em <strong>"+ROTULO[VISTA.filtro]+"</strong>":"")+'.</div>');
+    (lista.length ? '<div class="fila">'+lista.slice(0,VISTA.verTudo?999:7).map(t=>linha(t,true)).join("")+'</div>'+
+        (!VISTA.verTudo && lista.length>7 ? '<button class="vermais" data-vertudo="1">Ver todas as '+lista.length+'</button>' : '')
+      : vazioHTML(VISTA.filtro));
 }
 
 /* ---------------- PRIORIDADES DIÁRIAS (quadro semanal) ---------------- */
@@ -812,11 +917,13 @@ function prioridadesHTML(){
     const reais=TODAS.filter(t=>t.data===dayIso && relevanteBoard(t)).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
     const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso).map(e=>({t:TODAS.find(x=>x.clienteId===e.cid&&x.id===e.tid),orig:e.orig})).filter(o=>o.t);
     const cs=reais.map(t=>bcardHTML(t,dayIso,null)).concat(dups.map(o=>bcardHTML(o.t,dayIso,o.orig)));
-    const body=cs.length ? cs.join("") : '<div class="bcol-vazio">Nada</div>';
+    const body=cs.length ? cs.join("")
+      : '<div class="bcol-vaziox"><span>Sem entregas neste dia.</span>'+
+        '<button data-demanda="1" data-demdia="'+dayIso+'">+ Demanda</button></div>';
     const nota=(ESTADO.notas&&ESTADO.notas[dayIso])||"";
     const notaEl='<div class="bnota'+(nota?" tem":"")+'" data-nota="'+dayIso+'"><span class="bnota-h">&#128221; Notas</span>'+
       (nota?'<span class="bnota-prev">'+esc(nota.length>70?nota.slice(0,70)+"\u2026":nota)+'</span>':'<span class="bnota-add">anotar\u2026</span>')+'</div>';
-    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h">'+dias[i]+' <span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
+    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h"><span>'+dias[i]+(cs.length?'<span class="bcount">'+cs.length+'</span>':'')+'</span><span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
   }
   const rotArea={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[VISTA.area]||"";
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+
@@ -834,8 +941,9 @@ function tarefasHTML(c){
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
   let html = semaf +
     '<h2>'+(VISTA.filtro?ROTULO[VISTA.filtro]:"Fila de execução")+'</h2>'+
-    (lista.length ? '<div class="fila">'+lista.map(t=>linha(t,false)).join("")+'</div>'
-                  : '<div class="vazio">Nada aqui'+(VISTA.filtro?" em <strong>"+ROTULO[VISTA.filtro]+"</strong>":"")+'.</div>');
+    (lista.length ? '<div class="fila">'+lista.slice(0,VISTA.verTudo?999:7).map(t=>linha(t,false)).join("")+'</div>'+
+        (!VISTA.verTudo && lista.length>7 ? '<button class="vermais" data-vertudo="1">Ver todas as '+lista.length+'</button>' : '')
+      : vazioHTML(VISTA.filtro));
 
   if(VISTA.area==="mkt" || VISTA.area==="all"){
     const c48 = contadores(c);
@@ -911,8 +1019,9 @@ function render(){
   $("editbar").innerHTML =
     '<button class="ubtn" data-undo="1"'+(UNDO.length?"":" disabled")+' title="Desfazer">&#8624; Desfazer</button>'+
     '<button class="ubtn" data-redo="1"'+(REDO.length?"":" disabled")+' title="Refazer">&#8625; Refazer</button>'+
+    '<span class="salvo" id="salvo" aria-live="polite"></span>'+
     (nMud()?'<span class="umud">'+nMud()+' '+(nMud()>1?"tarefas marcadas":"tarefa marcada")+' por você · salvo neste navegador</span>'
-           :'<span class="umud dim">Clique numa tarefa (na lista ou no calendário) para marcar concluído, enviado ou aprovado.</span>');
+           :'<span class="umud dim">Clique numa tarefa para marcar. Atalhos: <span class="kbd">?</span></span>');
   $("side").innerHTML = sidebarHTML();
 
   const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
@@ -944,7 +1053,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -955,14 +1064,19 @@ document.addEventListener("click", function(ev){
   if(D.nota){ abrirNota(D.nota); return; }
   if(D.dia){ abrirDia(D.dia); return; }
   if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
-  if(D.demanda){ abrirDemanda(); return; }
+  if(D.rowok){ concluirRapido(D.mcid,D.mtid); return; }
+  if(D.mover){ abrirMover(D.mcid,D.mtid,D.mday); return; }
+  if(D.toastundo){ desfazer(); fecharToast(); return; }
+  if(D.vertudo){ VISTA.verTudo=true; render(); return; }
+  if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
+  if(D.demanda){ abrirDemanda(D.demdia); return; }
   if(D.equipe){ abrirEquipe(); return; }
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
   if(D.pessoax){ removePessoa(D.pessoax); abrirEquipe(); return; }
   if(D.demx){ removeDemanda(D.demx); abrirDemanda(); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
-  if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
-  if(D.area){ VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(D.area){ VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
@@ -1020,6 +1134,42 @@ document.addEventListener("mouseup", function(e){
   if(!col) return;
   const p=st.data.split("|");
   duplicarTarefa(p[0],p[1],col.getAttribute("data-daycol"));
+});
+
+/* ---- atalhos de teclado (4.3) ---- */
+function abrirAtalhos(){
+  const L=[["?","Esta lista de atalhos"],["N","Nova demanda"],["T","Ir para hoje / semana atual"],
+           ["&larr; &rarr;","Semana ou mês anterior / seguinte"],["Esc","Fechar janela ou dica"],
+           ["Ctrl+Z","Desfazer"],["Ctrl+Shift+Z","Refazer"]];
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox atalhos"><h3>Atalhos de teclado</h3>'+
+    '<p class="msub">Funcionam quando você não está digitando num campo.</p>'+
+    L.map(a=>'<div class="at-row"><span>'+a[1]+'</span><span class="kbd">'+a[0]+'</span></div>').join("")+
+    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal();
+}
+document.addEventListener("keydown", function(e){
+  const tag=(e.target.tagName||"").toLowerCase();
+  const digitando = tag==="input"||tag==="textarea"||tag==="select"||e.target.isContentEditable;
+  if(e.key==="Escape"){ if(modalAberto()){ fecharModal(); return; } fecharToast(); return; }
+  if(digitando) return;
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod && (e.key==="z"||e.key==="Z")){ e.preventDefault(); if(e.shiftKey) refazer(); else desfazer(); return; }
+  if(mod) return;
+  if(e.key==="?"){ e.preventDefault(); abrirAtalhos(); return; }
+  if(modalAberto()) return;
+  if(e.key==="n"||e.key==="N"){ e.preventDefault(); abrirDemanda(); return; }
+  if(e.key==="t"||e.key==="T"){
+    if(VISTA.modo==="prio"){ VISTA.pano=HOJE.getFullYear(); VISTA.pmes=HOJE.getMonth(); VISTA.psem=segOf(iso(HOJE)); }
+    else VISTA.mes=0;
+    render(); return;
+  }
+  if(e.key==="ArrowLeft"||e.key==="ArrowRight"){
+    const d1=e.key==="ArrowRight"?1:-1;
+    if(VISTA.modo==="prio"&&!VISTA.escopo){ VISTA.psem=addD(VISTA.psem,7*d1); const r=d(VISTA.psem); VISTA.pano=r.getFullYear(); VISTA.pmes=r.getMonth(); }
+    else { VISTA.mes+=d1; VISTA.dia=null; }
+    render(); return;
+  }
 });
 
 let fotoAlvo=null;
