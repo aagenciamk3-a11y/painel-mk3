@@ -8,7 +8,7 @@
 <style>
   :root{
     --bg:#17102b; --panel:#221839; --panel2:#2d2249; --line:#3a2c58;
-    --txt:#ece9f6; --mut:#a99fc4; --roxo:#a78bfa;
+    --txt:#f1eefb; --mut:#b9b0d2; --roxo:#a78bfa;
     --mk3:#8b5cf6; --mk3o:#f97316; --side:#120b22;
     --atrasado:#e5484d; --hoje:#ff8a3d; --umdia:#f5c518;
     --semana:#4c9aff; --futuro:#6e7481; --ok:#3fb950; --sem:#a855f7;
@@ -50,7 +50,7 @@
   .dup-badge{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--mk3o);font-weight:700;margin-bottom:4px}
   .dup-x{background:none;border:none;color:var(--mut);cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
   .dup-x:hover{color:var(--atrasado)}
-  header{display:flex;align-items:baseline;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+  header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px}
   h1{font-size:22px;letter-spacing:-.02em}
   h1 span{color:var(--mut);font-weight:400}
   .hoje{font-size:13px;color:var(--mut)}
@@ -328,6 +328,54 @@
     background:#fbf5df;color:#2c2a20;font:inherit;font-size:14px;padding:10px 14px;line-height:26px;resize:vertical;
     background-image:repeating-linear-gradient(#fbf5df,#fbf5df 25px,#e7ddba 26px);margin-bottom:16px}
   .notepad-ta::placeholder{color:#9a936f}
+  /* --- cabeçalho de contexto (6) --- */
+  .ctx-t{font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+  .ctx-s{font-size:12.5px;color:var(--mut);margin-top:3px}
+  .hoje{font-size:12.5px;color:var(--mut)}
+
+  /* --- hierarquia dos status (7) --- */
+  .stat{opacity:.72;transition:.14s}
+  .ccard:hover .stat{opacity:.9}
+  .stat.s-atrasado{opacity:1}
+  .sf{opacity:.78;transition:.14s} .sf:hover,.sf.on{opacity:1}
+  .sf.atrasado,.sf.hoje{opacity:1}
+
+  /* --- respiro e sombra (8) --- */
+  .ccard{border-color:transparent;box-shadow:0 2px 10px rgba(0,0,0,.28)}
+  .ccard:hover{box-shadow:0 10px 26px rgba(0,0,0,.42)}
+  .bcol{border-color:rgba(255,255,255,.05);box-shadow:0 2px 10px rgba(0,0,0,.22)}
+  .bcard{box-shadow:0 1px 4px rgba(0,0,0,.22)}
+  .fila,.cel{box-shadow:0 1px 6px rgba(0,0,0,.18)}
+  .mbox{box-shadow:0 24px 60px rgba(0,0,0,.55)}
+
+  /* --- micro-animações (9) --- */
+  @media (prefers-reduced-motion:no-preference){
+    #view{animation:fadeUp .18s ease-out}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+    .mbox{animation:pop .16s ease-out}
+    @keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+    .bcard,.ccard,.snav,.chk,.ev{transition:transform .12s ease,background .14s ease,box-shadow .14s ease,opacity .14s ease}
+    .bcard.st-ok{animation:okpulse .5s ease-out}
+    @keyframes okpulse{0%{box-shadow:0 0 0 0 rgba(63,185,80,.45)}100%{box-shadow:0 0 0 12px rgba(63,185,80,0)}}
+    .chk:active{transform:scale(.92)}
+    .ccard:hover{transform:translateY(-3px)}
+  }
+
+  /* --- resumo da semana (11,12) --- */
+  .resumo{margin-top:20px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;
+    box-shadow:0 2px 10px rgba(0,0,0,.24)}
+  .res-h{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);font-weight:700;margin-bottom:10px}
+  .res-nums{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--mut)}
+  .res-nums b{font-size:20px;font-weight:700;margin-right:5px}
+  .res-ok b{color:var(--ok)} .res-x b{color:var(--atrasado)}
+  .res-pct{margin-left:auto;font-weight:700;color:var(--txt)}
+  .res-bar{height:6px;background:var(--panel2);border-radius:20px;overflow:hidden;margin-top:10px}
+  .res-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ok),#6ee787);border-radius:20px;transition:width .4s ease}
+  .res-mot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .res-mot-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700}
+  .res-chip{background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.28);color:#ffb4b6;font-size:12px;
+    padding:4px 11px;border-radius:20px}
+  .res-chip b{color:var(--atrasado);margin-left:3px}
   /* equipe / responsáveis */
   .equipe{max-width:440px;max-height:86vh;display:flex;flex-direction:column;overflow:auto}
   .eq-lista{display:flex;flex-direction:column;gap:8px;margin:8px 0 14px}
@@ -401,6 +449,7 @@
   <aside class="side" id="side"></aside>
   <main class="main">
     <header>
+      <div id="ctx"></div>
       <div class="hoje" id="hoje"></div>
     </header>
     <div id="editbar"></div>

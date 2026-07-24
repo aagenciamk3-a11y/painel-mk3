@@ -769,6 +769,30 @@ function relevanteBoard(t){
   if(VISTA.area==="fin" || VISTA.area==="com") return t.area===VISTA.area;
   return !!EXEC[baseId(t.id)];   // Visão Geral / Marketing: entregas de execução
 }
+function resumoSemanaHTML(){
+  const wk=VISTA.psem; if(!wk) return '';
+  let feitas=0, naofeitas=0; const motivos={};
+  for(let i=0;i<5;i++){
+    const day=addD(wk,i);
+    TODAS.filter(t=>t.data===day && relevanteBoard(t)).forEach(t=>{
+      const x=xInfo(wk,t.clienteId,t.id);
+      if(x){ naofeitas++; const k=(x.motivo||"sem motivo").trim(); motivos[k]=(motivos[k]||0)+1; }
+      else if(t.st.k==="ok") feitas++;
+    });
+  }
+  const top=Object.entries(motivos).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  if(!feitas && !naofeitas) return '';
+  const tot=feitas+naofeitas, pct=tot?Math.round(feitas/tot*100):0;
+  return '<div class="resumo">'+
+    '<div class="res-h">Resumo da semana</div>'+
+    '<div class="res-nums"><span class="res-ok"><b>'+feitas+'</b> feitas</span>'+
+      '<span class="res-x"><b>'+naofeitas+'</b> não feitas</span>'+
+      '<span class="res-pct">'+pct+'% concluído</span></div>'+
+    '<div class="res-bar"><i style="width:'+pct+'%"></i></div>'+
+    (top.length?'<div class="res-mot"><span class="res-mot-h">Principais motivos</span>'+
+      top.map(([k,n])=>'<span class="res-chip">'+esc(k)+' <b>'+n+'</b></span>').join("")+'</div>':'')+
+  '</div>';
+}
 function prioridadesHTML(){
   if(VISTA.pano==null){ VISTA.pano=HOJE.getFullYear(); VISTA.pmes=HOJE.getMonth(); }
   if(VISTA.psem==null) VISTA.psem=segOf(iso(HOJE));
@@ -797,7 +821,7 @@ function prioridadesHTML(){
   const rotArea={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[VISTA.area]||"";
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+
            '<span class="semsel-area">'+esc(rotArea)+'</span></div>'+
-         '<div class="board">'+cols+'</div>';
+         '<div class="board">'+cols+'</div>'+resumoSemanaHTML();
 }
 
 /* ---------------- TAREFAS DO CLIENTE ---------------- */
@@ -869,7 +893,21 @@ function histHTML(c){
 }
 
 /* ---------------- RENDER ---------------- */
+function tituloContexto(){
+  const c=VISTA.escopo?cliente(VISTA.escopo):null;
+  const A={all:"Visão Geral",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
+  const V={cards:"Clientes",prio:"Prioridades",cal:"Calendário",lista:"Lista"};
+  const AB={cal:"Calendário",tarefas:"Tarefas",hist:"Histórico"};
+  let t = c ? c.nome : (V[VISTA.modo]||"");
+  const bits=[A[VISTA.area]||""];
+  if(c) bits.unshift(AB[VISTA.aba]||"");
+  else if(VISTA.modo==="prio" && VISTA.psem) bits.push(fmt(VISTA.psem).slice(0,5)+" a "+fmt(addD(VISTA.psem,4)).slice(0,5));
+  else if(VISTA.modo==="cal"){ const r=new Date(HOJE.getFullYear(),HOJE.getMonth()+VISTA.mes,1);
+    bits.push(r.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})); }
+  return '<h1 class="ctx-t">'+esc(t)+'</h1><div class="ctx-s">'+bits.filter(Boolean).map(esc).join(" · ")+'</div>';
+}
 function render(){
+  $("ctx").innerHTML = tituloContexto();
   $("editbar").innerHTML =
     '<button class="ubtn" data-undo="1"'+(UNDO.length?"":" disabled")+' title="Desfazer">&#8624; Desfazer</button>'+
     '<button class="ubtn" data-redo="1"'+(REDO.length?"":" disabled")+' title="Refazer">&#8625; Refazer</button>'+
