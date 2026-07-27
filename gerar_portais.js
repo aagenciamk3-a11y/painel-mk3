@@ -37,7 +37,7 @@ CLIENTES.forEach(c=>{
   fs.mkdirSync(dir,{recursive:true});
   /* remove tudo que é interno/sensível antes de publicar */
   const pub=JSON.parse(JSON.stringify(c));
-  ["mensalidade","contrato","justificados","concluidas","inicioContrato","plano","segmento","marca"].forEach(k=>delete pub[k]);
+  ["mensalidade","contrato","justificados","inicioContrato","plano","segmento","marca"].forEach(k=>delete pub[k]);
   /* nada de financeiro/fornecedor/interno */
   pub.tarefasExtras=(pub.tarefasExtras||[]).filter(t=>{
     const txt=((t.tarefa||"")+" "+(t.detalhe||"")).toLowerCase();

@@ -344,6 +344,7 @@ const IC = {
   fin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
   com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
   add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+  link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12 19"/></svg>',
   equipe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-3-4.9"/></svg>'
 };
 function navItem(key,label,icon,kind,on,n){
@@ -366,6 +367,7 @@ function sidebarHTML(){
     h+='<div class="side-sec">Demandas</div>';
     h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
     h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
+    h+='<button class="snav" data-portais="1" title="Links dos clientes"><span class="snav-i">'+IC.link+'</span><span class="snav-t">Links dos clientes</span></button>';
   }
   const pu=eu();
   h+='<div class="side-user"><button class="snav" data-sair="1" title="Trocar de usuário">'+
@@ -441,15 +443,21 @@ function marcar(cid,tid,data,tipo){
 }
 const baseId = id => id.replace(/_\d{4}-\d{2}$/,"");
 const segOf = isoStr => { const x=d(isoStr); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); return iso(x); };
-const chaveTarefa = (cid,tid) => cid+"|"+tid;
-function xInfo(week,cid,tid){ return (ESTADO.semanal&&ESTADO.semanal[week]&&ESTADO.semanal[week][chaveTarefa(cid,tid)])||null; }
+const chaveTarefa = (cid,tid,day) => cid+"|"+tid+(day?"|"+day:"");
+function xInfo(week,cid,tid,day){
+  const b=(ESTADO.semanal&&ESTADO.semanal[week])||null; if(!b) return null;
+  return (day&&b[chaveTarefa(cid,tid,day)]) || b[chaveTarefa(cid,tid)] || null;   /* aceita chave antiga */
+}
 function setNaoFeito(cid,tid,day,motivo){
   snapshot();
   const wk=segOf(day);
   ESTADO.semanal=ESTADO.semanal||{}; ESTADO.semanal[wk]=ESTADO.semanal[wk]||{};
-  if(motivo){ ESTADO.semanal[wk][chaveTarefa(cid,tid)]={motivo:motivo,data:day}; }
-  else { delete ESTADO.semanal[wk][chaveTarefa(cid,tid)]; }
+  delete ESTADO.semanal[wk][chaveTarefa(cid,tid)];              /* limpa chave antiga */
+  if(motivo){ ESTADO.semanal[wk][chaveTarefa(cid,tid,day)]={motivo:motivo,data:day}; }
+  else { delete ESTADO.semanal[wk][chaveTarefa(cid,tid,day)]; }
   ESTADO.concluidas[cid]=(ESTADO.concluidas[cid]||[]).filter(e=>e.id!==tid);
+  if(motivo) ESTADO.concluidas[cid].push({id:tid,remove:true});  /* sobrepõe conclusão oficial */
+  else { const anc=ANCORA[tid]; if(anc && ESTADO.datas[cid]) delete ESTADO.datas[cid][anc.campo]; }
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,acao:"naofeito",id:tid,data:day,motivo:motivo});
   ESTADO.log=ESTADO.log.slice(0,300);
@@ -457,8 +465,23 @@ function setNaoFeito(cid,tid,day,motivo){
 }
 function marcarFeitoSemana(cid,tid,day){
   const wk=segOf(day);
-  if(ESTADO.semanal&&ESTADO.semanal[wk]) delete ESTADO.semanal[wk][chaveTarefa(cid,tid)];
-  marcar(cid,tid,day,"concluir");
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  const jaFeita = t && t.st.k==="ok";
+  if(ESTADO.semanal&&ESTADO.semanal[wk]){
+    delete ESTADO.semanal[wk][chaveTarefa(cid,tid)];
+    delete ESTADO.semanal[wk][chaveTarefa(cid,tid,day)];
+  }
+  if(jaFeita){ marcar(cid,tid,null,"desfazer"); toast("Voltou para pendente",true); }   /* clicar de novo = neutro */
+  else marcar(cid,tid,day,"concluir");
+}
+function neutralizar(cid,tid,day){
+  const wk=segOf(day);
+  if(ESTADO.semanal&&ESTADO.semanal[wk]){
+    delete ESTADO.semanal[wk][chaveTarefa(cid,tid)];
+    delete ESTADO.semanal[wk][chaveTarefa(cid,tid,day)];
+  }
+  marcar(cid,tid,null,"desfazer");
+  toast("Marcação removida",true);
 }
 function duplicarTarefa(cid,tid,dia){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
@@ -477,7 +500,7 @@ function removeDup(cid,tid,dia){
 }
 function bcardHTML(t, dayIso, dupOrig){
   const feita=t.st.k==="ok";
-  const x=xInfo(VISTA.psem,t.clienteId,t.id);
+  const x=xInfo(VISTA.psem,t.clienteId,t.id,dayIso);
   const st=feita?"ok":(x?"x":"none");
   const rot=EXEC[baseId(t.id)]||t.tarefa;
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
@@ -487,9 +510,10 @@ function bcardHTML(t, dayIso, dupOrig){
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     '<div class="bcard-t">'+esc(rot)+'</div>'+
     '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
+    (feita&&t.st.atraso?'<div class="bcard-atr">atrasou '+t.st.atraso+' dia'+(t.st.atraso>1?'s':'')+' útil'+(t.st.atraso>1?'eis':'')+'</div>':'')+
     '<div class="bcard-chk">'+
-      '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito">&#10003;</button>'+
-      '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito" aria-label="Não feito">&#10007;</button>'+
+      '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito · clique de novo para desmarcar" aria-label="Feito">&#10003;</button>'+
+      '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito · clique de novo para deixar neutro" aria-label="Não feito">&#10007;</button>'+
       '<button class="mover" data-mover="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Replanejar para outro dia" aria-label="Replanejar para outro dia">&#8618;</button>'+
       face+
     '</div>'+
@@ -521,6 +545,33 @@ function listaDemandas(){
     '<span class="dem-t">'+esc(x.texto)+' <i>'+(A[x.area]||"")+'</i></span>'+
     '<span class="dem-r">'+esc(x.resp)+'</span>'+
     '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover">&#215;</button></div>').join("")+'</div>';
+}
+let PORTAIS=null;
+function abrirPortais(){
+  if(!ehAdmin()) return;
+  const base=location.origin+location.pathname.replace(/\/(index\.html)?$/,"");
+  const linhas = PORTAIS ? CLIENTES.map(c=>{
+      const p=PORTAIS[c.id];
+      if(!p) return '<div class="po-row"><span class="po-n">'+esc(c.nome)+'</span><span class="po-x">sem portal gerado</span></div>';
+      const url=base+"/c/"+p.token+"/";
+      return '<div class="po-row"><span class="po-n">'+esc(c.nome)+
+        (p.historico?'<i class="po-h">com histórico</i>':'')+'</span>'+
+        '<input class="po-u" readonly value="'+escAttr(url)+'">'+
+        '<button class="po-c" data-copiar="'+escAttr(url)+'">Copiar</button>'+
+        '<a class="po-a" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a></div>';
+    }).join("") : '<div class="vazio">Carregando…</div>';
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox portais"><h3>Links dos clientes</h3>'+
+    '<p class="msub">Link pessoal de cada cliente, sem senha. Só quem tem o endereço acessa, e cada página mostra apenas os dados daquele cliente.</p>'+
+    '<div class="po-lista">'+linhas+'</div>'+
+    '<p class="nota-p">Para trocar um link (se vazar) ou ligar o histórico de atrasos de outro cliente, me peça — eu regenero.</p>'+
+    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal();
+  if(!PORTAIS){
+    fetch("portais.json?ts="+Date.now()).then(r=>r.json()).then(j=>{ PORTAIS=j; if(modalAberto()) abrirPortais(); }).catch(()=>{
+      PORTAIS={}; if(modalAberto()) abrirPortais();
+    });
+  }
 }
 function abrirEquipe(){
   if(!ehAdmin()) return;
@@ -611,7 +662,7 @@ function abrirMotivo(cid,tid,day){
     '<p class="msub">'+esc(rot)+' · '+fmt(day)+'</p>'+
     '<label class="mlab">Motivo<textarea id="mmotivo" rows="3" placeholder="Escreva o que impediu...">'+esc(cur?cur.motivo:"")+'</textarea></label>'+
     '<div class="mbtns"><button data-macao="motivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Salvar motivo</button>'+
-    (cur?'<button class="danger" data-macao="removermotivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Remover</button>':'')+
+    '<button class="sec" data-macao="neutro" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Deixar neutro</button>'+
     '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
   mostrarModal();
 }
@@ -687,7 +738,7 @@ function handleModal(D){
     if(eraAtr&&eraAtr.k==="atrasado"){ abrirAtrasadas(D.mday); } else { fecharModal(); }
     return;
   }
-  if(D.macao==="removermotivo"){ setNaoFeito(D.mcid,D.mtid,D.mday,""); fecharModal(); return; }
+  if(D.macao==="neutro"){ neutralizar(D.mcid,D.mtid,D.mday); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); abrirEquipe(); return; }
   if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value); abrirDemanda(); return; }
@@ -970,7 +1021,7 @@ function resumoSemanaHTML(){
   for(let i=0;i<5;i++){
     const day=addD(wk,i);
     TODAS.filter(t=>t.data===day && relevanteBoard(t)).forEach(t=>{
-      const x=xInfo(wk,t.clienteId,t.id);
+      const x=xInfo(wk,t.clienteId,t.id,day);
       if(x){ naofeitas++; const k=(x.motivo||"sem motivo").trim(); motivos[k]=(motivos[k]||0)+1; }
       else if(t.st.k==="ok") feitas++;
     });
@@ -1055,7 +1106,10 @@ function tarefasHTML(c){
           '<div class="resp">Cliente</div></div>';
       }).join("")+'</div>';
 
-    const atr = atrasos(c).sort((a,b)=>b.dias-a.dias);
+    const extras = TODAS.filter(t=>t.clienteId===c.id && t.st.k==="ok" && t.st.atraso>0 && t.data)
+      .map(t=>({etapa:t.tarefa, cliente:c.nome, limite:t.data, real:t.st.quando, dias:t.st.atraso,
+                quem:(t.resp==="Cliente"?"Cliente":"MK3"), causa:"entregue fora do prazo", previsto:false, justificado:false}));
+    const atr = atrasos(c).concat(extras).sort((a,b)=>b.dias-a.dias);
     const contam=atr.filter(a=>!a.previsto && !a.justificado);
     const jus=atr.filter(a=>a.justificado), prev=atr.filter(a=>a.previsto && !a.justificado);
     const sMK3=contam.filter(a=>a.quem==="MK3").reduce((s,a)=>s+a.dias,0);
@@ -1178,7 +1232,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1194,7 +1248,11 @@ document.addEventListener("click", function(ev){
   if(D.sair){ sair(); return; }
   if(D.macao){ handleModal(D); return; }
   if(D.wkok){ marcarFeitoSemana(D.mcid,D.mtid,D.mday); return; }
-  if(D.wkx){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
+  if(D.wkx){
+    const jaX=xInfo(segOf(D.mday),D.mcid,D.mtid,D.mday);
+    if(jaX){ neutralizar(D.mcid,D.mtid,D.mday); return; }
+    abrirMotivo(D.mcid,D.mtid,D.mday); return;
+  }
   if(D.vermotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.nota){ abrirNota(D.nota); return; }
   if(D.dia){ abrirDia(D.dia); return; }
@@ -1207,6 +1265,13 @@ document.addEventListener("click", function(ev){
   if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
   if(D.demanda){ if(!ehAdmin()) return; abrirDemanda(D.demdia); return; }
   if(D.equipe){ if(!ehAdmin()) return; abrirEquipe(); return; }
+  if(D.portais){ abrirPortais(); return; }
+  if(D.copiar){
+    const txt=D.copiar;
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Link copiado",false),()=>{});
+    else { const i=document.createElement("textarea"); i.value=txt; document.body.appendChild(i); i.select(); try{document.execCommand("copy");}catch(e){} i.remove(); toast("Link copiado",false); }
+    return;
+  }
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
   if(D.pessoax){ removePessoa(D.pessoax); abrirEquipe(); return; }
   if(D.demx){ removeDemanda(D.demx); abrirDemanda(); return; }
