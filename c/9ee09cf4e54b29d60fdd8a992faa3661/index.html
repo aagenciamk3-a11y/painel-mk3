@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive, noai, noimageai">
+<title>Cynthia Carvalho · Acompanhamento MK3</title>
+<style>:root{--bg:#140E24;--panel:#241A3D;--panel2:#2E2249;--line:#40325F;--txt:#F1EEFB;--mut:#B9B0D2;
+ --mk3:#8B5CF6;--mk3o:#F97316;--atrasado:#F2555A;--hoje:#FF8A3D;--umdia:#F5C518;--ok:#4CC463}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);line-height:1.55;padding:28px 18px 60px;
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+.marca{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.marca span{color:var(--mk3o)}
+.hoje{font-size:12.5px;color:var(--mut)}
+h1{font-size:24px;letter-spacing:-.02em;margin-bottom:18px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);font-weight:700;margin-bottom:12px}
+h3.sub{font-size:13px;font-weight:600;color:var(--txt);margin:20px 0 4px}
+.bloco{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px;
+ box-shadow:0 2px 10px rgba(0,0,0,.28)}
+.bloco.ok h2{color:var(--ok)}
+.bloco p{font-size:13.5px;color:var(--mut)}
+.item{background:var(--panel2);border-left:3px solid var(--mut);border-radius:9px;padding:12px 14px;margin-bottom:9px}
+.i-t{font-size:15px;font-weight:600}
+.i-m{font-size:12.5px;color:var(--mut);margin-top:2px}
+.i-atrasado{border-left-color:var(--atrasado);background:rgba(242,85,90,.10)}
+.i-hoje{border-left-color:var(--hoje);background:rgba(255,138,61,.10)}
+.i-umdia{border-left-color:var(--umdia);background:rgba(245,197,24,.10)}
+.i-ok{border-left-color:var(--mk3)}
+.nota{font-size:12px;color:var(--mut);margin-top:10px;font-style:italic}
+.linha-lista{display:flex;flex-direction:column}
+.ln{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px dashed var(--line);font-size:14px}
+.ln:first-child{border-top:none}
+.ln-d{color:var(--mut);font-size:12.5px;width:62px;flex:none;font-variant-numeric:tabular-nums}
+.ln-t{flex:1;min-width:0}
+.ln-q{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 9px;border-radius:20px;flex:none}
+.ln-q.cli{background:rgba(245,197,24,.15);color:var(--umdia)}
+.ln-q.mk3{background:rgba(139,92,246,.18);color:#C4B5FD}
+.tl{display:flex;flex-direction:column;position:relative;padding-left:16px}
+.tl::before{content:"";position:absolute;left:3px;top:8px;bottom:8px;width:2px;background:var(--line)}
+.tl-i{position:relative;padding:6px 0;font-size:13.5px;display:flex;gap:12px}
+.tl-i::before{content:"";position:absolute;left:-16px;top:13px;width:8px;height:8px;border-radius:50%;background:var(--mk3)}
+.tl-d{color:var(--mut);font-size:12.5px;width:62px;flex:none;font-variant-numeric:tabular-nums}
+.tl-t i{font-style:normal;color:var(--mut);font-size:12.5px}
+.atr{background:rgba(242,85,90,.08);border:1px solid rgba(242,85,90,.25);border-radius:9px;padding:12px 14px;margin-top:10px}
+.a-t{font-size:14.5px;font-weight:600}
+.a-m{font-size:12.5px;color:var(--mut);margin-top:3px}
+.a-m b{color:#FF9DA0}
+.a-e{font-size:12.5px;color:var(--mut);margin-top:6px;padding-top:6px;border-top:1px dashed rgba(242,85,90,.25)}
+.ok-box{background:rgba(76,196,99,.10);border:1px solid rgba(76,196,99,.3);color:#A6E9B4;border-radius:9px;
+ padding:12px 14px;font-size:13.5px}
+footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--mut);text-align:center}
+@media(max-width:600px){body{padding:18px 12px 40px}.bloco{padding:16px 14px}h1{font-size:20px}}
+</style></head><body>
+<div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
+<h1 id="titulo"></h1><div id="view"></div>
+<footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer></div>
+<script>const CLIENTES=[{"id":"cynthia","nome":"Cynthia Carvalho","entrada":"2026-06-22","vencimentoContrato":"2026-10-15","escopo":{"agendamento":true,"calendarioEditorial":false,"trafegoPago":false},"imersao":"2026-07-06","reuniaoPlanejamentoEntrada":"2026-07-10","envioPlanejamento":"2026-07-13","aprovacaoPlanejamento":"2026-07-17","envioMidia":null,"aprovacaoMidia":null,"gravacao":"2026-07-23","semFotos":true,"artesDependemDaGravacao":false,"inicioCicloPadrao":"2026-08","marcos":[{"data":"2026-06-22","titulo":"Entrada do cliente","detalhe":"Grupo criado e onboarding enviado"},{"data":"2026-06-26","titulo":"Imersão remarcada","detalhe":"Cliente não compareceu; pediu desculpas"},{"data":"2026-07-02","titulo":"Imersão remarcada","detalhe":"Cliente não compareceu novamente"},{"data":"2026-07-06","titulo":"Reunião de imersão","detalhe":"Realizada às 11:15, a pedido da cliente"},{"data":"2026-07-13","titulo":"Planejamento enviado","detalhe":"Para aprovação no Pode Postar"},{"data":"2026-07-15","titulo":"Contrato alterado","detalhe":"Data ajustada a pedido da cliente e reenviado"},{"data":"2026-07-17","titulo":"Planejamento aprovado + contrato assinado","detalhe":"Aprovado hoje (com atraso); contrato assinado"},{"data":"2026-07-23","titulo":"Gravação marcada","detalhe":"Diária de gravação agendada pela cliente"}],"tarefasExtras":[]}];const MOSTRA_HISTORICO=false;</script>
+<script>/* ═══════════════════════════════════════════════════════════════
+   MOTOR — regras do Manual de Processos MK3 v1.0 + render.
+   Régua da MK3: 2 DIAS ÚTEIS em toda etapa de entrega e aprovação.
+   ═══════════════════════════════════════════════════════════════ */
+
+const HOJE = new Date(); HOJE.setHours(0,0,0,0);
+
+const d    = s => { const [a,m,x]=s.split("-").map(Number); return new Date(a,m-1,x); };
+const iso  = t => t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
+const addD = (s,n)=>{ const x=d(s); x.setDate(x.getDate()+n); return iso(x); };
+const addM = (s,n)=>{ const x=d(s); x.setMonth(x.getMonth()+n); return iso(x); };
+const fmt  = s => s ? d(s).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"}) : "—";
+const dow  = s => s ? d(s).toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","") : "";
+const dias = s => Math.round((d(s)-HOJE)/86400000);
+
+/* soma N dias ÚTEIS (pula sábado e domingo) */
+const uteis = (s,n) => {
+  if(!s) return null;
+  let x = d(s), c = 0;
+  while(c < n){ x.setDate(x.getDate()+1); const w = x.getDay(); if(w!==0 && w!==6) c++; }
+  return iso(x);
+};
+const PRAZO = 2;
+
+/* quantos dias ÚTEIS separam o limite da data real (0 = no prazo) */
+const uteisEntre = (limite, real) => {
+  if(!limite || !real || real <= limite) return 0;
+  let n=0, x=d(limite);
+  while(iso(x) < real){ x.setDate(x.getDate()+1); const w=x.getDay(); if(w!==0&&w!==6) n++; }
+  return n;
+};
+const maiorData = (a,b) => !a ? b : !b ? a : (a>b ? a : b);
+
+/* ---------------- REGRAS ---------------- */
+/* Conclusão de uma tarefa. Em `concluidas` aceita:
+   - "id"            -> concluído (sem data, assume no prazo)
+   - {id, data}      -> concluído naquela data (o painel calcula prazo/atraso) */
+const conclusaoDe = (c, id) => {
+  for(const e of (c.concluidas||[])){
+    if(e === id) return {feita:true, data:null};
+    if(e && e.id === id) return {feita:true, data:e.data||null};
+  }
+  return {feita:false, data:null};
+};
+
+function regras(c){
+  const T=[];
+  const add=(id,fase,tarefa,detalhe,data,resp)=>{
+    const cc=conclusaoDe(c,id);
+    T.push({id,fase,tarefa,detalhe,data,resp,cliente:c.nome,clienteId:c.id,
+      feita:cc.feita, dataConclusao:cc.data});
+  };
+
+  /* PARTE A — ENTRADA (âncora: assinatura) */
+  const D0=c.entrada;
+  add("pasta","Entrada","Duplicar pasta modelo e renomear","[SEGMENTO] "+c.nome,D0,"Estagiário");
+  add("grupo","Entrada","Criar grupo de WhatsApp","MK3 - "+c.nome.toUpperCase()+", com foto da marca",D0,"Estagiário");
+  add("boasvindas","Entrada","Mensagem de boas-vindas","No grupo, com os próximos passos",D0,"Estagiário");
+  add("onboarding","Entrada","Enviar onboarding","Por WhatsApp e por e-mail",D0,"Estagiário");
+  add("acessos","Entrada","Coletar acessos","Instagram, Facebook, LinkedIn e demais",D0,"Estagiário");
+  add("prints","Entrada","Print das redes na chegada","Antes de qualquer ação · 02 → 04 Registro visual",D0,"Estagiário");
+  add("reserva","Entrada","Código de reserva 2FA","Print salvo em 01. Acessos",D0,"Estagiário");
+
+  const antesIm = c.imersao ? addD(c.imersao,-1) : null;
+  add("pesq1","Entrada","Pesquisa de comportamento de consumo","Antes da imersão",antesIm,"Analista");
+  add("pesq2","Entrada","Pesquisa de mercado e demanda","Antes da imersão",antesIm,"Analista");
+  add("imersao","Entrada","Reunião de imersão","Google Agenda · convite por e-mail e WhatsApp",c.imersao,"Analista");
+  add("imersaoDoc","Entrada","Tratar o documento da imersão","IA organiza, analista revisa · 03. Imersão",
+      c.imersao?uteis(c.imersao,1):null,"Analista");
+  add("reuniaoPlan","Entrada","Reunião de planejamento (entrada)","Temas, datas do negócio, tráfego",
+      c.reuniaoPlanejamentoEntrada,"Analista");
+
+  /* 1º CICLO — cadeia de 2 dias úteis. Cada etapa re-ancora na data
+     REAL quando ela existe; sem data real, usa o limite do prazo. */
+  const R = c.reuniaoPlanejamentoEntrada;
+  if(R){
+    const limEnvPlan  = uteis(R, PRAZO);
+    const baseEnvPlan = c.envioPlanejamento || limEnvPlan;
+    const lembPlan    = uteis(baseEnvPlan, 1);
+    const limAprPlan  = uteis(baseEnvPlan, PRAZO);
+    const baseAprPlan = c.aprovacaoPlanejamento || limAprPlan;
+    /* se as artes dependem das fotos, elas só começam a contar depois da gravação */
+    const gatilhoArtes = c.artesDependemDaGravacao && c.gravacao
+                       ? maiorData(baseAprPlan, c.gravacao) : baseAprPlan;
+    const limArtes    = uteis(gatilhoArtes, PRAZO);
+    const baseEnvMid  = c.envioMidia || limArtes;
+    const lembMid     = uteis(baseEnvMid, 1);
+    const limAprMid   = uteis(baseEnvMid, PRAZO);
+    const baseAprMid  = c.aprovacaoMidia || limAprMid;
+
+    add("c1_plan","1º ciclo","Criar e enviar o planejamento ao cliente","2 dias úteis após a reunião · abre o prazo de 48h úteis",limEnvPlan,"Analista");
+    add("c1_lembPlan","1º ciclo","Lembrete de aprovação do planejamento","1 dia útil sem retorno",lembPlan,"Analista");
+    add("c1_aprPlan","1º ciclo","Aprovação do planejamento","Limite: 2 dias úteis · sem retorno = aprovado automaticamente",limAprPlan,"Cliente");
+    /* só existe quando o cliente REALMENTE pediu alteração (se aprovou, não pediu) */
+    if(c.alteracaoPedida)
+      add("c1_ajuste","1º ciclo","Devolver a alteração pedida",
+          "Alteração pedida em "+fmt(c.alteracaoPedida)+" · 2 dias úteis para devolver",
+          uteis(c.alteracaoPedida,PRAZO),"Analista");
+    add("c1_roteiro","1º ciclo","Enviar roteiro à produtora",
+        "No mesmo dia da aprovação do planejamento", baseAprPlan, "Analista");
+    if(c.gravacao)
+      add("c1_gravacao","1º ciclo",c.semFotos?"Gravação":"Gravação + fotos","Manhã, 8h às 17h"+(c.artesDependemDaGravacao?" · insumo das artes":""),c.gravacao,"Produtora / Cliente");
+    else
+      add("c1_gravacao","1º ciclo","Agendar diária de gravação","Manhã, 8h às 17h · régua a confirmar",null,"Analista / Estagiário");
+    add("c1_artes","1º ciclo","Criar as artes",
+        (c.artesDependemDaGravacao && c.gravacao)
+          ? "2 dias úteis após a gravação · depende das fotos de "+fmt(c.gravacao)
+          : "2 dias úteis após a aprovação do planejamento",
+        limArtes,"Analista / Design");
+    add("c1_lembMid","1º ciclo","Lembrete de aprovação das artes","1 dia útil sem retorno",lembMid,"Analista");
+    add("c1_aprMid","1º ciclo","Aprovação das artes","Limite: 2 dias úteis · aprovado = entra no Pode Postar",limAprMid,"Cliente");
+    const temAgendamento = !c.escopo || c.escopo.agendamento !== false;
+    if(temAgendamento)
+      add("c1_podepostar","1º ciclo","Peças no Pode Postar","Automático na aprovação",baseAprMid,"Sistema");
+    else
+      add("c1_entrega","1º ciclo","Entregar as peças ao cliente",
+          "Contrato não inclui agendamento · a cliente publica",baseAprMid,"Analista");
+    add("c1_calendario","1º ciclo","Enviar à gestão o planejamento com as datas de postagem","",baseAprMid,"Analista");
+  }
+
+  /* GATILHOS RECORRENTES */
+  add("reserva3m","Recorrente","Atualizar código de reserva","A cada 3 meses",addM(D0,3),"Estagiário");
+  add("pesq6m","Recorrente","Atualizar as duas pesquisas","A cada 6 meses",addM(D0,6),"Analista");
+  add("renov","Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
+      c.vencimentoContrato?addD(c.vencimentoContrato,-20):null,"Gestão");
+  if(c.vencimentoContrato)
+    add("acaoComercial","Contrato","Ação comercial — contrato encerra em 1 semana",
+        "Contato para renovação/negociação com o cliente",addD(c.vencimentoContrato,-7),"Gestão");
+  add("fimContrato","Contrato","Encerramento do contrato",
+      c.contrato?("Contrato "+c.contrato):"",c.vencimentoContrato,"Gestão");
+
+  if(c.vencimentoContrato){
+    /* entrega integral dos materiais: até o fim da vigência,
+       com tolerância de 10 dias úteis depois (cláusula 4.f) */
+    add("entregaMateriais","Contrato","Entregar todos os materiais produzidos",
+        "Artes, textos e editáveis · tolerância até "+fmt(uteis(c.vencimentoContrato,10)),
+        c.vencimentoContrato,"Analista");
+  }
+
+  /* mensalidade: todo dia 20 enquanto o contrato estiver vigente */
+  if(c.mensalidade && c.vencimentoContrato){
+    const dia = c.mensalidade.diaVencimento;
+    let m = new Date(d(c.inicioContrato||D0).getFullYear(), d(c.inicioContrato||D0).getMonth(), dia);
+    let i = 0;
+    while(iso(m) <= c.vencimentoContrato && i < 36){
+      const s2 = iso(m);
+      if(s2 >= (c.inicioContrato||D0))
+        add("pag_"+s2,"Contrato","Mensalidade — R$ "+c.mensalidade.valorPix+" PIX + R$ "+
+            c.mensalidade.valorPermuta+" permuta","Vencimento dia "+dia,s2,"Cliente");
+      m.setMonth(m.getMonth()+1); i++;
+    }
+  }
+
+  /* CICLO MENSAL PADRÃO — repete a cada mês de vigência, a partir de inicioCicloPadrao
+     (ou do mês seguinte à entrada). Gera relatório, reunião mensal, planejamento e mídia
+     de CADA mês, com ids sufixados por AAAA-MM. Reuniões pedem Meet + agenda + convite. */
+  const e=d(D0);
+  let ini = c.inicioCicloPadrao
+    ? new Date(Number(c.inicioCicloPadrao.split("-")[0]), Number(c.inicioCicloPadrao.split("-")[1])-1, 1)
+    : new Date(e.getFullYear(), e.getMonth()+1, 1);
+  const fimCiclos = c.vencimentoContrato ? d(c.vencimentoContrato)
+                                         : new Date(ini.getFullYear(), ini.getMonth()+1, 1);
+  let _gi=0;
+  for(let mref=new Date(ini); mref<=fimCiclos && _gi<24; mref.setMonth(mref.getMonth()+1), _gi++){
+    const ano=mref.getFullYear(), mes=mref.getMonth()+1;
+    const sfx="_"+ano+"-"+String(mes).padStart(2,"0");
+    const dd=n=>ano+"-"+String(mes).padStart(2,"0")+"-"+String(n).padStart(2,"0");
+    const ult=new Date(ano,mes,0).getDate();
+    const cic="Ciclo "+mref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    add("relatorio"+sfx,"Ciclo padrão","Gerar relatório mensal","Início da semana 3 · "+cic,dd(15),"Analista");
+    add("reuMensal"+sfx,"Ciclo padrão","Reunião mensal","Janela: dias 15 a 20 · criar Meet, registrar na agenda e enviar convite · "+cic,dd(20),"Analista");
+    add("envRelat"+sfx,"Ciclo padrão","Enviar relatório ao cliente","E-mail, no dia da reunião ou no útil seguinte · "+cic,dd(21),"Analista");
+    add("planej"+sfx,"Ciclo padrão","Criar o planejamento","Após a reunião · aprovação interna da gestão · "+cic,dd(23),"Analista");
+    add("envPlanej"+sfx,"Ciclo padrão","Enviar planejamento ao cliente","Abre o prazo de 48h úteis · "+cic,dd(24),"Analista");
+    add("midia"+sfx,"Ciclo padrão","Produzir a mídia","Semana 4 · "+cic,dd(28),"Analista");
+    add("agendado"+sfx,"Ciclo padrão","Conteúdo agendado","Pronto para publicar no dia 1 · "+cic,dd(ult),"Analista");
+  }
+
+  /* TAREFAS EXTRAS por cliente (itens fora do padrão: pagamentos a fornecedor, etc.) */
+  (c.tarefasExtras||[]).forEach((t,i)=>add(t.id||("extra"+i), t.fase||"Outros", t.tarefa, t.detalhe||"", t.data||null, t.resp||"MK3"));
+
+  return T;
+}
+
+function contadores(c){
+  const out=[];
+  const mk=(tipo,envio,aprov)=>{
+    if(!envio || aprov) return;
+    out.push({cliente:c.nome,tipo,enviado:envio,lembrete:uteis(envio,1),vencimento:uteis(envio,PRAZO)});
+  };
+  mk("planejamento", c.envioPlanejamento, c.aprovacaoPlanejamento);
+  mk("mídia",        c.envioMidia,        c.aprovacaoMidia);
+  return out;
+}
+
+/* ---------------- ATRASOS ---------------- */
+/* Compara o limite da regra com a data real. Só registra o que já
+   aconteceu — nada de previsão. */
+function atrasos(c){
+  const out=[];
+  const just = etapa => (c.justificados||[]).find(j=>j.etapa===etapa);
+  const reg=(etapa,quem,limite,real)=>{
+    if(!limite || !real) return;
+    const n = uteisEntre(limite, real);
+    if(n>0){
+      const j = just(etapa);
+      out.push({cliente:c.nome, etapa, quem, limite, real, dias:n,
+                justificado: !!j, motivo: j ? j.motivo : null});
+    }
+  };
+  const R = c.reuniaoPlanejamentoEntrada;
+  if(!R) return out;
+
+  const limEnvPlan  = uteis(R, PRAZO);
+  reg("Entrega do planejamento","MK3", limEnvPlan, c.envioPlanejamento);
+
+  const baseEnvPlan = c.envioPlanejamento || limEnvPlan;
+  const limAprPlan  = uteis(baseEnvPlan, PRAZO);
+  reg("Aprovação do planejamento","Cliente", limAprPlan, c.aprovacaoPlanejamento);
+
+  const baseAprPlan  = c.aprovacaoPlanejamento || limAprPlan;
+
+  /* limite PELA REGRA: 2 dias úteis após a aprovação do planejamento */
+  const limArtesRegra = uteis(baseAprPlan, PRAZO);
+
+  /* data possível NA PRÁTICA: se as artes dependem das fotos, só
+     começam a contar depois da gravação */
+  const gatilhoArtes = c.artesDependemDaGravacao && c.gravacao
+                     ? maiorData(baseAprPlan, c.gravacao) : baseAprPlan;
+  const limArtes     = uteis(gatilhoArtes, PRAZO);
+
+  /* a dependência NÃO apaga o prazo: se ela estoura a régua, isso é
+     um atraso previsto e tem de aparecer antes de acontecer */
+  const nPrev = uteisEntre(limArtesRegra, limArtes);
+  if(nPrev>0 && !c.envioMidia){
+    const j = just("Entrega das artes");
+    out.push({cliente:c.nome, etapa:"Entrega das artes", quem:"MK3", previsto:true,
+              limite:limArtesRegra, real:limArtes, dias:nPrev,
+              justificado: !!j,
+              motivo: j ? j.motivo : null,
+              causa:"depende das fotos da gravação de "+fmt(c.gravacao)});
+  }
+
+  reg("Entrega das artes","MK3", limArtesRegra, c.envioMidia);
+
+  const baseEnvMid = c.envioMidia || limArtes;
+  const limAprMid  = uteis(baseEnvMid, PRAZO);
+  reg("Aprovação das artes","Cliente", limAprMid, c.aprovacaoMidia);
+
+  return out;
+}
+
+function status(t){
+  if(t.feita){
+    if(t.dataConclusao && t.data){
+      const n=uteisEntre(t.data, t.dataConclusao);
+      if(n>0) return {k:"ok", atraso:n, quando:t.dataConclusao,
+                      txt:"Concluído · atrasou "+n+(n===1?" dia útil":" dias úteis")};
+      return {k:"ok", atraso:0, quando:t.dataConclusao, txt:"Concluído na data"};
+    }
+    return {k:"ok", txt:"Concluído"};
+  }
+  if(!t.data) return {k:"sem",txt:"Sem data"};
+  const n=dias(t.data);
+  if(n<0)   return {k:"atrasado",txt:"Atrasado "+Math.abs(n)+"d"};
+  if(n===0) return {k:"hoje",txt:"Vence hoje"};
+  if(n===1) return {k:"umdia",txt:"Falta 1 dia"};
+  if(n<=7)  return {k:"semana",txt:"Faltam "+n+" dias"};
+  return {k:"futuro",txt:"Faltam "+n+" dias"};
+}
+
+</script>
+<script>/* Portal do cliente — somente leitura. Usa as mesmas regras do painel. */
+const C = CLIENTES[0];
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+
+$("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+$("titulo").textContent = C.nome;
+
+/* ---- 1) o que está esperando o cliente ---- */
+function esperando(){
+  const meus = TAREFAS.filter(t=>t.resp==="Cliente" && t.st.k!=="ok" && t.data)
+    .sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  const ct = contadores(C);
+  if(!meus.length) return '<section class="bloco ok"><h2>Nada esperando você</h2>'+
+    '<p>Está tudo com a gente no momento. Assim que houver algo para aprovar, aparece aqui.</p></section>';
+  return '<section class="bloco"><h2>Esperando você</h2>'+
+    meus.map(t=>{
+      const c48 = ct.find(x=>("Aprovação de "+x.tipo).toLowerCase()===t.tarefa.toLowerCase());
+      const n = dias(t.data);
+      const urg = n<0?"atrasado":n===0?"hoje":n===1?"umdia":"ok";
+      const txt = n<0?("prazo venceu há "+Math.abs(n)+" dia"+(Math.abs(n)>1?"s":"")) : n===0?"vence hoje" : "faltam "+n+" dias";
+      return '<div class="item i-'+urg+'"><div class="i-t">'+esc(t.tarefa)+'</div>'+
+        '<div class="i-m">Prazo '+fmt(t.data)+' · '+txt+
+        (c48?' · enviado em '+fmt(c48.enviado):'')+'</div></div>';
+    }).join("")+
+    '<p class="nota">Sem retorno até o prazo, seguimos com a aprovação automática para não travar a produção.</p></section>';
+}
+
+/* ---- 2) próximos passos (o que vem) ---- */
+function proximos(){
+  const hoje=iso(HOJE);
+  const ts=TAREFAS.filter(t=>t.data && t.data>=hoje && t.st.k!=="ok" && t.fase!=="Contrato" && !/^pag_/.test(t.id))
+    .sort((a,b)=>String(a.data).localeCompare(String(b.data))).slice(0,8);
+  if(!ts.length) return '';
+  return '<section class="bloco"><h2>Próximos passos</h2><div class="linha-lista">'+
+    ts.map(t=>'<div class="ln"><span class="ln-d">'+fmt(t.data)+'</span>'+
+      '<span class="ln-t">'+esc(t.tarefa)+'</span>'+
+      '<span class="ln-q '+(t.resp==="Cliente"?"cli":"mk3")+'">'+(t.resp==="Cliente"?"com você":"com a MK3")+'</span></div>').join("")+
+    '</div></section>';
+}
+
+/* ---- 3) linha do tempo com atrasos e efeito cascata ---- */
+function historico(){
+  if(!MOSTRA_HISTORICO) return '';
+  const atr = atrasos(C);
+  const doCliente = atr.filter(a=>a.quem==="Cliente" && !a.previsto);
+  const marcos = [...(C.marcos||[])].sort((a,b)=>a.data.localeCompare(b.data));
+  let h='<section class="bloco"><h2>Linha do tempo</h2>';
+  if(marcos.length){
+    h+='<div class="tl">'+marcos.map(m=>'<div class="tl-i"><span class="tl-d">'+fmt(m.data)+'</span>'+
+      '<span class="tl-t">'+esc(m.titulo)+(m.detalhe?' <i>'+esc(m.detalhe)+'</i>':'')+'</span></div>').join("")+'</div>';
+  }
+  if(doCliente.length){
+    h+='<h3 class="sub">Aprovações fora do prazo</h3>'+
+      '<p class="nota">Registro objetivo, para explicar o remanejamento das entregas.</p>'+
+      doCliente.map(a=>{
+        const dep=TAREFAS.filter(t=>t.fase==="1º ciclo" && t.data && a.real && t.data>=a.real && /arte|Pode Postar|roteiro/i.test(t.tarefa))
+          .sort((x,y)=>String(x.data).localeCompare(String(y.data))).slice(0,2);
+        return '<div class="atr"><div class="a-t">'+esc(a.etapa)+'</div>'+
+          '<div class="a-m">Prazo '+fmt(a.limite)+' · retorno em '+fmt(a.real)+' · <b>'+a.dias+' dia'+(a.dias>1?"s":"")+' útil'+(a.dias>1?"eis":"")+' além do prazo</b></div>'+
+          (dep.length?'<div class="a-e">Efeito: '+dep.map(t=>esc(t.tarefa)+" ficou para "+fmt(t.data)).join(" · ")+'</div>':'')+
+        '</div>';
+      }).join("");
+  } else {
+    h+='<div class="ok-box">Nenhuma aprovação fora do prazo até aqui. Obrigado pela agilidade.</div>';
+  }
+  h+='</section>';
+  return h;
+}
+
+$("view").innerHTML = esperando() + proximos() + historico();
+</script>
+</body></html>

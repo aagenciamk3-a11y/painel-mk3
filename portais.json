@@ -1,0 +1,22 @@
+{
+  "adriana": {
+    "token": "d224ae7ea867cbda9871e9807303f180",
+    "historico": false
+  },
+  "suelem": {
+    "token": "6bdf07aec74b114d8923d1f7b665a090",
+    "historico": true
+  },
+  "leonardo": {
+    "token": "57158c7b84258b112e8b6d975b6fd115",
+    "historico": false
+  },
+  "cynthia": {
+    "token": "9ee09cf4e54b29d60fdd8a992faa3661",
+    "historico": false
+  },
+  "oceanus": {
+    "token": "a763c874aef69c0116febc5e48997a35",
+    "historico": false
+  }
+}
