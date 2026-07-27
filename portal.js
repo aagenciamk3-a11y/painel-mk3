@@ -69,22 +69,38 @@ function proximos(){
 /* ---- 3) linha do tempo com atrasos e efeito cascata ---- */
 function historico(){
   if(!MOSTRA_HISTORICO) return '';
-  const atr = atrasos(C);
-  const doCliente = atr.filter(a=>a.quem==="Cliente" && !a.previsto);
+  const hojeIso=iso(HOJE);
+  /* só o que é responsabilidade do cliente: aprovações e envios de material dele */
+  const consumados = atrasos(C).filter(a=>a.quem==="Cliente" && !a.previsto);
+  const emAberto = TAREFAS.filter(t=>t.resp==="Cliente" && t.st.k!=="ok" && t.data && t.data<hojeIso)
+    .map(t=>({etapa:t.tarefa, limite:t.data, dias:uteisEntre(t.data,hojeIso), aberto:true}))
+    .filter(a=>a.dias>0);
+  const todos = consumados.concat(emAberto).sort((a,b)=>String(a.limite).localeCompare(String(b.limite)));
   const marcos = [...(C.marcos||[])].sort((a,b)=>a.data.localeCompare(b.data));
+
   let h='<section class="bloco"><h2>Linha do tempo</h2>';
   if(marcos.length){
     h+='<div class="tl">'+marcos.map(m=>'<div class="tl-i"><span class="tl-d">'+fmt(m.data)+'</span>'+
       '<span class="tl-t">'+esc(m.titulo)+(m.detalhe?' <i>'+esc(m.detalhe)+'</i>':'')+'</span></div>').join("")+'</div>';
   }
-  if(doCliente.length){
+  if(todos.length){
     h+='<h3 class="sub">Aprovações fora do prazo</h3>'+
-      '<p class="nota">Registro objetivo, para explicar o remanejamento das entregas.</p>'+
-      doCliente.map(a=>{
-        const dep=TAREFAS.filter(t=>t.fase==="1º ciclo" && t.data && a.real && t.data>=a.real && /arte|Pode Postar|roteiro/i.test(t.tarefa))
+      '<p class="nota">Registro objetivo, para explicar o remanejamento das entregas. Prazos em dias úteis.</p>'+
+      todos.map(a=>{
+        const dias1=a.dias, plural=dias1>1;
+        if(a.aberto){
+          /* o que está parado esperando esta aprovação */
+          const parado=TAREFAS.filter(t=>t.resp!=="Cliente" && t.st.k!=="ok" && t.data && t.data>=a.limite)
+            .sort((x,y)=>String(x.data).localeCompare(String(y.data))).slice(0,2);
+          return '<div class="atr aberto"><div class="a-t">'+esc(a.etapa)+' <span class="tagx">em aberto</span></div>'+
+            '<div class="a-m">Prazo era '+fmt(a.limite)+' · <b>'+dias1+' dia'+(plural?'s':'')+' útil'+(plural?'eis':'')+' sem retorno</b></div>'+
+            (parado.length?'<div class="a-e">Enquanto isso, segue parado: '+parado.map(t=>esc(t.tarefa)).join(" · ")+'</div>':'')+
+          '</div>';
+        }
+        const dep=TAREFAS.filter(t=>t.data && a.real && t.data>=a.real && /arte|Pode Postar|roteiro|agendad/i.test(t.tarefa))
           .sort((x,y)=>String(x.data).localeCompare(String(y.data))).slice(0,2);
         return '<div class="atr"><div class="a-t">'+esc(a.etapa)+'</div>'+
-          '<div class="a-m">Prazo '+fmt(a.limite)+' · retorno em '+fmt(a.real)+' · <b>'+a.dias+' dia'+(a.dias>1?"s":"")+' útil'+(a.dias>1?"eis":"")+' além do prazo</b></div>'+
+          '<div class="a-m">Prazo '+fmt(a.limite)+' · retorno em '+fmt(a.real)+' · <b>'+dias1+' dia'+(plural?'s':'')+' útil'+(plural?'eis':'')+' além do prazo</b></div>'+
           (dep.length?'<div class="a-e">Efeito: '+dep.map(t=>esc(t.tarefa)+" ficou para "+fmt(t.data)).join(" · ")+'</div>':'')+
         '</div>';
       }).join("");
@@ -94,7 +110,6 @@ function historico(){
   h+='</section>';
   return h;
 }
-
 function desenhar(){ $("view").innerHTML = esperando() + proximos() + historico(); }
 desenhar();
 fetch("../../estado.json?ts="+Date.now())

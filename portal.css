@@ -43,6 +43,10 @@ h3.sub{font-size:13px;font-weight:600;color:var(--txt);margin:20px 0 4px}
 .tl-d{color:var(--mut);font-size:12.5px;width:62px;flex:none;font-variant-numeric:tabular-nums}
 .tl-t i{font-style:normal;color:var(--mut);font-size:12.5px}
 .atr{background:rgba(242,85,90,.08);border:1px solid rgba(242,85,90,.25);border-radius:9px;padding:12px 14px;margin-top:10px}
+.atr.aberto{background:rgba(255,138,61,.09);border-color:rgba(255,138,61,.3)}
+.atr.aberto .a-m b{color:#FFC08A}
+.tagx{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:rgba(255,138,61,.2);
+ color:#FFC08A;padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:6px}
 .a-t{font-size:14.5px;font-weight:600}
 .a-m{font-size:12.5px;color:var(--mut);margin-top:3px}
 .a-m b{color:#FF9DA0}
