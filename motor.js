@@ -634,7 +634,16 @@ function abrirEquipe(){
 function setPerm(nome,perm,valor){
   const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
   snapshot();
-  if(perm==="admin"){ p.admin=valor; if(valor) p.areas=["all","mkt","fin","com"]; }
+  if(perm==="admin"){
+    if(valor){
+      p.areasAntes=(p.areas||[]).filter(a=>a!=="all");   /* guarda o que ela via antes */
+      p.admin=true; p.areas=["all","mkt","fin","com"];
+    } else {
+      p.admin=false;
+      p.areas=(p.areasAntes&&p.areasAntes.length?p.areasAntes:[]).filter(a=>a!=="all");
+      delete p.areasAntes;
+    }
+  }
   else { p.areas=(p.areas||[]).filter(a=>a!==perm); if(valor) p.areas.push(perm); }
   persist(); abrirEquipe();
   if(p.nome===USUARIO){ const as=areasDe(); if(as.indexOf(VISTA.area)<0){ VISTA.area=as[0]||"mkt"; } render(); }
@@ -845,6 +854,7 @@ async function init(){
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
+    if(!p.admin) p.areas=(p.areas||[]).filter(a=>a!=="all");   /* "all" é exclusivo de admin */
     if(p.pin===undefined) p.pin="";
   });
   try{ USUARIO=localStorage.getItem("mk3_user")||null; }catch(e){}
