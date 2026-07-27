@@ -93,14 +93,14 @@ function historico(){
           const parado=TAREFAS.filter(t=>t.resp!=="Cliente" && t.st.k!=="ok" && t.data && t.data>=a.limite)
             .sort((x,y)=>String(x.data).localeCompare(String(y.data))).slice(0,2);
           return '<div class="atr aberto"><div class="a-t">'+esc(a.etapa)+' <span class="tagx">em aberto</span></div>'+
-            '<div class="a-m">Prazo era '+fmt(a.limite)+' · <b>'+dias1+' dia'+(plural?'s':'')+' útil'+(plural?'eis':'')+' sem retorno</b></div>'+
+            '<div class="a-m">Prazo era '+fmt(a.limite)+' · <b>'+dias1+(plural?' dias úteis':' dia útil')+' sem retorno</b></div>'+
             (parado.length?'<div class="a-e">Enquanto isso, segue parado: '+parado.map(t=>esc(t.tarefa)).join(" · ")+'</div>':'')+
           '</div>';
         }
         const dep=TAREFAS.filter(t=>t.data && a.real && t.data>=a.real && /arte|Pode Postar|roteiro|agendad/i.test(t.tarefa))
           .sort((x,y)=>String(x.data).localeCompare(String(y.data))).slice(0,2);
         return '<div class="atr"><div class="a-t">'+esc(a.etapa)+'</div>'+
-          '<div class="a-m">Prazo '+fmt(a.limite)+' · retorno em '+fmt(a.real)+' · <b>'+dias1+' dia'+(plural?'s':'')+' útil'+(plural?'eis':'')+' além do prazo</b></div>'+
+          '<div class="a-m">Prazo '+fmt(a.limite)+' · retorno em '+fmt(a.real)+' · <b>'+dias1+(plural?' dias úteis':' dia útil')+' além do prazo</b></div>'+
           (dep.length?'<div class="a-e">Efeito: '+dep.map(t=>esc(t.tarefa)+" ficou para "+fmt(t.data)).join(" · ")+'</div>':'')+
         '</div>';
       }).join("");
