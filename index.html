@@ -460,7 +460,7 @@
   .app.side-col .side-user .snav-t{display:none}
   /* ---- matriz de permissões ---- */
   /* ---- cartão de pessoa (equipe e permissões) ---- */
-  .equipe{max-width:520px}
+  .equipe{max-width:580px}
   .eq-lista{display:flex;flex-direction:column;gap:10px;margin:10px 0 16px}
   .pcard{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r2);padding:13px 14px;
     transition:border-color .14s}
@@ -475,21 +475,21 @@
     width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;line-height:1}
   .pc-ico:hover{background:var(--panel);border-color:var(--line);color:var(--txt)}
   .pc-ico.rm:hover{border-color:rgba(242,85,90,.5);color:var(--atrasado)}
-  .pc-linha{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px}
+  .pc-linha{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px}
   .pc-sep{width:1px;height:20px;background:var(--line);margin:0 2px}
   /* interruptor de admin */
-  .sw{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+  .sw{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);
     color:var(--mut);font:inherit;font-size:12px;font-weight:600;padding:5px 12px 5px 6px;border-radius:20px;
-    cursor:pointer;min-height:30px;transition:.14s}
+    cursor:pointer;min-height:30px;transition:.14s;white-space:nowrap}
   .sw i{width:30px;height:17px;border-radius:20px;background:var(--line);position:relative;flex:none;transition:.18s}
   .sw i::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;
     background:var(--mut);transition:.18s}
   .sw.on{border-color:var(--mk3);color:#fff;background:rgba(139,92,246,.18)}
   .sw.on i{background:var(--mk3)} .sw.on i::after{left:15px;background:#fff}
   /* chips de área */
-  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);
-    color:var(--mut);font:inherit;font-size:12px;font-weight:600;padding:6px 13px;border-radius:20px;
-    cursor:pointer;min-height:30px;transition:.14s}
+  .chip{display:inline-flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);
+    color:var(--mut);font:inherit;font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:20px;
+    cursor:pointer;min-height:30px;transition:.14s;white-space:nowrap}
   .chip:hover:not(.trav){border-color:var(--mut);color:var(--txt)}
   .chip .chip-i{display:grid;place-items:center;width:14px;height:14px;opacity:.85}
   .chip .chip-i svg{width:13px;height:13px}
@@ -498,7 +498,7 @@
   /* PIN */
   .pc-pin{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
   .pin-l{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);font-weight:700}
-  .pinin{width:66px;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:8px;
+  .pinin{width:60px;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:8px;
     padding:6px 8px;font:inherit;font-size:12.5px;text-align:center;letter-spacing:.22em;min-height:30px}
   .pinin:focus{border-color:var(--mk3)}
   /* adicionar pessoa */
