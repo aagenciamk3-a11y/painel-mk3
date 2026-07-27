@@ -299,14 +299,14 @@ function marcarSalvo(){
 /* ---- modal acessível: foco preso, Esc, retorno de foco (3.4) ---- */
 let focoAnterior=null;
 const FOCAVEIS='button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])';
-function mostrarModal(){
+function mostrarModal(semFoco){
   const mm=$("modal");
   const h=mm.querySelector("h3"); if(h) h.id="modalTitulo";
-  focoAnterior=document.activeElement;
+  if(!modalAberto()) focoAnterior=document.activeElement;   /* não perde a origem ao redesenhar */
   mm.style.display="flex";
   const ap=$("app"); if(ap) ap.setAttribute("inert","");
-  const f=mm.querySelectorAll(FOCAVEIS);
-  const alvo=mm.querySelector("input,textarea,select")||f[0];
+  if(semFoco) return;
+  const alvo=mm.querySelector("[data-focar]")||mm.querySelector("input:not([type=password]),textarea,select");
   if(alvo && alvo.focus) setTimeout(()=>alvo.focus(),20);
 }
 function fecharModal(){
@@ -575,7 +575,7 @@ function abrirPortais(){
     '<div class="po-lista">'+linhas+'</div>'+
     '<p class="nota-p">O que você marca no painel aparece para o cliente na publicação automática (toda manhã, dias úteis) — ou quando você me pedir para publicar agora.</p>'+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
-  mostrarModal();
+  mostrarModal(true);
   if(!PORTAIS){
     fetch("portais.json?ts="+Date.now()).then(r=>r.json()).then(j=>{ PORTAIS=j; if(modalAberto()) abrirPortais(); }).catch(()=>{
       PORTAIS={}; if(modalAberto()) abrirPortais();
@@ -622,14 +622,14 @@ function abrirEquipe(){
               '<span class="chip-i">'+a[2]+'</span>'+esc(a[1])+'</button>';
           }).join("")+
           '<span class="pc-pin"><span class="pin-l">PIN</span>'+
-          '<input type="password" class="pinin" data-pin="'+escAttr(p.nome)+'" value="'+escAttr(p.pin||"")+'" maxlength="8" placeholder="—" inputmode="numeric" aria-label="PIN de '+escAttr(p.nome)+'"></span>'+
+          '<input type="password" class="pinin" data-pin="'+escAttr(p.nome)+'" value="'+escAttr(p.pin||"")+'" maxlength="8" placeholder="—" inputmode="numeric" autocomplete="new-password" data-lpignore="true" aria-label="PIN de '+escAttr(p.nome)+'"></span>'+
         '</div>'+
       '</div>';
     }).join("")+'</div>'+
-    '<div class="eq-add"><input type="text" id="enome" placeholder="Nome de quem vai entrar na equipe" autocomplete="off">'+
+    '<div class="eq-add"><input type="text" id="enome" placeholder="Nome de quem vai entrar na equipe" autocomplete="off" data-eq-novo>'+
       '<button data-macao="addpessoa">Adicionar</button></div>'+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
-  mostrarModal();
+  mostrarModal(true);
 }
 function setPerm(nome,perm,valor){
   const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
@@ -648,7 +648,7 @@ function abrirDemanda(diaSugerido){
   const pessoas=(ESTADO.pessoas||[]).map(p=>p.nome);
   const mm=$("modal");
   mm.innerHTML='<div class="mbox demform"><h3>Nova demanda</h3>'+
-    '<label class="mlab">O que é a demanda<input type="text" id="dtexto" placeholder="Descreva a demanda..." autocomplete="off"></label>'+
+    '<label class="mlab">O que é a demanda<input type="text" id="dtexto" placeholder="Descreva a demanda..." autocomplete="off" data-focar></label>'+
     '<label class="mlab">Área<select id="darea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Data<input type="date" id="ddata" value="'+(diaSugerido||iso(HOJE))+'"></label>'+
     '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option>'+p+'</option>').join("")+'</select></label>'+
@@ -774,7 +774,7 @@ function handleModal(D){
   }
   if(D.macao==="neutro"){ neutralizar(D.mcid,D.mtid,D.mday); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
-  if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); abrirEquipe(); return; }
+  if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); abrirEquipe(); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
   if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value); abrirDemanda(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
