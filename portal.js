@@ -1,8 +1,34 @@
 /* Portal do cliente — somente leitura. Usa as mesmas regras do painel. */
 const C = CLIENTES[0];
+const ORIGINAL = JSON.parse(JSON.stringify(C));
+const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","aprovacaoMidia","gravacao","alteracaoPedida"];
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-const TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+
+/* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
+function aplicarEstado(E){
+  if(!E) return;
+  C.concluidas=(ORIGINAL.concluidas||[]).slice();
+  CAMPOS_DATA.forEach(k=>C[k]=ORIGINAL[k]);
+  const dd=(E.datas&&E.datas[CLIENTE_ID])||{};
+  for(const k in dd){ if(dd[k]) C[k]=dd[k]; }
+  for(const e of ((E.concluidas&&E.concluidas[CLIENTE_ID])||[])){
+    C.concluidas=C.concluidas.filter(x=>((x&&x.id)?x.id:x)!==e.id);
+    if(!e.remove) C.concluidas.push(e.data?{id:e.id,data:e.data}:e.id);
+  }
+  TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+}
+function linkValido(E){
+  const p=(E&&E.portais&&E.portais[CLIENTE_ID])||null;
+  if(!p || !p.ativo) return true;             /* sem configuração = vale */
+  return p.ativo===MEU_TOKEN;
+}
+function expirado(){
+  document.getElementById("view").innerHTML=
+    '<section class="bloco"><h2>Link expirado</h2>'+
+    '<p>Este endereço foi substituído por um novo, por segurança. Peça o link atualizado à equipe da MK3.</p></section>';
+}
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
 $("titulo").textContent = C.nome;
@@ -69,4 +95,9 @@ function historico(){
   return h;
 }
 
-$("view").innerHTML = esperando() + proximos() + historico();
+function desenhar(){ $("view").innerHTML = esperando() + proximos() + historico(); }
+desenhar();
+fetch("../../estado.json?ts="+Date.now())
+  .then(r=>r.ok?r.json():null)
+  .then(E=>{ if(!E) return; if(!linkValido(E)){ expirado(); return; } aplicarEstado(E); desenhar(); })
+  .catch(()=>{});

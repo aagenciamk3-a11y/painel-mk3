@@ -354,7 +354,7 @@ function navItem(key,label,icon,kind,on,n){
 }
 function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
-  const urg=TODAS.filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
+  const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
   const views=[["cards","Cartões",IC.cards],["prio","Prioridades",IC.prio],["cal","Calendário",IC.cal],["lista","Lista",IC.lista]];
   const areas=[["all","Visão Geral",IC.geral],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]]
     .filter(a=>podeArea(a[0]));
@@ -553,18 +553,27 @@ function abrirPortais(){
   const linhas = PORTAIS ? CLIENTES.map(c=>{
       const p=PORTAIS[c.id];
       if(!p) return '<div class="po-row"><span class="po-n">'+esc(c.nome)+'</span><span class="po-x">sem portal gerado</span></div>';
-      const url=base+"/c/"+p.token+"/";
+      const tks=p.tokens||[p.token];
+      const esc0=(ESTADO.portais&&ESTADO.portais[c.id])||null;
+      const ativo=(esc0&&esc0.ativo&&tks.indexOf(esc0.ativo)>=0)?esc0.ativo:tks[p.ativo||0];
+      const restantes=tks.length-1-tks.indexOf(ativo);
+      const url=base+"/c/"+ativo+"/";
       return '<div class="po-row"><span class="po-n">'+esc(c.nome)+
         (p.historico?'<i class="po-h">com histórico</i>':'')+'</span>'+
         '<input class="po-u" readonly value="'+escAttr(url)+'">'+
         '<button class="po-c" data-copiar="'+escAttr(url)+'">Copiar</button>'+
-        '<a class="po-a" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a></div>';
+        '<a class="po-a" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a>'+
+        (restantes>0
+          ? '<button class="po-r" data-novolink="'+c.id+'" title="Gera um endereço novo e invalida o atual">Trocar link</button>'
+          : '<span class="po-x">sem reservas — me peça mais</span>')+
+        (esc0&&esc0.ativo&&esc0.ativo!==tks[p.ativo||0]?'<span class="po-p">novo link · vale após a publicação</span>':'')+
+        '</div>';
     }).join("") : '<div class="vazio">Carregando…</div>';
   const mm=$("modal");
   mm.innerHTML='<div class="mbox portais"><h3>Links dos clientes</h3>'+
     '<p class="msub">Link pessoal de cada cliente, sem senha. Só quem tem o endereço acessa, e cada página mostra apenas os dados daquele cliente.</p>'+
     '<div class="po-lista">'+linhas+'</div>'+
-    '<p class="nota-p">Para trocar um link (se vazar) ou ligar o histórico de atrasos de outro cliente, me peça — eu regenero.</p>'+
+    '<p class="nota-p">O que você marca no painel aparece para o cliente na publicação automática (toda manhã, dias úteis) — ou quando você me pedir para publicar agora.</p>'+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal();
   if(!PORTAIS){
@@ -572,6 +581,19 @@ function abrirPortais(){
       PORTAIS={}; if(modalAberto()) abrirPortais();
     });
   }
+}
+function trocarLink(cid){
+  const p=PORTAIS&&PORTAIS[cid]; if(!p) return;
+  const tks=p.tokens||[p.token];
+  const at=(ESTADO.portais&&ESTADO.portais[cid]&&ESTADO.portais[cid].ativo)||tks[p.ativo||0];
+  const i=tks.indexOf(at);
+  if(i<0 || i>=tks.length-1){ toast("Sem endereços de reserva. Me peça para gerar mais.",false); return; }
+  snapshot();
+  ESTADO.portais=ESTADO.portais||{};
+  ESTADO.portais[cid]={ativo:tks[i+1], revogados:((ESTADO.portais[cid]||{}).revogados||[]).concat([at]), quando:iso(HOJE)};
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"novolink",nome:"Link do portal trocado"});
+  persist(); abrirPortais();
+  toast("Link novo gerado. O antigo para de funcionar na próxima publicação.",false);
 }
 function abrirEquipe(){
   if(!ehAdmin()) return;
@@ -793,7 +815,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -807,7 +829,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1232,7 +1254,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1266,6 +1288,7 @@ document.addEventListener("click", function(ev){
   if(D.demanda){ if(!ehAdmin()) return; abrirDemanda(D.demdia); return; }
   if(D.equipe){ if(!ehAdmin()) return; abrirEquipe(); return; }
   if(D.portais){ abrirPortais(); return; }
+  if(D.novolink){ trocarLink(D.novolink); return; }
   if(D.copiar){
     const txt=D.copiar;
     if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Link copiado",false),()=>{});

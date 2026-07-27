@@ -430,6 +430,13 @@
   .mbtns button.sec{background:var(--panel2);color:var(--mut)}
   .mbtns button.danger{background:var(--atrasado)}
 
+  /* ---- barra de rolagem no tema ---- */
+  html{scrollbar-color:var(--line) transparent;scrollbar-width:thin}
+  *::-webkit-scrollbar{width:10px;height:10px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:#3E3060;border-radius:20px;border:2px solid transparent;background-clip:content-box}
+  *::-webkit-scrollbar-thumb:hover{background:#584578;border:2px solid transparent;background-clip:content-box}
+  *::-webkit-scrollbar-corner{background:transparent}
   /* ---- login por perfil + PIN ---- */
   .login{min-height:70vh;display:grid;place-items:center;padding:20px}
   .login-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);padding:30px 28px;
@@ -486,6 +493,10 @@
   .po-a{color:var(--mk3o);font-size:12px;font-weight:600;text-decoration:none;flex:none;padding:4px}
   .po-a:hover{text-decoration:underline}
   .po-x{font-size:12px;color:var(--mut);font-style:italic}
+  .po-r{background:none;border:1px solid rgba(242,85,90,.4);color:#FF9DA0;font:inherit;font-size:11.5px;
+    font-weight:600;padding:6px 11px;border-radius:6px;cursor:pointer;flex:none;min-height:28px}
+  .po-r:hover{background:rgba(242,85,90,.15);border-color:var(--atrasado)}
+  .po-p{flex-basis:100%;font-size:11px;color:var(--mk3o);font-weight:600;margin-top:2px}
   .nota-p{font-size:11.5px;color:var(--mut);font-style:italic;margin-bottom:12px}
   .bcard-atr{font-size:10.5px;color:var(--umdia);font-weight:600;margin-top:3px}
   .bcard.st-ok .bcard-atr{display:block}

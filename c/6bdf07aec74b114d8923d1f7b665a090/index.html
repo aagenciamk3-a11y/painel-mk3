@@ -6,6 +6,11 @@
 <style>:root{--bg:#140E24;--panel:#241A3D;--panel2:#2E2249;--line:#40325F;--txt:#F1EEFB;--mut:#B9B0D2;
  --mk3:#8B5CF6;--mk3o:#F97316;--atrasado:#F2555A;--hoje:#FF8A3D;--umdia:#F5C518;--ok:#4CC463}
 *{box-sizing:border-box;margin:0;padding:0}
+html{scrollbar-color:#3E3060 transparent;scrollbar-width:thin}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:#3E3060;border-radius:20px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:#584578;border:2px solid transparent;background-clip:content-box}
 body{background:var(--bg);color:var(--txt);line-height:1.55;padding:28px 18px 60px;
  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
 .wrap{max-width:760px;margin:0 auto}
@@ -55,7 +60,8 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
 <div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
 <h1 id="titulo"></h1><div id="view"></div>
 <footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer></div>
-<script>const CLIENTES=[{"id":"suelem","nome":"Suelem","entrada":"2026-07-15","vencimentoContrato":"2026-10-15","escopo":{"agendamento":true,"calendarioEditorial":false,"trafegoPago":true},"imersao":null,"reuniaoPlanejamentoEntrada":"2026-07-15","envioPlanejamento":"2026-07-15","aprovacaoPlanejamento":"2026-07-15","envioMidia":"2026-07-16","aprovacaoMidia":null,"gravacao":null,"artesDependemDaGravacao":false,"inicioCicloPadrao":"2026-08","concluidas":["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva","pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan","c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao","c1_artes","c1_lembMid"],"tarefasExtras":[],"marcos":[{"data":"2025-05-30","titulo":"Cliente desde 2025","detalhe":"Primeiro contrato"},{"data":"2026-07-15","titulo":"Renovação de contrato","detalhe":"Novo plano + 2 campanhas de tráfego · aguardando assinatura"},{"data":"2026-07-15","titulo":"Planejamento de julho aprovado","detalhe":"Aprovado no mesmo dia"},{"data":"2026-07-15","titulo":"Produção de julho","detalhe":"Vídeos já produzidos; artes em produção, seguem para o Pode Postar após aprovação"},{"data":"2026-07-20","titulo":"Pacote de fotos 1/3","detalhe":"· parcela 1 de 3"},{"data":"2026-08-20","titulo":"Pacote de fotos 2/3","detalhe":"· parcela 2 de 3"},{"data":"2026-09-20","titulo":"Pacote de fotos 3/3","detalhe":"· parcela 3 de 3"}]}];const MOSTRA_HISTORICO=true;</script>
+<script>const CLIENTES=[{"id":"suelem","nome":"Suelem","entrada":"2026-07-15","vencimentoContrato":"2026-10-15","escopo":{"agendamento":true,"calendarioEditorial":false,"trafegoPago":true},"imersao":null,"reuniaoPlanejamentoEntrada":"2026-07-15","envioPlanejamento":"2026-07-15","aprovacaoPlanejamento":"2026-07-15","envioMidia":"2026-07-16","aprovacaoMidia":null,"gravacao":null,"artesDependemDaGravacao":false,"inicioCicloPadrao":"2026-08","concluidas":["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva","pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan","c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao","c1_artes","c1_lembMid"],"tarefasExtras":[],"marcos":[{"data":"2025-05-30","titulo":"Cliente desde 2025","detalhe":"Primeiro contrato"},{"data":"2026-07-15","titulo":"Renovação de contrato","detalhe":"Novo plano + 2 campanhas de tráfego · aguardando assinatura"},{"data":"2026-07-15","titulo":"Planejamento de julho aprovado","detalhe":"Aprovado no mesmo dia"},{"data":"2026-07-15","titulo":"Produção de julho","detalhe":"Vídeos já produzidos; artes em produção, seguem para o Pode Postar após aprovação"},{"data":"2026-07-20","titulo":"Pacote de fotos 1/3","detalhe":"· parcela 1 de 3"},{"data":"2026-08-20","titulo":"Pacote de fotos 2/3","detalhe":"· parcela 2 de 3"},{"data":"2026-09-20","titulo":"Pacote de fotos 3/3","detalhe":"· parcela 3 de 3"}]}];const MOSTRA_HISTORICO=true;
+const CLIENTE_ID="suelem";const MEU_TOKEN="6bdf07aec74b114d8923d1f7b665a090";</script>
 <script>/* ═══════════════════════════════════════════════════════════════
    MOTOR — regras do Manual de Processos MK3 v1.0 + render.
    Régua da MK3: 2 DIAS ÚTEIS em toda etapa de entrega e aprovação.
@@ -330,9 +336,35 @@ function status(t){
 </script>
 <script>/* Portal do cliente — somente leitura. Usa as mesmas regras do painel. */
 const C = CLIENTES[0];
+const ORIGINAL = JSON.parse(JSON.stringify(C));
+const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","aprovacaoMidia","gravacao","alteracaoPedida"];
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-const TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+
+/* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
+function aplicarEstado(E){
+  if(!E) return;
+  C.concluidas=(ORIGINAL.concluidas||[]).slice();
+  CAMPOS_DATA.forEach(k=>C[k]=ORIGINAL[k]);
+  const dd=(E.datas&&E.datas[CLIENTE_ID])||{};
+  for(const k in dd){ if(dd[k]) C[k]=dd[k]; }
+  for(const e of ((E.concluidas&&E.concluidas[CLIENTE_ID])||[])){
+    C.concluidas=C.concluidas.filter(x=>((x&&x.id)?x.id:x)!==e.id);
+    if(!e.remove) C.concluidas.push(e.data?{id:e.id,data:e.data}:e.id);
+  }
+  TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+}
+function linkValido(E){
+  const p=(E&&E.portais&&E.portais[CLIENTE_ID])||null;
+  if(!p || !p.ativo) return true;             /* sem configuração = vale */
+  return p.ativo===MEU_TOKEN;
+}
+function expirado(){
+  document.getElementById("view").innerHTML=
+    '<section class="bloco"><h2>Link expirado</h2>'+
+    '<p>Este endereço foi substituído por um novo, por segurança. Peça o link atualizado à equipe da MK3.</p></section>';
+}
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
 $("titulo").textContent = C.nome;
@@ -399,6 +431,11 @@ function historico(){
   return h;
 }
 
-$("view").innerHTML = esperando() + proximos() + historico();
+function desenhar(){ $("view").innerHTML = esperando() + proximos() + historico(); }
+desenhar();
+fetch("../../estado.json?ts="+Date.now())
+  .then(r=>r.ok?r.json():null)
+  .then(E=>{ if(!E) return; if(!linkValido(E)){ expirado(); return; } aplicarEstado(E); desenhar(); })
+  .catch(()=>{});
 </script>
 </body></html>
