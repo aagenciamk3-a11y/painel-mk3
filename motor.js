@@ -598,23 +598,35 @@ function trocarLink(cid){
 function abrirEquipe(){
   if(!ehAdmin()) return;
   const ps=ESTADO.pessoas||[];
-  const AR=[["mkt","Mkt"],["fin","Fin"],["com","Com"]];
+  const AR=[["mkt","Marketing",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]];
   const mm=$("modal");
   mm.innerHTML='<div class="mbox equipe"><h3>Equipe e permissões</h3>'+
-    '<p class="msub">Marque o que cada pessoa pode ver. Admin vê tudo, cria demandas e edita esta tela.</p>'+
-    '<div class="eq-lista">'+ps.map(p=>
-      '<div class="eq-row2">'+
-        '<div class="eq-top">'+faceDe(p.nome)+'<span class="eq-nome">'+esc(p.nome)+'</span>'+
-        '<button class="eq-foto" data-trocarfoto="'+escAttr(p.nome)+'">'+(p.foto?"Trocar foto":"Foto")+'</button>'+
-        '<button class="eq-x" data-pessoax="'+escAttr(p.nome)+'" title="Remover da equipe" aria-label="Remover">&#215;</button></div>'+
-        '<div class="eq-perm">'+
-          '<label class="pchk'+(p.admin?" on":"")+'"><input type="checkbox" data-perm="admin" data-pnome="'+escAttr(p.nome)+'"'+(p.admin?" checked":"")+'> Admin</label>'+
-          AR.map(a=>'<label class="pchk'+((!p.admin&&(p.areas||[]).indexOf(a[0])>=0)?" on":"")+(p.admin?" dim":"")+'">'+
-            '<input type="checkbox" data-perm="'+a[0]+'" data-pnome="'+escAttr(p.nome)+'"'+((p.admin||(p.areas||[]).indexOf(a[0])>=0)?" checked":"")+(p.admin?" disabled":"")+'> '+a[1]+'</label>').join("")+
-          '<span class="eq-pin"><input type="password" class="pinin" data-pin="'+escAttr(p.nome)+'" value="'+escAttr(p.pin||"")+'" maxlength="8" placeholder="PIN" inputmode="numeric"></span>'+
+    '<p class="msub">Cada pessoa vê apenas as áreas marcadas. Quem é <b>Admin</b> vê tudo e edita esta tela.</p>'+
+    '<div class="eq-lista">'+ps.map(p=>{
+      const admin=!!p.admin;
+      return '<div class="pcard'+(admin?" adm":"")+'">'+
+        '<div class="pc-topo">'+faceDe(p.nome)+
+          '<div class="pc-id"><span class="pc-n">'+esc(p.nome)+'</span>'+
+          '<span class="pc-c">'+(admin?"Administração":((p.areas||[]).length?(p.areas||[]).map(a=>({mkt:"Marketing",fin:"Financeiro",com:"Comercial"}[a]||a)).join(" · "):"sem área"))+'</span></div>'+
+          '<button class="pc-ico" data-trocarfoto="'+escAttr(p.nome)+'" title="'+(p.foto?"Trocar foto":"Adicionar foto")+'" aria-label="Foto">&#128247;</button>'+
+          '<button class="pc-ico rm" data-pessoax="'+escAttr(p.nome)+'" title="Remover da equipe" aria-label="Remover">&#128465;</button>'+
         '</div>'+
-      '</div>').join("")+'</div>'+
-    '<div class="eq-add"><input type="text" id="enome" placeholder="Nome do novo responsável" autocomplete="off">'+
+        '<div class="pc-linha">'+
+          '<button class="sw'+(admin?" on":"")+'" data-permb="admin" data-pnome="'+escAttr(p.nome)+'" role="switch" aria-checked="'+admin+'">'+
+            '<i></i><span>Admin</span></button>'+
+          '<span class="pc-sep"></span>'+
+          AR.map(a=>{
+            const on=admin||((p.areas||[]).indexOf(a[0])>=0);
+            return '<button class="chip'+(on?" on":"")+(admin?" trav":"")+'" data-permb="'+a[0]+'" data-pnome="'+escAttr(p.nome)+'"'+
+              (admin?' disabled title="Admin já vê tudo"':'')+' aria-pressed="'+on+'">'+
+              '<span class="chip-i">'+a[2]+'</span>'+esc(a[1])+'</button>';
+          }).join("")+
+          '<span class="pc-pin"><span class="pin-l">PIN</span>'+
+          '<input type="password" class="pinin" data-pin="'+escAttr(p.nome)+'" value="'+escAttr(p.pin||"")+'" maxlength="8" placeholder="—" inputmode="numeric" aria-label="PIN de '+escAttr(p.nome)+'"></span>'+
+        '</div>'+
+      '</div>';
+    }).join("")+'</div>'+
+    '<div class="eq-add"><input type="text" id="enome" placeholder="Nome de quem vai entrar na equipe" autocomplete="off">'+
       '<button data-macao="addpessoa">Adicionar</button></div>'+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal();
@@ -1254,7 +1266,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1287,6 +1299,11 @@ document.addEventListener("click", function(ev){
   if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
   if(D.demanda){ if(!ehAdmin()) return; abrirDemanda(D.demdia); return; }
   if(D.equipe){ if(!ehAdmin()) return; abrirEquipe(); return; }
+  if(D.permb){
+    const p=(ESTADO.pessoas||[]).find(x=>x.nome===D.pnome); if(!p) return;
+    const atual = D.permb==="admin" ? !!p.admin : ((p.areas||[]).indexOf(D.permb)>=0);
+    setPerm(D.pnome, D.permb, !atual); return;
+  }
   if(D.portais){ abrirPortais(); return; }
   if(D.novolink){ trocarLink(D.novolink); return; }
   if(D.copiar){
