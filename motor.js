@@ -355,19 +355,26 @@ function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=TODAS.filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
   const views=[["cards","Cartões",IC.cards],["prio","Prioridades",IC.prio],["cal","Calendário",IC.cal],["lista","Lista",IC.lista]];
-  const areas=[["all","Visão Geral",IC.geral],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]];
+  const areas=[["all","Visão Geral",IC.geral],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]]
+    .filter(a=>podeArea(a[0]));
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
   h+='<div class="side-sec">Ver</div>';
   h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
   h+='<div class="side-sec">Áreas</div>';
   h+=areas.map(a=>navItem(a[0],a[1],a[2],"area",(VISTA.area===a[0]))).join("");
-  h+='<div class="side-sec">Demandas</div>';
-  h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
-  h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
+  if(ehAdmin()){
+    h+='<div class="side-sec">Demandas</div>';
+    h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
+    h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
+  }
+  const pu=eu();
+  h+='<div class="side-user"><button class="snav" data-sair="1" title="Trocar de usuário">'+
+     '<span class="snav-i">'+faceDe(pu?pu.nome:"")+'</span><span class="snav-t">'+esc(pu?pu.nome:"")+
+     '<i>'+(ehAdmin()?"Administração":"Trocar")+'</i></span></button></div>';
   return h;
 }
 
-const VISTA  = { area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, verTudo:false, edit:false, pano:null, pmes:0, psem:null, side:false };
+const VISTA  = { pinPara:null, area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, verTudo:false, edit:false, pano:null, pmes:0, psem:null, side:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
@@ -516,18 +523,40 @@ function listaDemandas(){
     '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover">&#215;</button></div>').join("")+'</div>';
 }
 function abrirEquipe(){
+  if(!ehAdmin()) return;
   const ps=ESTADO.pessoas||[];
+  const AR=[["mkt","Mkt"],["fin","Fin"],["com","Com"]];
   const mm=$("modal");
-  mm.innerHTML='<div class="mbox equipe"><h3>Equipe / responsáveis</h3>'+
-    '<p class="msub">Adicione, remova ou cadastre a foto de quem pode ser responsável por uma demanda.</p>'+
+  mm.innerHTML='<div class="mbox equipe"><h3>Equipe e permissões</h3>'+
+    '<p class="msub">Marque o que cada pessoa pode ver. Admin vê tudo, cria demandas e edita esta tela.</p>'+
     '<div class="eq-lista">'+ps.map(p=>
-      '<div class="eq-row">'+faceDe(p.nome)+'<span class="eq-nome">'+esc(p.nome)+'</span>'+
-      '<button class="eq-foto" data-trocarfoto="'+escAttr(p.nome)+'">'+(p.foto?"Trocar foto":"Adicionar foto")+'</button>'+
-      '<button class="eq-x" data-pessoax="'+escAttr(p.nome)+'" title="Remover">&#215;</button></div>').join("")+'</div>'+
+      '<div class="eq-row2">'+
+        '<div class="eq-top">'+faceDe(p.nome)+'<span class="eq-nome">'+esc(p.nome)+'</span>'+
+        '<button class="eq-foto" data-trocarfoto="'+escAttr(p.nome)+'">'+(p.foto?"Trocar foto":"Foto")+'</button>'+
+        '<button class="eq-x" data-pessoax="'+escAttr(p.nome)+'" title="Remover da equipe" aria-label="Remover">&#215;</button></div>'+
+        '<div class="eq-perm">'+
+          '<label class="pchk'+(p.admin?" on":"")+'"><input type="checkbox" data-perm="admin" data-pnome="'+escAttr(p.nome)+'"'+(p.admin?" checked":"")+'> Admin</label>'+
+          AR.map(a=>'<label class="pchk'+((!p.admin&&(p.areas||[]).indexOf(a[0])>=0)?" on":"")+(p.admin?" dim":"")+'">'+
+            '<input type="checkbox" data-perm="'+a[0]+'" data-pnome="'+escAttr(p.nome)+'"'+((p.admin||(p.areas||[]).indexOf(a[0])>=0)?" checked":"")+(p.admin?" disabled":"")+'> '+a[1]+'</label>').join("")+
+          '<span class="eq-pin"><input type="password" class="pinin" data-pin="'+escAttr(p.nome)+'" value="'+escAttr(p.pin||"")+'" maxlength="8" placeholder="PIN" inputmode="numeric"></span>'+
+        '</div>'+
+      '</div>').join("")+'</div>'+
     '<div class="eq-add"><input type="text" id="enome" placeholder="Nome do novo responsável" autocomplete="off">'+
       '<button data-macao="addpessoa">Adicionar</button></div>'+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal();
+}
+function setPerm(nome,perm,valor){
+  const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
+  snapshot();
+  if(perm==="admin"){ p.admin=valor; if(valor) p.areas=["all","mkt","fin","com"]; }
+  else { p.areas=(p.areas||[]).filter(a=>a!==perm); if(valor) p.areas.push(perm); }
+  persist(); abrirEquipe();
+  if(p.nome===USUARIO){ const as=areasDe(); if(as.indexOf(VISTA.area)<0){ VISTA.area=as[0]||"mkt"; } render(); }
+}
+function setPin(nome,pin){
+  const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
+  p.pin=(pin||"").trim(); persist();
 }
 function abrirDemanda(diaSugerido){
   const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]];
@@ -728,6 +757,13 @@ async function init(){
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
   if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  ESTADO.pessoas.forEach(p=>{
+    if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
+    if(!p.areas) p.areas=["mkt"];
+    if(p.pin===undefined) p.pin="";
+  });
+  try{ USUARIO=localStorage.getItem("mk3_user")||null; }catch(e){}
+  if(USUARIO && !eu()) USUARIO=null;
   rebuild(); render(); montarTooltip();
 }
 
@@ -886,7 +922,34 @@ function semanasDoMes(ano,mes){
   return [...set].sort();
 }
 const AREARESP = { mkt:"Carla", fin:"Bia" };
-const SEED_PESSOAS = [{nome:"Guilherme",foto:null},{nome:"Carla",foto:"fotos/carla.jpg"},{nome:"Bia",foto:"fotos/bia.jpg"},{nome:"Alda",foto:null},{nome:"Marlon",foto:null}];
+const SEED_PESSOAS = [
+  {nome:"Guilherme",foto:null,            admin:true,  areas:["all","mkt","fin","com"], pin:""},
+  {nome:"Alda",     foto:null,            admin:true,  areas:["all","mkt","fin","com"], pin:""},
+  {nome:"Carla",    foto:"fotos/carla.jpg", admin:false, areas:["mkt"], pin:""},
+  {nome:"Bia",      foto:"fotos/bia.jpg",   admin:false, areas:["fin"], pin:""},
+  {nome:"Marlon",   foto:null,            admin:false, areas:["com"], pin:""}
+];
+const PERMS_PADRAO = {Guilherme:{admin:true,areas:["all","mkt","fin","com"]},Alda:{admin:true,areas:["all","mkt","fin","com"]},
+  Carla:{admin:false,areas:["mkt"]},Bia:{admin:false,areas:["fin"]},Marlon:{admin:false,areas:["com"]}};
+
+/* ---- sessão / permissões ---- */
+let USUARIO=null;
+const eu = () => (ESTADO.pessoas||[]).find(p=>p.nome===USUARIO)||null;
+const ehAdmin = () => { const p=eu(); return !!(p&&p.admin); };
+const areasDe = () => { const p=eu(); if(!p) return []; return p.admin?["all","mkt","fin","com"]:((p.areas||[]).filter(a=>a!=="all")); };
+const podeArea = a => areasDe().indexOf(a)>=0;
+function entrar(nome){
+  USUARIO=nome; VISTA.pinPara=null;
+  try{ localStorage.setItem("mk3_user",nome); }catch(e){}
+  const as=areasDe(); if(as.indexOf(VISTA.area)<0) VISTA.area=as[0]||"mkt";
+  VISTA.escopo=null; VISTA.modo="cards"; VISTA.filtro=null; render();
+}
+function tentarEntrar(nome){
+  const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome);
+  if(p && p.pin){ VISTA.pinPara=nome; render(); return; }
+  entrar(nome);
+}
+function sair(){ USUARIO=null; VISTA.pinPara=null; try{ localStorage.removeItem("mk3_user"); }catch(e){} render(); }
 const pessoaPorNome = n => (ESTADO.pessoas||[]).find(p=>p.nome===n);
 function faceDe(nome){
   if(!nome) return '';
@@ -1049,7 +1112,34 @@ function tituloContexto(){
     bits.push(r.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})); }
   return '<h1 class="ctx-t">'+esc(t)+'</h1><div class="ctx-s">'+bits.filter(Boolean).map(esc).join(" · ")+'</div>';
 }
+function loginHTML(pendente){
+  const ps=ESTADO.pessoas||[];
+  const cargo=p=>p.admin?"Administra\u00e7\u00e3o":({mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[(p.areas||[])[0]]||"Sem \u00e1rea");
+  if(pendente){
+    const p=ps.find(x=>x.nome===pendente)||{nome:pendente};
+    return '<div class="login"><div class="login-box">'+
+      '<div class="login-av">'+faceDe(p.nome)+'</div>'+
+      '<h2>Ol\u00e1, '+esc(p.nome)+'</h2><p>Digite seu PIN para entrar.</p>'+
+      '<input type="password" id="pinInput" inputmode="numeric" maxlength="8" placeholder="PIN" autocomplete="off">'+
+      '<div id="pinErro" class="login-erro"></div>'+
+      '<div class="login-acoes"><button data-pinok="'+escAttr(pendente)+'">Entrar</button>'+
+      '<button class="sec" data-pincancel="1">Voltar</button></div></div></div>';
+  }
+  return '<div class="login"><div class="login-box wide">'+
+    '<h2>Quem est\u00e1 usando?</h2><p>Cada pessoa v\u00ea apenas as \u00e1reas dela.</p>'+
+    '<div class="login-lista">'+ps.map(p=>
+      '<button class="login-p" data-entrar="'+escAttr(p.nome)+'">'+faceDe(p.nome)+
+      '<span class="lp-n">'+esc(p.nome)+'</span><span class="lp-c">'+esc(cargo(p))+'</span>'+
+      (p.pin?'<span class="lp-pin" title="Protegido por PIN">&#128274;</span>':'')+'</button>').join("")+
+    '</div></div></div>';
+}
 function render(){
+  if(!USUARIO){
+    $("ctx").innerHTML=''; $("editbar").innerHTML=''; $("side").innerHTML='';
+    $("view").innerHTML = loginHTML(VISTA.pinPara);
+    const pi=document.getElementById("pinInput"); if(pi&&pi.focus) setTimeout(()=>pi.focus(),30);
+    return;
+  }
   $("ctx").innerHTML = tituloContexto();
   $("editbar").innerHTML =
     '<button class="ubtn" data-undo="1"'+(UNDO.length?"":" disabled")+' title="Desfazer">&#8624; Desfazer</button>'+
@@ -1088,10 +1178,20 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
+  if(D.entrar){ tentarEntrar(D.entrar); return; }
+  if(D.pinok){
+    const v=(($("pinInput")&&$("pinInput").value)||"").trim();
+    const p=(ESTADO.pessoas||[]).find(x=>x.nome===D.pinok);
+    if(p && v===p.pin){ entrar(D.pinok); }
+    else { const er=document.getElementById("pinErro"); if(er) er.textContent="PIN incorreto."; const pi=document.getElementById("pinInput"); if(pi){pi.value="";pi.focus();} }
+    return;
+  }
+  if(D.pincancel){ VISTA.pinPara=null; render(); return; }
+  if(D.sair){ sair(); return; }
   if(D.macao){ handleModal(D); return; }
   if(D.wkok){ marcarFeitoSemana(D.mcid,D.mtid,D.mday); return; }
   if(D.wkx){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
@@ -1105,14 +1205,14 @@ document.addEventListener("click", function(ev){
   if(D.toastundo){ desfazer(); fecharToast(); return; }
   if(D.vertudo){ VISTA.verTudo=true; render(); return; }
   if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
-  if(D.demanda){ abrirDemanda(D.demdia); return; }
-  if(D.equipe){ abrirEquipe(); return; }
+  if(D.demanda){ if(!ehAdmin()) return; abrirDemanda(D.demdia); return; }
+  if(D.equipe){ if(!ehAdmin()) return; abrirEquipe(); return; }
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
   if(D.pessoax){ removePessoa(D.pessoax); abrirEquipe(); return; }
   if(D.demx){ removeDemanda(D.demx); abrirDemanda(); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
-  if(D.area){ VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(D.area){ if(!podeArea(D.area)) return; VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
@@ -1130,6 +1230,10 @@ document.addEventListener("click", function(ev){
 });
 
 document.addEventListener("change", function(ev){
+  const pm=ev.target.closest("[data-perm]");
+  if(pm){ setPerm(pm.dataset.pnome, pm.dataset.perm, pm.checked); return; }
+  const pn=ev.target.closest("[data-pin]");
+  if(pn){ setPin(pn.dataset.pin, pn.value); return; }
   const el=ev.target.closest("[data-sel]"); if(!el) return;
   const w=el.dataset.sel, v=el.value;
   if(w==="ano"){ VISTA.pano=Number(v); const ws=semanasDoMes(VISTA.pano,VISTA.pmes); VISTA.psem=ws[0]||VISTA.psem; }
@@ -1185,16 +1289,24 @@ function abrirAtalhos(){
   mostrarModal();
 }
 document.addEventListener("keydown", function(e){
+  if(e.key==="Enter" && e.target && e.target.id==="pinInput"){
+    const nome=VISTA.pinPara; const v=(e.target.value||"").trim();
+    const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome);
+    if(p && v===p.pin) entrar(nome);
+    else { const er=document.getElementById("pinErro"); if(er) er.textContent="PIN incorreto."; e.target.value=""; }
+    return;
+  }
   const tag=(e.target.tagName||"").toLowerCase();
   const digitando = tag==="input"||tag==="textarea"||tag==="select"||e.target.isContentEditable;
   if(e.key==="Escape"){ if(modalAberto()){ fecharModal(); return; } fecharToast(); return; }
   if(digitando) return;
+  if(!USUARIO) return;
   const mod=e.ctrlKey||e.metaKey;
   if(mod && (e.key==="z"||e.key==="Z")){ e.preventDefault(); if(e.shiftKey) refazer(); else desfazer(); return; }
   if(mod) return;
   if(e.key==="?"){ e.preventDefault(); abrirAtalhos(); return; }
   if(modalAberto()) return;
-  if(e.key==="n"||e.key==="N"){ e.preventDefault(); abrirDemanda(); return; }
+  if(e.key==="n"||e.key==="N"){ if(!ehAdmin()) return; e.preventDefault(); abrirDemanda(); return; }
   if(e.key==="t"||e.key==="T"){
     if(VISTA.modo==="prio"){ VISTA.pano=HOJE.getFullYear(); VISTA.pmes=HOJE.getMonth(); VISTA.psem=segOf(iso(HOJE)); }
     else VISTA.mes=0;

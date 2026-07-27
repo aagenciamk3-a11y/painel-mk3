@@ -430,6 +430,47 @@
   .mbtns button.sec{background:var(--panel2);color:var(--mut)}
   .mbtns button.danger{background:var(--atrasado)}
 
+  /* ---- login por perfil + PIN ---- */
+  .login{min-height:70vh;display:grid;place-items:center;padding:20px}
+  .login-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);padding:30px 28px;
+    box-shadow:var(--sh3);max-width:380px;width:100%;text-align:center}
+  .login-box.wide{max-width:720px}
+  .login-box h2{font-size:20px;margin-bottom:4px}
+  .login-box p{font-size:13px;color:var(--mut);margin-bottom:20px}
+  .login-av{display:flex;justify-content:center;margin-bottom:14px}
+  .login-av .card-face{width:64px;height:64px;font-size:22px}
+  .login-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .login-p{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r2);
+    padding:18px 12px 14px;cursor:pointer;color:inherit;font:inherit;display:flex;flex-direction:column;
+    align-items:center;gap:8px;transition:.14s}
+  .login-p:hover{border-color:var(--mk3);transform:translateY(-2px);box-shadow:var(--sh2)}
+  .login-p .card-face{width:52px;height:52px;font-size:18px;margin:0}
+  .lp-n{font-size:14px;font-weight:600}
+  .lp-c{font-size:11px;color:var(--mut)}
+  .lp-pin{position:absolute;top:8px;right:9px;font-size:11px;opacity:.65}
+  .login-box input[type=password]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:var(--r1);padding:12px 14px;font:inherit;font-size:18px;text-align:center;letter-spacing:.4em}
+  .login-erro{min-height:18px;font-size:12px;color:var(--atrasado);margin-top:8px}
+  .login-acoes{display:flex;gap:8px;justify-content:center;margin-top:8px}
+  .login-acoes button{background:var(--mk3);border:none;color:#fff;font:inherit;font-size:13.5px;font-weight:600;
+    padding:10px 20px;border-radius:var(--r1);cursor:pointer}
+  .login-acoes button.sec{background:var(--panel2);color:var(--mut)}
+  /* ---- usuário na sidebar ---- */
+  .side-user{margin-top:auto;padding-top:12px;border-top:1px solid var(--line)}
+  .side-user .snav-t i{display:block;font-style:normal;font-size:10.5px;color:var(--mut)}
+  .app.side-col .side-user .snav-t{display:none}
+  /* ---- matriz de permissões ---- */
+  .eq-row2{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r1);padding:10px 11px}
+  .eq-top{display:flex;align-items:center;gap:10px}
+  .eq-perm{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-left:2px}
+  .pchk{display:inline-flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);
+    border-radius:20px;padding:4px 11px;font-size:11.5px;color:var(--mut);cursor:pointer;min-height:26px}
+  .pchk.on{border-color:var(--mk3);color:var(--txt);background:rgba(139,92,246,.16)}
+  .pchk.dim{opacity:.5;cursor:default}
+  .pchk input{margin:0;accent-color:var(--mk3)}
+  .eq-pin{margin-left:auto}
+  .pinin{width:82px;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:var(--r1);
+    padding:5px 9px;font:inherit;font-size:12px;text-align:center;letter-spacing:.2em}
   /* ---- toast com desfazer (4.1) ---- */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);z-index:1500;
     display:flex;align-items:center;gap:14px;background:var(--sup4);border:1px solid var(--line);
