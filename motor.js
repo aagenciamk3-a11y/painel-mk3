@@ -317,6 +317,16 @@ function fecharModal(){
   focoAnterior=null;
 }
 const modalAberto = () => { const mm=$("modal"); return mm && mm.style.display==="flex"; };
+function semPular(fn){
+  const mm=$("modal");
+  const cx=mm&&mm.querySelector(".mbox");
+  const y=cx?cx.scrollTop:0;
+  const py=(window.scrollY||window.pageYOffset||0);
+  fn();
+  const nv=mm&&mm.querySelector(".mbox");
+  if(nv&&y) nv.scrollTop=y;
+  if(py) window.scrollTo(0,py);
+}
 
 const ORDEM   = {atrasado:0,hoje:1,umdia:2,semana:3,sem:4,futuro:5,ok:6};
 const ROTULO  = {atrasado:"Atrasado",hoje:"Vence hoje",umdia:"Falta 1 dia",
@@ -592,7 +602,7 @@ function trocarLink(cid){
   ESTADO.portais=ESTADO.portais||{};
   ESTADO.portais[cid]={ativo:tks[i+1], revogados:((ESTADO.portais[cid]||{}).revogados||[]).concat([at]), quando:iso(HOJE)};
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"novolink",nome:"Link do portal trocado"});
-  persist(); abrirPortais();
+  persist(); semPular(()=>abrirPortais());
   toast("Link novo gerado. O antigo para de funcionar na próxima publicação.",false);
 }
 function abrirEquipe(){
@@ -645,7 +655,7 @@ function setPerm(nome,perm,valor){
     }
   }
   else { p.areas=(p.areas||[]).filter(a=>a!==perm); if(valor) p.areas.push(perm); }
-  persist(); abrirEquipe();
+  persist(); semPular(()=>abrirEquipe());
   if(p.nome===USUARIO){ const as=areasDe(); if(as.indexOf(VISTA.area)<0){ VISTA.area=as[0]||"mkt"; } render(); }
 }
 function setPin(nome,pin){
@@ -783,7 +793,7 @@ function handleModal(D){
   }
   if(D.macao==="neutro"){ neutralizar(D.mcid,D.mtid,D.mday); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
-  if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); abrirEquipe(); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
+  if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); semPular(()=>abrirEquipe()); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
   if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value); abrirDemanda(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
@@ -1323,7 +1333,7 @@ document.addEventListener("click", function(ev){
     return;
   }
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
-  if(D.pessoax){ removePessoa(D.pessoax); abrirEquipe(); return; }
+  if(D.pessoax){ semPular(()=>{ removePessoa(D.pessoax); abrirEquipe(); }); return; }
   if(D.demx){ removeDemanda(D.demx); abrirDemanda(); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
@@ -1444,7 +1454,7 @@ let fotoAlvo=null;
       img.onload=function(){ const s=Math.min(img.width,img.height),sx=(img.width-s)/2,sy=(img.height-s)/2;
         const cv=document.createElement("canvas"); cv.width=128; cv.height=128;
         cv.getContext("2d").drawImage(img,sx,sy,s,s,0,0,128,128);
-        setFotoPessoa(fotoAlvo, cv.toDataURL("image/jpeg",0.82)); fotoAlvo=null; abrirEquipe(); };
+        setFotoPessoa(fotoAlvo, cv.toDataURL("image/jpeg",0.82)); fotoAlvo=null; semPular(()=>abrirEquipe()); };
       img.src=rd.result; };
     rd.readAsDataURL(f);
   });
