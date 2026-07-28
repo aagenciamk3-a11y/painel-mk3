@@ -55,9 +55,19 @@
   .app.side-col .snav{justify-content:center;gap:0;padding:9px 0;border-left-width:0}
   /* drag & drop (duplicar tarefa) */
   .bcard[data-drag]{cursor:grab}
-  .bcard.dragging{opacity:.35}
-  .drag-ghost{position:fixed;z-index:3000;pointer-events:none;opacity:.92;transform:rotate(-2deg);
-    box-shadow:0 14px 34px rgba(0,0,0,.55)}
+  .bcard.dragging{opacity:.30;transform:scale(.98)}
+  body.arrastando{cursor:grabbing}
+  body.arrastando *{cursor:grabbing!important;user-select:none}
+  .drag-ghost{position:fixed;z-index:3000;pointer-events:none;opacity:0;
+    transform:rotate(-3deg) scale(.96);box-shadow:0 18px 40px rgba(0,0,0,.6);
+    transition:opacity .12s ease,transform .16s cubic-bezier(.2,0,0,1)}
+  .drag-ghost.on{opacity:.95;transform:rotate(-3deg) scale(1.03)}
+  .bcol.dragno{outline:2px dashed var(--atrasado);outline-offset:-4px;background:rgba(242,85,90,.07)}
+  .bcol.dragover,.bcol.dragno{transition:background .14s ease}
+  @media (prefers-reduced-motion:no-preference){
+    .bcard.dup{animation:entraCard .26s cubic-bezier(.2,0,0,1)}
+    @keyframes entraCard{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+  }
   .bcol.dragover{outline:2px dashed var(--mk3o);outline-offset:-4px;background:rgba(249,115,22,.06)}
   .bcard.dup{border-style:dashed}
   .dup-badge{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--mk3o);font-weight:700;margin-bottom:4px}
@@ -527,6 +537,15 @@
   .mv-d.hj{border-color:var(--mk3o);color:var(--mk3o);font-weight:700}
   .mv-d.orig{box-shadow:inset 0 0 0 1px var(--line);font-weight:700}
   .mv-d.atual{background:var(--mk3);color:#fff;font-weight:700;opacity:.55;cursor:default}
+  .mv-d.nao{opacity:.28;cursor:not-allowed;text-decoration:line-through}
+  .mv-copias{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-6px 0 14px}
+  .mv-ch{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700;width:100%}
+  .mv-cp{display:inline-flex;align-items:center;gap:4px;background:rgba(249,115,22,.12);
+    border:1px solid rgba(249,115,22,.3);color:var(--mk3o);font-size:11.5px;font-weight:600;
+    padding:4px 6px 4px 11px;border-radius:20px}
+  .mv-cp button{background:none;border:none;color:var(--mk3o);cursor:pointer;font-size:14px;line-height:1;
+    padding:0 3px;border-radius:50%;width:18px;height:18px;display:grid;place-items:center}
+  .mv-cp button:hover{background:rgba(242,85,90,.25);color:#fff}
   /* ---- duas fotos no cartao ---- */
   /* responsável no topo direito, cliente no rodapé direito */
   .bcard{position:relative}

@@ -528,9 +528,16 @@ function neutralizar(cid,tid,day){
   marcar(cid,tid,null,"desfazer");
   toast("Marcação removida",true);
 }
+function minimoReplan(t){
+  const hoje=iso(HOJE);
+  const base=t&&t.data ? (t.data>hoje?t.data:hoje) : hoje;
+  return base;
+}
+function podeReplanejar(t,dia){ return !!t && dia>=minimoReplan(t); }
 function duplicarTarefa(cid,tid,dia){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   if(t.data===dia) return;
+  if(!podeReplanejar(t,dia)){ toast("Só dá para replanejar para hoje ou para frente",false); return; }
   ESTADO.dup=ESTADO.dup||[];
   if(ESTADO.dup.some(e=>e.cid===cid&&e.tid===tid&&e.dia===dia)) return;
   snapshot();
@@ -802,9 +809,10 @@ function abrirMover(cid,tid,diaAtual,mesRef){
   for(let dia=1;dia<=diasNoMes;dia++){
     const s=iso(new Date(ano,mes,dia));
     const fds=[0,6].indexOf(new Date(ano,mes,dia).getDay())>=0;
-    const cls=["mv-d",fds?"fds":"",s===hojeIso?"hj":"",s===diaAtual?"atual":"",s===t.data?"orig":""].filter(Boolean).join(" ");
+    const invalido=!podeReplanejar(t,s);
+    const cls=["mv-d",fds?"fds":"",s===hojeIso?"hj":"",s===diaAtual?"atual":"",s===t.data?"orig":"",invalido?"nao":""].filter(Boolean).join(" ");
     cels+='<button class="'+cls+'" data-macao="mover" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+s+'"'+
-      (s===diaAtual?' disabled title="Já está neste dia"':'')+'>'+dia+'</button>';
+      (s===diaAtual?' disabled title="Já está neste dia"':(invalido?' disabled title="Não dá para replanejar para trás"':''))+'>'+dia+'</button>';
   }
   const mm=$("modal");
   mm.innerHTML='<div class="mbox mover-box"><h3>Replanejar para outro dia</h3>'+
@@ -815,6 +823,13 @@ function abrirMover(cid,tid,diaAtual,mesRef){
       '<button class="mv-set" data-mesmover="'+next+'" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+(diaAtual||"")+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
     '<div class="mv-dow"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>'+
     '<div class="mv-grade">'+cels+'</div>'+
+    (function(){
+      const cs=(ESTADO.dup||[]).filter(e=>e.cid===cid&&e.tid===tid).sort((a,b)=>a.dia.localeCompare(b.dia));
+      if(!cs.length) return '';
+      return '<div class="mv-copias"><span class="mv-ch">Cópias já criadas</span>'+cs.map(e=>
+        '<span class="mv-cp">'+fmt(e.dia)+
+        '<button data-removedup="1" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+e.dia+'" title="Remover esta cópia" aria-label="Remover cópia de '+fmt(e.dia)+'">&#215;</button></span>').join("")+'</div>';
+    })()+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Cancelar</button></div></div>';
   mostrarModal(true);
 }
@@ -1342,7 +1357,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1375,6 +1390,7 @@ document.addEventListener("click", function(ev){
   if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
   if(D.demanda){ if(!ehAdmin()) return; abrirDemanda(D.demdia); return; }
   if(D.equipe){ if(!ehAdmin()) return; abrirEquipe(); return; }
+  if(D.removedup){ semPular(()=>{ removeDup(D.mcid,D.mtid,D.mday); abrirMover(D.mcid,D.mtid,null,D.mday.slice(0,7)); }); toast("Cópia removida",true); return; }
   if(D.mesmover){ semPular(()=>abrirMover(D.mcid,D.mtid,D.mday||null,D.mesmover)); return; }
   if(D.permb){
     const p=(ESTADO.pessoas||[]).find(x=>x.nome===D.pnome); if(!p) return;
@@ -1426,7 +1442,7 @@ document.addEventListener("change", function(ev){
 
 /* drag por ponteiro (funciona no mouse real e é robusto) */
 let DRAG=null;
-function limparDragover(){ document.querySelectorAll(".bcol.dragover").forEach(x=>x.classList.remove("dragover")); }
+function limparDragover(){ document.querySelectorAll(".bcol.dragover,.bcol.dragno").forEach(x=>{x.classList.remove("dragover");x.classList.remove("dragno");}); }
 document.addEventListener("mousedown", function(e){
   const card=e.target&&e.target.closest&&e.target.closest("[data-drag]");
   if(!card) return;
@@ -1440,16 +1456,22 @@ document.addEventListener("mousedown", function(e){
 });
 document.addEventListener("mousemove", function(e){
   if(!DRAG) return;
-  DRAG.moved=true; DRAG.card.classList.add("dragging");
+  if(!DRAG.moved){ DRAG.moved=true; DRAG.card.classList.add("dragging"); document.body.classList.add("arrastando"); DRAG.ghost.classList.add("on"); }
   DRAG.ghost.style.left=(e.clientX-DRAG.ox)+"px"; DRAG.ghost.style.top=(e.clientY-DRAG.oy)+"px";
   const el=document.elementFromPoint(e.clientX,e.clientY);
   const col=el&&el.closest?el.closest("[data-daycol]"):null;
-  limparDragover(); if(col) col.classList.add("dragover");
+  limparDragover();
+  if(col){
+    const p=DRAG.data.split("|");
+    const t=TODAS.find(x=>x.clienteId===p[0]&&x.id===p[1]);
+    const dia=col.getAttribute("data-daycol");
+    col.classList.add(podeReplanejar(t,dia)?"dragover":"dragno");
+  }
 });
 document.addEventListener("mouseup", function(e){
   if(!DRAG) return;
   const st=DRAG; DRAG=null;
-  st.ghost.remove(); st.card.classList.remove("dragging"); limparDragover();
+  st.ghost.remove(); st.card.classList.remove("dragging"); document.body.classList.remove("arrastando"); limparDragover();
   if(!st.moved) return;
   const el=document.elementFromPoint(e.clientX,e.clientY);
   const col=el&&el.closest?el.closest("[data-daycol]"):null;
