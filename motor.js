@@ -717,7 +717,7 @@ function abrirNota(day){
 }
 function abrirMotivo(cid,tid,day){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
-  const cur=xInfo(segOf(day),cid,tid);
+  const cur=xInfo(segOf(day),cid,tid,day);
   const rot=t?(EXEC[baseId(t.id)]+" — "+t.cliente):tid;
   const mm=$("modal");
   mm.innerHTML='<div class="mbox"><h3>Não deu pra fazer</h3>'+
