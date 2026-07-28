@@ -754,18 +754,36 @@ function abrirNota(day){
     '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal();
 }
-function abrirMotivo(cid,tid,day){
+const MOTIVOS = [
+  "Cliente não respondeu",
+  "Cliente pediu para adiar",
+  "Faltou material do cliente",
+  "Aguardando aprovação interna",
+  "Equipe sem tempo · outra prioridade",
+  "Problema técnico",
+  "Gravação não aconteceu"
+];
+function abrirMotivo(cid,tid,day,sel){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
   const cur=xInfo(segOf(day),cid,tid,day);
-  const rot=t?(EXEC[baseId(t.id)]+" — "+t.cliente):tid;
+  const atual=cur?cur.motivo:"";
+  if(sel===undefined) sel = atual ? (MOTIVOS.indexOf(atual)>=0 ? atual : "__outros") : null;
+  const livre = (sel==="__outros" && MOTIVOS.indexOf(atual)<0) ? atual : "";
+  const rot=t?((EXEC[baseId(t.id)]||t.tarefa)+" — "+t.cliente):tid;
+  const opt=(txt,val)=>'<button class="mot'+(sel===val?" on":"")+'" data-motivo="'+escAttr(val)+'" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'" aria-pressed="'+(sel===val)+'"><i></i><span>'+esc(txt)+'</span></button>';
   const mm=$("modal");
-  mm.innerHTML='<div class="mbox"><h3>Não deu pra fazer</h3>'+
+  mm.innerHTML='<div class="mbox motivo-box"><h3>Não deu pra fazer</h3>'+
     '<p class="msub">'+esc(rot)+' · '+fmt(day)+'</p>'+
-    '<label class="mlab">Motivo<textarea id="mmotivo" rows="3" placeholder="Escreva o que impediu...">'+esc(cur?cur.motivo:"")+'</textarea></label>'+
-    '<div class="mbtns"><button data-macao="motivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Salvar motivo</button>'+
-    '<button class="sec" data-macao="neutro" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Deixar neutro</button>'+
-    '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
-  mostrarModal();
+    '<div class="mot-lista">'+MOTIVOS.map(x=>opt(x,x)).join("")+opt("Outros (escrever)","__outros")+'</div>'+
+    (sel==="__outros"
+      ? '<label class="mlab">Qual foi o motivo<textarea id="mmotivo" rows="3" placeholder="Escreva o que impediu..." data-focar>'+esc(livre)+'</textarea></label>'
+      : '')+
+    '<div class="mbtns">'+
+      '<button data-macao="motivo" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'" data-msel="'+escAttr(sel||"")+'"'+(sel?"":" disabled")+'>Salvar motivo</button>'+
+      '<button class="sec" data-macao="neutro" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Deixar neutro</button>'+
+      '<button class="sec" data-macao="fechar">Cancelar</button>'+
+    '</div></div>';
+  mostrarModal(sel!=="__outros");
 }
 function desfazer(){ if(!UNDO.length)return; REDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(UNDO.pop()); persist(); rebuild(); render(); }
 function refazer(){ if(!REDO.length)return; UNDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(REDO.pop()); persist(); rebuild(); render(); }
@@ -854,7 +872,15 @@ function abrirEditor(cid,tid){
 }
 function handleModal(D){
   if(D.macao==="fechar"){ fecharModal(); return; }
-  if(D.macao==="motivo"){ const mot=(($("mmotivo")&&$("mmotivo").value)||"").trim(); setNaoFeito(D.mcid,D.mtid,D.mday,mot); fecharModal(); return; }
+  if(D.macao==="motivo"){
+    let mot=D.msel||"";
+    if(mot==="__outros"){
+      mot=(($("mmotivo")&&$("mmotivo").value)||"").trim();
+      if(!mot){ const c=$("mmotivo"); if(c&&c.focus) c.focus(); return; }
+    }
+    if(!mot) return;
+    setNaoFeito(D.mcid,D.mtid,D.mday,mot); fecharModal(); return;
+  }
   if(D.macao==="mover"){
     const eraAtr=(TODAS.find(x=>x.clienteId===D.mcid&&x.id===D.mtid)||{}).st;
     duplicarTarefa(D.mcid,D.mtid,D.mday);
@@ -1357,7 +1383,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1390,6 +1416,7 @@ document.addEventListener("click", function(ev){
   if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
   if(D.demanda){ if(!ehAdmin()) return; abrirDemanda(D.demdia); return; }
   if(D.equipe){ if(!ehAdmin()) return; abrirEquipe(); return; }
+  if(D.motivo){ semPular(()=>abrirMotivo(D.mcid,D.mtid,D.mday,D.motivo)); return; }
   if(D.removedup){ semPular(()=>{ removeDup(D.mcid,D.mtid,D.mday); abrirMover(D.mcid,D.mtid,null,D.mday.slice(0,7)); }); toast("Cópia removida",true); return; }
   if(D.mesmover){ semPular(()=>abrirMover(D.mcid,D.mtid,D.mday||null,D.mesmover)); return; }
   if(D.permb){

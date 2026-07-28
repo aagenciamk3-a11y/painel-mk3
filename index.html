@@ -582,6 +582,18 @@
   .po-p{grid-column:1 / -1;font-size:11px;color:var(--mk3o);font-weight:600;
     background:rgba(249,115,22,.10);border:1px dashed rgba(249,115,22,.32);border-radius:8px;padding:6px 10px}
   .nota-p{font-size:11.5px;color:var(--mut);font-style:italic;margin-bottom:14px;line-height:1.5}
+  /* ---- motivos pré-definidos ---- */
+  .motivo-box{max-width:420px}
+  .mot-lista{display:flex;flex-direction:column;gap:6px;margin:12px 0 14px}
+  .mot{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--panel2);
+    border:1px solid var(--line);border-radius:var(--r1);padding:10px 12px;cursor:pointer;color:var(--txt);
+    font:inherit;font-size:13.5px;min-height:38px;transition:.12s}
+  .mot:hover{border-color:var(--mut)}
+  .mot i{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);flex:none;position:relative;transition:.12s}
+  .mot.on{border-color:var(--mk3);background:rgba(139,92,246,.14)}
+  .mot.on i{border-color:var(--mk3)}
+  .mot.on i::after{content:"";position:absolute;inset:2px;border-radius:50%;background:var(--mk3)}
+  .mbtns button[disabled]{opacity:.45;cursor:not-allowed}
   /* ---- toast com desfazer (4.1) ---- */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);z-index:1500;
     display:flex;align-items:center;gap:14px;background:var(--sup4);border:1px solid var(--line);
