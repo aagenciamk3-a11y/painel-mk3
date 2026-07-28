@@ -579,12 +579,14 @@ function abrirPortais(){
       const url=base+"/c/"+ativo+"/";
       return '<div class="po-row"><span class="po-n">'+esc(c.nome)+
         (p.historico?'<i class="po-h">com histórico</i>':'')+'</span>'+
-        '<input class="po-u" readonly value="'+escAttr(url)+'">'+
-        '<button class="po-c" data-copiar="'+escAttr(url)+'">Copiar</button>'+
-        '<a class="po-a" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a>'+
-        (restantes>0
-          ? '<button class="po-r" data-novolink="'+c.id+'" title="Gera um endereço novo e invalida o atual">Trocar link</button>'
-          : '<span class="po-x">sem reservas — me peça mais</span>')+
+        '<span class="po-acoes">'+
+          '<button class="po-c" data-copiar="'+escAttr(url)+'">Copiar</button>'+
+          '<a class="po-a" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a>'+
+          (restantes>0
+            ? '<button class="po-r" data-novolink="'+c.id+'" title="Gera um endereço novo e invalida o atual">Trocar link</button>'
+            : '<span class="po-x">sem reservas</span>')+
+        '</span>'+
+        '<input class="po-u" readonly value="'+escAttr(url)+'" onclick="this.select()" aria-label="Endereço do portal">'+
         (esc0&&esc0.ativo&&esc0.ativo!==tks[p.ativo||0]?'<span class="po-p">novo link · vale após a publicação</span>':'')+
         '</div>';
     }).join("") : '<div class="vazio">Carregando…</div>';

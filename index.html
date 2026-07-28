@@ -532,6 +532,33 @@
   .faces .card-face{margin-left:0}
   .faces .card-face.cli{border-color:rgba(255,255,255,.5);z-index:1}
   .faces .card-face+.card-face{margin-left:-9px}
+  /* ---- links dos clientes ---- */
+  .portais{max-width:560px}
+  .po-lista{display:flex;flex-direction:column;gap:10px;margin:12px 0 14px}
+  .po-row{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r2);padding:12px 14px;
+    display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;transition:border-color .14s}
+  .po-row:hover{border-color:var(--mut)}
+  .po-n{font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:8px;min-width:0}
+  .po-n .po-h{font-style:normal;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--mk3o);background:rgba(249,115,22,.14);border:1px solid rgba(249,115,22,.3);
+    padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .po-acoes{display:flex;align-items:center;gap:6px;justify-self:end}
+  .po-u{grid-column:1 / -1;width:100%;background:var(--panel);border:1px solid var(--line);color:var(--mut);
+    border-radius:8px;padding:8px 10px;font:inherit;font-size:11.5px;font-family:ui-monospace,Menlo,monospace;
+    text-overflow:ellipsis}
+  .po-u:focus{border-color:var(--mk3);color:var(--txt)}
+  .po-c,.po-a,.po-r{font:inherit;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;
+    min-height:32px;padding:0 13px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;text-decoration:none}
+  .po-c{background:var(--mk3);border:1px solid var(--mk3);color:#fff}
+  .po-c:hover{background:var(--mk3s);border-color:var(--mk3s)}
+  .po-a{background:var(--panel);border:1px solid var(--line);color:var(--mut)}
+  .po-a:hover{border-color:var(--mk3o);color:var(--mk3o)}
+  .po-r{background:none;border:1px solid rgba(242,85,90,.35);color:#FF9DA0}
+  .po-r:hover{background:rgba(242,85,90,.14);border-color:var(--atrasado)}
+  .po-x{font-size:11.5px;color:var(--mut);font-style:italic}
+  .po-p{grid-column:1 / -1;font-size:11px;color:var(--mk3o);font-weight:600;
+    background:rgba(249,115,22,.10);border:1px dashed rgba(249,115,22,.32);border-radius:8px;padding:6px 10px}
+  .nota-p{font-size:11.5px;color:var(--mut);font-style:italic;margin-bottom:14px;line-height:1.5}
   /* ---- toast com desfazer (4.1) ---- */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);z-index:1500;
     display:flex;align-items:center;gap:14px;background:var(--sup4);border:1px solid var(--line);
