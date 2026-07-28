@@ -99,14 +99,14 @@ function regras(c){
     add("c1_roteiro","1º ciclo","Enviar roteiro à produtora",
         "No mesmo dia da aprovação do planejamento", baseAprPlan, "Analista");
     if(c.gravacao){
-      add("c1_gravacaoMarcar","1º ciclo","Marcar a gravação com "+c.nome,
+      add("c1_gravacaoMarcar","1º ciclo","Marcar a gravação",
           "Combinado para "+fmt(c.gravacao)+" · confirmar véspera",addD(c.gravacao,-3),"Analista / Estagiário");
-      add("c1_gravacao","1º ciclo","Dia de gravação com "+c.nome+(c.semFotos?"":" (com fotos)"),
+      add("c1_gravacao","1º ciclo",c.semFotos?"Dia de gravação":"Dia de gravação + fotos",
           "Manhã, 8h às 17h"+(c.artesDependemDaGravacao?" · insumo das artes":""),c.gravacao,"Produtora / Cliente");
     } else {
-      add("c1_gravacaoMarcar","1º ciclo","Marcar a gravação com "+c.nome,
+      add("c1_gravacaoMarcar","1º ciclo","Marcar a gravação",
           "Falar com o cliente e fechar a data",null,"Analista / Estagiário");
-      add("c1_gravacao","1º ciclo","Dia de gravação com "+c.nome,"Data a definir",null,"Produtora / Cliente");
+      add("c1_gravacao","1º ciclo","Dia de gravação","Data a definir",null,"Produtora / Cliente");
     }
     add("c1_artes","1º ciclo","Criar as artes",
         (c.artesDependemDaGravacao && c.gravacao)
@@ -518,7 +518,7 @@ function bcardHTML(t, dayIso, dupOrig){
   const feita=t.st.k==="ok";
   const x=xInfo(VISTA.psem,t.clienteId,t.id,dayIso);
   const st=feita?"ok":(x?"x":"none");
-  const rot=(/^c1_gravacao/.test(t.id) ? t.tarefa : (EXEC[baseId(t.id)]||t.tarefa));
+  const rot=EXEC[baseId(t.id)]||t.tarefa;
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
   const nomeResp=(t.fase==="Demanda")?t.resp:AREARESP[t.area];
   const face=faceDe(nomeResp);
