@@ -386,6 +386,7 @@ const IC = {
   mkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
   fin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
   com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  tend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="1"/><rect x="13" y="7" width="3" height="10" rx="1"/></svg>',
   add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
   link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12 19"/></svg>',
   equipe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-3-4.9"/></svg>'
@@ -398,7 +399,7 @@ function navItem(key,label,icon,kind,on,n){
 function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
-  const views=[["cards","Cartões",IC.cards],["prio","Prioridades",IC.prio],["cal","Calendário",IC.cal],["lista","Lista",IC.lista]];
+  const views=[["cards","Cartões",IC.cards],["prio","Prioridades",IC.prio],["cal","Calendário",IC.cal],["lista","Lista",IC.lista],["tend","Tendência",IC.tend]];
   const areas=[["all","Visão Geral",IC.geral],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]]
     .filter(a=>podeArea(a[0]));
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
@@ -1190,6 +1191,96 @@ function resumoSemanaHTML(){
       top.map(([k,n])=>'<span class="res-chip">'+esc(k)+' <b>'+n+'</b></span>').join("")+'</div>':'')+
   '</div>';
 }
+function atrasosHistoricos(){
+  const alvo = VISTA.escopo ? CLIENTES.filter(c=>c.id===VISTA.escopo) : CLIENTES;
+  const out=[];
+  alvo.forEach(c=>{
+    /* etapas oficiais com data real (consumadas) */
+    atrasos(c).forEach(a=>{
+      if(a.previsto || !a.limite) return;
+      out.push({mes:a.limite.slice(0,7), quem:a.quem, dias:a.dias, cliente:c.nome,
+                etapa:a.etapa, justificado:!!a.justificado});
+    });
+    /* qualquer tarefa concluída fora do prazo */
+    TODAS.filter(t=>t.clienteId===c.id && t.st.k==="ok" && t.st.atraso>0 && t.data && areaMatch(t))
+      .forEach(t=>out.push({mes:t.data.slice(0,7), quem:(t.resp==="Cliente"?"Cliente":"MK3"),
+                dias:t.st.atraso, cliente:c.nome, etapa:t.tarefa, justificado:false}));
+  });
+  /* remove duplicidade (mesma etapa/mês/cliente) */
+  const vis=new Set(); const fim=[];
+  out.forEach(a=>{ const k=a.cliente+"|"+a.etapa+"|"+a.mes; if(vis.has(k))return; vis.add(k); fim.push(a); });
+  return fim;
+}
+function tendenciaHTML(){
+  const H=atrasosHistoricos().filter(a=>!a.justificado);
+  const emAberto=TODAS.filter(t=>t.st.k==="atrasado" && areaMatch(t) && (!VISTA.escopo||t.clienteId===VISTA.escopo));
+  /* últimos 6 meses até o atual */
+  const meses=[]; const base=new Date(HOJE.getFullYear(),HOJE.getMonth(),1);
+  for(let i=5;i>=0;i--){ const d0=new Date(base.getFullYear(),base.getMonth()-i,1);
+    meses.push(iso(d0).slice(0,7)); }
+  const dados=meses.map(ms=>{
+    const doMes=H.filter(a=>a.mes===ms);
+    const mk3=doMes.filter(a=>a.quem==="MK3").reduce((s,a)=>s+a.dias,0);
+    const cli=doMes.filter(a=>a.quem==="Cliente").reduce((s,a)=>s+a.dias,0);
+    return {ms, mk3, cli, n:doMes.length};
+  });
+  const topo=Math.max(1,...dados.map(x=>Math.max(x.mk3,x.cli)));
+  const nomeMes=ms=>{const [a,b]=ms.split("-");return new Date(a,b-1,1).toLocaleDateString("pt-BR",{month:"short"}).replace(".","");};
+  const atual=dados[dados.length-1], ant=dados[dados.length-2]||{mk3:0,cli:0};
+  const varia=(hoje,antes)=>{ if(!antes&&!hoje) return {txt:"sem atrasos",cls:"n"};
+    if(!antes) return {txt:"+"+hoje+"d vs mês anterior",cls:"pior"};
+    const p=Math.round((hoje-antes)/antes*100);
+    if(p===0) return {txt:"igual ao mês anterior",cls:"n"};
+    return {txt:(p>0?"+":"")+p+"% vs mês anterior",cls:p>0?"pior":"melhor"}; };
+  const vM=varia(atual.mk3,ant.mk3), vC=varia(atual.cli,ant.cli);
+
+  /* ranking por cliente (6 meses) */
+  const porCli={};
+  H.filter(a=>meses.indexOf(a.mes)>=0).forEach(a=>{
+    porCli[a.cliente]=porCli[a.cliente]||{mk3:0,cli:0};
+    porCli[a.cliente][a.quem==="MK3"?"mk3":"cli"]+=a.dias;
+  });
+  const rank=Object.entries(porCli).map(([n,v])=>({n,...v,tot:v.mk3+v.cli})).sort((a,b)=>b.tot-a.tot);
+
+  const barras=dados.map(x=>{
+    const hM=Math.round(x.mk3/topo*100), hC=Math.round(x.cli/topo*100);
+    return '<div class="tg-col'+(x.ms===iso(HOJE).slice(0,7)?" atual":"")+'">'+
+      '<div class="tg-bars">'+
+        '<span class="tg-b mk3" style="height:'+hM+'%" title="MK3: '+x.mk3+' dias úteis">'+(x.mk3?'<i>'+x.mk3+'</i>':'')+'</span>'+
+        '<span class="tg-b cli" style="height:'+hC+'%" title="Cliente: '+x.cli+' dias úteis">'+(x.cli?'<i>'+x.cli+'</i>':'')+'</span>'+
+      '</div>'+
+      '<span class="tg-m">'+nomeMes(x.ms)+'</span></div>';
+  }).join("");
+
+  const semDados = H.length===0;
+  return '<div class="tend">'+
+    (semDados?'<div class="vaziox"><h4>Ainda sem histórico de atraso</h4>'+
+      '<p>O gráfico se preenche conforme as etapas forem concluídas com data. Sempre que você marcar "concluído em tal dia" ou registrar a resposta do cliente, o atraso entra aqui.</p>'+
+      '<button data-view="prio">Ir para as prioridades</button></div>':'')+
+    '<div class="tend-topo">'+
+      '<div class="tend-kpi"><span class="k-r">Atraso da MK3 · mês atual</span><b class="mk3">'+atual.mk3+'<small>dias úteis</small></b>'+
+        '<span class="k-v '+vM.cls+'">'+esc(vM.txt)+'</span></div>'+
+      '<div class="tend-kpi"><span class="k-r">Atraso do cliente · mês atual</span><b class="cli">'+atual.cli+'<small>dias úteis</small></b>'+
+        '<span class="k-v '+vC.cls+'">'+esc(vC.txt)+'</span></div>'+
+      '<div class="tend-kpi"><span class="k-r">Em aberto agora</span><b class="ab">'+emAberto.length+'<small>tarefas atrasadas</small></b>'+
+        '<span class="k-v n">precisam de ação</span></div>'+
+    '</div>'+
+    '<div class="tend-cx"><div class="tend-h">Últimos 6 meses <span class="leg"><i class="mk3"></i>MK3 <i class="cli"></i>Cliente</span></div>'+
+      '<div class="tg">'+barras+'</div></div>'+
+    (rank.length
+      ? '<div class="tend-cx"><div class="tend-h">Por cliente (6 meses)</div>'+
+        rank.map(r=>{
+          const t=Math.max(1,rank[0].tot);
+          return '<div class="rk"><span class="rk-n">'+esc(r.n)+'</span>'+
+            '<span class="rk-bar"><i class="mk3" style="width:'+Math.round(r.mk3/t*100)+'%"></i>'+
+            '<i class="cli" style="width:'+Math.round(r.cli/t*100)+'%"></i></span>'+
+            '<span class="rk-v">'+r.tot+'d</span></div>';
+        }).join("")+'</div>'
+      : '')+
+    '<p class="tend-nota">Conta apenas atrasos já consumados (etapa entregue ou respondida fora do prazo), em dias úteis. '+
+    'Atrasos justificados ficam de fora. Entregas são responsabilidade da MK3; aprovações, do cliente.</p>'+
+  '</div>';
+}
 function prioridadesHTML(){
   if(VISTA.pano==null){ VISTA.pano=HOJE.getFullYear(); VISTA.pmes=HOJE.getMonth(); }
   if(VISTA.psem==null) VISTA.psem=segOf(iso(HOJE));
@@ -1307,8 +1398,8 @@ function histHTML(c){
 function tituloContexto(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const A={all:"Visão Geral",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
-  const V={cards:"Clientes",prio:"Prioridades",cal:"Calendário",lista:"Lista"};
-  const AB={cal:"Calendário",tarefas:"Tarefas",hist:"Histórico"};
+  const V={cards:"Clientes",prio:"Prioridades",cal:"Calendário",lista:"Lista",tend:"Tendência de atrasos"};
+  const AB={cal:"Calendário",tarefas:"Tarefas",tend:"Tendência",hist:"Histórico"};
   let t = c ? c.nome : (V[VISTA.modo]||"");
   const bits=[A[VISTA.area]||""];
   if(c) bits.unshift(AB[VISTA.aba]||"");
@@ -1358,7 +1449,8 @@ function render(){
 
   if(!c){
     let body;
-    if(VISTA.modo==="prio")       body = prioridadesHTML();
+    if(VISTA.modo==="tend")       body = tendenciaHTML();
+    else if(VISTA.modo==="prio")  body = prioridadesHTML();
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
     else                          body = listaGlobalHTML();
@@ -1367,7 +1459,7 @@ function render(){
   }
 
   const cor = coresDe(c);
-  const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["hist","Histórico"]];
+  const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["tend","Tendência"],["hist","Histórico"]];
   const bar =
     '<div class="cli-bar"><button class="voltar" data-nav="home">&larr; Todos os clientes</button>'+
     '<div class="cli-title">'+avatarHTML(c,"cli-av2")+
@@ -1377,6 +1469,7 @@ function render(){
 
   const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), (VISTA.area==="all"||VISTA.area==="mkt")?c.marcos:[], false)
              : VISTA.aba==="tarefas" ? tarefasHTML(c)
+             : VISTA.aba==="tend" ? tendenciaHTML()
              : histHTML(c);
   $("view").innerHTML = bar + body;
 }
