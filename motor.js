@@ -181,9 +181,31 @@ function regras(c){
     add("midia"+sfx,"Ciclo padrão","Produzir a mídia","Semana 4 · "+cic,dd(28),"Analista");
     add("agendado"+sfx,"Ciclo padrão","Conteúdo agendado","Pronto para publicar no dia 1 · "+cic,dd(ult),"Analista");
   }
+  /* o contrato encerra: nada de tarefa de ciclo depois da data final */
+  if(c.vencimentoContrato){
+    for(let i=T.length-1;i>=0;i--){
+      if(T[i].fase==="Ciclo padrão" && T[i].data && T[i].data > c.vencimentoContrato) T.splice(i,1);
+    }
+  }
 
   /* TAREFAS EXTRAS por cliente (itens fora do padrão: pagamentos a fornecedor, etc.) */
   (c.tarefasExtras||[]).forEach((t,i)=>add(t.id||("extra"+i), t.fase||"Outros", t.tarefa, t.detalhe||"", t.data||null, t.resp||"MK3"));
+
+  /* ---- coerência: o que já tem data real está feito; o lembrete perde o sentido após a resposta ---- */
+  const forcado=(c.__pendenteForcado||[]);
+  const marcaAuto=(id,quando)=>{
+    if(!quando || forcado.indexOf(id)>=0) return;   /* respeita o "não feito" marcado por você */
+    const t=T.find(x=>x.id===id);
+    if(t && !t.feita){ t.feita=true; t.dataConclusao=quando; }
+  };
+  marcaAuto("c1_plan",    c.envioPlanejamento);
+  marcaAuto("c1_aprPlan", c.aprovacaoPlanejamento);
+  marcaAuto("c1_roteiro", c.aprovacaoPlanejamento);
+  marcaAuto("c1_artes",   c.envioMidia);
+  marcaAuto("c1_aprMid",  c.aprovacaoMidia);
+  marcaAuto("c1_lembPlan",c.aprovacaoPlanejamento);
+  marcaAuto("c1_lembMid", c.aprovacaoMidia);
+  if(c.gravacao && c.gravacao <= iso(HOJE)) marcaAuto("c1_gravacao", c.gravacao);
 
   return T;
 }
@@ -347,7 +369,12 @@ function areaBase(id){
   if(id==="acaoComercial") return "com";
   return "mkt";
 }
-const areaMatch = t => VISTA.area==="all" || t.area===VISTA.area;
+const areaMatch = t => {
+  const permitidas = USUARIO ? areasDe() : ["all","mkt","fin","com"];
+  const a = (permitidas.indexOf(VISTA.area)>=0) ? VISTA.area : (permitidas.indexOf("all")>=0?"all":permitidas[0]);
+  if(a==="all") return true;
+  return t.area===a;
+};
 
 /* ---- sidebar (estilo Pode Postar) ---- */
 const IC = {
@@ -419,9 +446,11 @@ function rebuild(){
     CAMPOS_DATA.forEach(k=>c[k]=o[k]);
     const dd=ESTADO.datas[c.id]||{};
     for(const k in dd){ if(dd[k]) c[k]=dd[k]; }
+    c.__pendenteForcado=[];
     for(const e of (ESTADO.concluidas[c.id]||[])){
       c.concluidas=c.concluidas.filter(x=>((x&&x.id)?x.id:x)!==e.id);
       if(!e.remove) c.concluidas.push(e.data?{id:e.id,data:e.data}:e.id);
+      else c.__pendenteForcado.push(e.id);
     }
   });
   TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})));
