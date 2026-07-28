@@ -98,10 +98,16 @@ function regras(c){
           uteis(c.alteracaoPedida,PRAZO),"Analista");
     add("c1_roteiro","1º ciclo","Enviar roteiro à produtora",
         "No mesmo dia da aprovação do planejamento", baseAprPlan, "Analista");
-    if(c.gravacao)
-      add("c1_gravacao","1º ciclo",c.semFotos?"Gravação":"Gravação + fotos","Manhã, 8h às 17h"+(c.artesDependemDaGravacao?" · insumo das artes":""),c.gravacao,"Produtora / Cliente");
-    else
-      add("c1_gravacao","1º ciclo","Agendar diária de gravação","Manhã, 8h às 17h · régua a confirmar",null,"Analista / Estagiário");
+    if(c.gravacao){
+      add("c1_gravacaoMarcar","1º ciclo","Marcar a gravação com "+c.nome,
+          "Combinado para "+fmt(c.gravacao)+" · confirmar véspera",addD(c.gravacao,-3),"Analista / Estagiário");
+      add("c1_gravacao","1º ciclo","Dia de gravação com "+c.nome+(c.semFotos?"":" (com fotos)"),
+          "Manhã, 8h às 17h"+(c.artesDependemDaGravacao?" · insumo das artes":""),c.gravacao,"Produtora / Cliente");
+    } else {
+      add("c1_gravacaoMarcar","1º ciclo","Marcar a gravação com "+c.nome,
+          "Falar com o cliente e fechar a data",null,"Analista / Estagiário");
+      add("c1_gravacao","1º ciclo","Dia de gravação com "+c.nome,"Data a definir",null,"Produtora / Cliente");
+    }
     add("c1_artes","1º ciclo","Criar as artes",
         (c.artesDependemDaGravacao && c.gravacao)
           ? "2 dias úteis após a gravação · depende das fotos de "+fmt(c.gravacao)
@@ -512,10 +518,13 @@ function bcardHTML(t, dayIso, dupOrig){
   const feita=t.st.k==="ok";
   const x=xInfo(VISTA.psem,t.clienteId,t.id,dayIso);
   const st=feita?"ok":(x?"x":"none");
-  const rot=EXEC[baseId(t.id)]||t.tarefa;
+  const rot=(/^c1_gravacao/.test(t.id) ? t.tarefa : (EXEC[baseId(t.id)]||t.tarefa));
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
   const nomeResp=(t.fase==="Demanda")?t.resp:AREARESP[t.area];
   const face=faceDe(nomeResp);
+  const fc=FOTO[t.clienteId];
+  const faceCli=(t.fase==="Demanda")?"":'<span class="card-face cli" title="'+escAttr(t.cliente)+'">'+esc((t.cliente||"?").slice(0,1))+
+    (fc?'<img src="'+fc+'" alt="" onerror="this.remove()">':'')+'</span>';
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     '<div class="bcard-t">'+esc(rot)+'</div>'+
@@ -525,7 +534,7 @@ function bcardHTML(t, dayIso, dupOrig){
       '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito · clique de novo para desmarcar" aria-label="Feito">&#10003;</button>'+
       '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito · clique de novo para deixar neutro" aria-label="Não feito">&#10007;</button>'+
       '<button class="mover" data-mover="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Replanejar para outro dia" aria-label="Replanejar para outro dia">&#8618;</button>'+
-      face+
+      '<span class="faces">'+faceCli+face+'</span>'+
     '</div>'+
     (x&&x.motivo?'<button class="ver-motivo" data-vermotivo="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'">Mostrar motivo</button>':'')+
   '</div>';
@@ -748,19 +757,34 @@ function abrirAtrasadas(dia){
     '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal();
 }
-function abrirMover(cid,tid,diaAtual){
-  const dias=["Segunda","Terça","Quarta","Quinta","Sexta"];
+function abrirMover(cid,tid,diaAtual,mesRef){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  const base=mesRef||(diaAtual||iso(HOJE)).slice(0,7);
+  const ano=+base.slice(0,4), mes=+base.slice(5,7)-1;
+  const ref=new Date(ano,mes,1);
+  const desloc=ref.getDay(), diasNoMes=new Date(ano,mes+1,0).getDate();
+  const hojeIso=iso(HOJE);
+  const prev=iso(new Date(ano,mes-1,1)).slice(0,7), next=iso(new Date(ano,mes+1,1)).slice(0,7);
+  let cels="";
+  for(let i=0;i<desloc;i++) cels+='<span class="mv-vazio"></span>';
+  for(let dia=1;dia<=diasNoMes;dia++){
+    const s=iso(new Date(ano,mes,dia));
+    const fds=[0,6].indexOf(new Date(ano,mes,dia).getDay())>=0;
+    const cls=["mv-d",fds?"fds":"",s===hojeIso?"hj":"",s===diaAtual?"atual":"",s===t.data?"orig":""].filter(Boolean).join(" ");
+    cels+='<button class="'+cls+'" data-macao="mover" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+s+'"'+
+      (s===diaAtual?' disabled title="Já está neste dia"':'')+'>'+dia+'</button>';
+  }
   const mm=$("modal");
-  mm.innerHTML='<div class="mbox"><h3>Replanejar para outro dia</h3>'+
+  mm.innerHTML='<div class="mbox mover-box"><h3>Replanejar para outro dia</h3>'+
     '<p class="msub">'+esc(t?t.tarefa:"")+(t?" · "+esc(t.cliente):"")+'</p>'+
-    '<p class="msub">Cria uma cópia no dia escolhido. A tarefa original continua na data dela.</p>'+
-    '<div class="mbtns wrap">'+dias.map((d0,i)=>{
-      const dd=addD(VISTA.psem,i);
-      return '<button'+(dd===diaAtual?' class="sec"':'')+' data-macao="mover" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+dd+'">'+d0+' '+fmt(dd).slice(0,5)+'</button>';
-    }).join("")+'</div>'+
+    '<p class="msub">Cria uma cópia no dia escolhido. A tarefa original continua na data dela'+(t&&t.data?" ("+fmt(t.data)+")":"")+'.</p>'+
+    '<div class="mv-nav"><button class="mv-set" data-mesmover="'+prev+'" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+(diaAtual||"")+'" aria-label="Mês anterior">&lsaquo;</button>'+
+      '<strong>'+ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})+'</strong>'+
+      '<button class="mv-set" data-mesmover="'+next+'" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+(diaAtual||"")+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
+    '<div class="mv-dow"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>'+
+    '<div class="mv-grade">'+cels+'</div>'+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Cancelar</button></div></div>';
-  mostrarModal();
+  mostrarModal(true);
 }
 function abrirEditor(cid,tid){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
@@ -1016,7 +1040,7 @@ function listaGlobalHTML(){
 const EXEC = {
   c1_plan:"Planejamento", planej:"Planejamento", envPlanej:"Enviar planejamento",
   c1_artes:"Artes", midia:"Artes",
-  c1_gravacao:"Gravação", c1_roteiro:"Roteiro",
+  c1_gravacao:"Dia de gravação", c1_gravacaoMarcar:"Marcar gravação", c1_roteiro:"Roteiro",
   c1_aprPlan:"Aprovação do planejamento", c1_aprMid:"Aprovação das artes",
   c1_podepostar:"Pode Postar", c1_entrega:"Entrega das peças"
 };
@@ -1286,7 +1310,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1319,6 +1343,7 @@ document.addEventListener("click", function(ev){
   if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
   if(D.demanda){ if(!ehAdmin()) return; abrirDemanda(D.demdia); return; }
   if(D.equipe){ if(!ehAdmin()) return; abrirEquipe(); return; }
+  if(D.mesmover){ semPular(()=>abrirMover(D.mcid,D.mtid,D.mday||null,D.mesmover)); return; }
   if(D.permb){
     const p=(ESTADO.pessoas||[]).find(x=>x.nome===D.pnome); if(!p) return;
     const atual = D.permb==="admin" ? !!p.admin : ((p.areas||[]).indexOf(D.permb)>=0);

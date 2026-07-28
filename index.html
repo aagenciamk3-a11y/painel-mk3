@@ -509,6 +509,29 @@
   .eq-add button{background:var(--mk3);border:none;color:#fff;font:inherit;font-size:13px;font-weight:600;
     padding:10px 18px;border-radius:var(--r1);cursor:pointer;flex:none;min-height:38px}
   .eq-add button:hover{background:var(--mk3s)}
+  /* ---- replanejar: mes inteiro ---- */
+  .mover-box{max-width:340px}
+  .mv-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 10px}
+  .mv-nav strong{font-size:14px;text-transform:capitalize}
+  .mv-set{background:var(--panel2);border:1px solid var(--line);color:var(--txt);width:30px;height:30px;
+    border-radius:8px;cursor:pointer;font-size:15px;line-height:1}
+  .mv-set:hover{border-color:var(--mk3);color:var(--mk3)}
+  .mv-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+  .mv-dow span{text-align:center;font-size:10px;color:var(--mut);font-weight:700}
+  .mv-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
+  .mv-vazio{height:34px}
+  .mv-d{height:34px;background:var(--panel2);border:1px solid transparent;color:var(--txt);font:inherit;
+    font-size:12.5px;border-radius:8px;cursor:pointer;transition:.12s}
+  .mv-d:hover:not([disabled]){background:var(--mk3);color:#fff}
+  .mv-d.fds{color:var(--mut);background:rgba(255,255,255,.03)}
+  .mv-d.hj{border-color:var(--mk3o);color:var(--mk3o);font-weight:700}
+  .mv-d.orig{box-shadow:inset 0 0 0 1px var(--line);font-weight:700}
+  .mv-d.atual{background:var(--mk3);color:#fff;font-weight:700;opacity:.55;cursor:default}
+  /* ---- duas fotos no cartao ---- */
+  .faces{display:inline-flex;align-items:center;margin-left:auto}
+  .faces .card-face{margin-left:0}
+  .faces .card-face.cli{border-color:rgba(255,255,255,.5);z-index:1}
+  .faces .card-face+.card-face{margin-left:-9px}
   /* ---- toast com desfazer (4.1) ---- */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);z-index:1500;
     display:flex;align-items:center;gap:14px;background:var(--sup4);border:1px solid var(--line);
