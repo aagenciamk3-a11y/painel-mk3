@@ -528,10 +528,14 @@
   .mv-d.orig{box-shadow:inset 0 0 0 1px var(--line);font-weight:700}
   .mv-d.atual{background:var(--mk3);color:#fff;font-weight:700;opacity:.55;cursor:default}
   /* ---- duas fotos no cartao ---- */
-  .faces{display:inline-flex;align-items:center;margin-left:auto}
-  .faces .card-face{margin-left:0}
-  .faces .card-face.cli{border-color:rgba(255,255,255,.5);z-index:1}
-  .faces .card-face+.card-face{margin-left:-9px}
+  /* responsável no topo direito, cliente no rodapé direito */
+  .bcard{position:relative}
+  .face-topo{position:absolute;top:9px;right:9px;line-height:0}
+  .face-topo .card-face{width:26px;height:26px;font-size:10px;margin:0;border-color:rgba(255,255,255,.22)}
+  .face-rodape{margin-left:auto;line-height:0}
+  .face-rodape .card-face{width:26px;height:26px;font-size:10px;margin:0;border-color:rgba(255,255,255,.5)}
+  .bcard-t{padding-right:32px}
+  .bcard.st-ok .bcard-t{padding-right:32px}
   /* ---- links dos clientes ---- */
   .portais{max-width:560px}
   .po-lista{display:flex;flex-direction:column;gap:10px;margin:12px 0 14px}
