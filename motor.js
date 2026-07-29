@@ -1526,7 +1526,9 @@ function prioridadesHTML(){
   for(let i=0;i<5;i++){
     const dayIso=addD(VISTA.psem,i);
     const reais=TODAS.filter(t=>t.data===dayIso && relevanteBoard(t)).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
-    const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso).map(e=>({t:TODAS.find(x=>x.clienteId===e.cid&&x.id===e.tid),orig:e.orig})).filter(o=>o.t);
+    const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso)
+      .map(e=>({t:TODAS.find(x=>x.clienteId===e.cid&&x.id===e.tid),orig:e.orig}))
+      .filter(o=>o.t && relevanteBoard(o.t));   /* a cópia respeita a área, como a original */
     const cs=reais.map(t=>bcardHTML(t,dayIso,null)).concat(dups.map(o=>bcardHTML(o.t,dayIso,o.orig)));
     let vazioBody;
     if(!cs.length){
