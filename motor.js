@@ -726,8 +726,7 @@ function abrirObsDemanda(id, editar){
         '<div class="mbtns"><button data-macao="salvarobs" data-demid="'+escAttr(id)+'">Salvar</button>'+
         '<button class="sec" data-macao="fechar">Cancelar</button></div>'
       : '<div class="obs-leitura">'+esc(dm.obs)+'</div>'+
-        '<div class="mbtns"><button data-editarobs="'+escAttr(id)+'">&#9998; Editar</button>'+
-        '<button class="sec" data-macao="fechar">Fechar</button></div>')+
+        '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div>')+
   '</div>';
   mostrarModal(!modoEdicao);
 }
