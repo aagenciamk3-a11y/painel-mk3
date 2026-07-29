@@ -681,6 +681,21 @@
   .chkp.on{border-color:var(--umdia);background:rgba(245,197,24,.12)}
   .chkp.on i{border-color:var(--umdia);background:var(--umdia)}
   .chkp.on i::after{content:"\2713";position:absolute;inset:0;display:grid;place-items:center;color:#241A3D;font-size:12px;font-weight:900}
+  /* ---- excluir / restaurar tarefa ---- */
+  .mover.del{color:var(--mut)}
+  .mover.del:hover{border-color:rgba(242,85,90,.6);color:#FF9DA0;background:rgba(242,85,90,.14)}
+  .ex-aviso{background:rgba(242,85,90,.10);border:1px solid rgba(242,85,90,.28);border-radius:var(--r1);
+    padding:12px 14px;font-size:13px;color:var(--txt);line-height:1.5;margin:10px 0 16px}
+  .ex-lista{display:flex;flex-direction:column;gap:7px;max-height:52vh;overflow-y:auto;margin:10px 0 14px}
+  .ex-row{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:var(--r1);padding:9px 12px}
+  .ex-t{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ex-t i{font-style:normal;color:var(--mut);font-size:12px}
+  .ex-row button{background:none;border:1px solid var(--line);color:var(--mut);font:inherit;font-size:12px;
+    font-weight:600;padding:6px 12px;border-radius:7px;cursor:pointer;flex:none;min-height:30px}
+  .ex-row button:hover{border-color:var(--ok);color:var(--ok);background:rgba(76,196,99,.10)}
+  .mbtns button.danger{background:var(--atrasado);color:#fff}
+  .mbtns button.danger:hover{background:#d63b40}
   /* ---- toast com desfazer (4.1) ---- */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);z-index:1500;
     display:flex;align-items:center;gap:14px;background:var(--sup4);border:1px solid var(--line);

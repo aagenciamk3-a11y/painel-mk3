@@ -455,8 +455,10 @@ function rebuild(){
       else c.__pendenteForcado.push(e.id);
     }
   });
-  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})));
+  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})))
+    .filter(t=>((ESTADO.excluidas||{})[t.clienteId]||[]).indexOf(t.id)<0);
   (ESTADO.demandas||[]).forEach(dm=>{
+    if((((ESTADO.excluidas||{})["_dem"])||[]).indexOf(dm.id)>=0) return;
     const done=(ESTADO.concluidas["_dem"]||[]).filter(e=>((e&&e.id)?e.id:e)===dm.id).pop();
     const t={id:dm.id, clienteId:"_dem", cliente:dm.resp, tarefa:dm.texto, detalhe:(dm.obs||"Demanda"), obs:dm.obs||"", data:dm.data, resp:dm.resp, fase:"Demanda", area:dm.area,
              feita:!!(done&&!done.remove), dataConclusao:(done&&done.data)||null};
@@ -511,6 +513,52 @@ function setObsTarefa(cid,tid,day,txt,parcial){
     acao:"observacao",id:tid,data:day,parcial:!!parcial,motivo:(txt||"").trim()});
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
+}
+function excluirTarefa(cid,tid){
+  if(!ehAdmin()) return;
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  snapshot();
+  if(cid==="_dem"){ ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>x.id!==tid); }
+  else { ESTADO.excluidas=ESTADO.excluidas||{}; ESTADO.excluidas[cid]=(ESTADO.excluidas[cid]||[]).concat([tid]); }
+  ESTADO.dup=(ESTADO.dup||[]).filter(e=>!(e.cid===cid&&e.tid===tid));
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,acao:"excluir",id:tid});
+  persist(); rebuild(); render();
+  toast((t?t.tarefa:"Tarefa")+" · excluída", true);
+}
+function restaurarTarefa(cid,tid){
+  snapshot();
+  ESTADO.excluidas[cid]=((ESTADO.excluidas||{})[cid]||[]).filter(x=>x!==tid);
+  if(!ESTADO.excluidas[cid].length) delete ESTADO.excluidas[cid];
+  persist(); rebuild(); render(); semPular(()=>abrirExcluidas());
+}
+function nExcluidas(){ let n=0; for(const k in (ESTADO.excluidas||{})) n+=(ESTADO.excluidas[k]||[]).length; return n; }
+function abrirExcluidas(){
+  if(!ehAdmin()) return;
+  const E=ESTADO.excluidas||{};
+  const nomeCli=id=>{ const c=CLIENTES.find(x=>x.id===id); return c?c.nome:(id==="_dem"?"Demanda":id); };
+  let linhas="";
+  for(const cid in E) (E[cid]||[]).forEach(tid=>{
+    linhas+='<div class="ex-row"><span class="ex-t">'+esc(EXEC[baseId(tid)]||tid)+' <i>'+esc(nomeCli(cid))+'</i></span>'+
+      '<button data-restaurar="'+cid+'|'+escAttr(tid)+'">Restaurar</button></div>';
+  });
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>Tarefas excluídas</h3>'+
+    '<p class="msub">Elas somem do painel, mas ficam guardadas aqui e podem voltar quando quiser.</p>'+
+    (linhas?'<div class="ex-lista">'+linhas+'</div>':'<div class="vaziox"><h4>Nenhuma tarefa excluída</h4><p>Quando você excluir alguma, ela aparece aqui para restaurar.</p></div>')+
+    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
+}
+function confirmarExcluir(cid,tid){
+  if(!ehAdmin()) return;
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>Excluir tarefa</h3>'+
+    '<p class="msub">'+esc(t?((EXEC[baseId(t.id)]||t.tarefa)+" — "+t.cliente):tid)+'</p>'+
+    '<div class="ex-aviso">A tarefa some do painel'+(cid==="_dem"?" e a demanda é apagada":" e das prioridades")+'. '+
+    (cid==="_dem"?"":"Ela fica guardada em \u201cTarefas excluídas\u201d e pode voltar depois.")+'</div>'+
+    '<div class="mbtns"><button class="danger" data-excl="'+cid+'|'+escAttr(tid)+'">Excluir</button>'+
+    '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
+  mostrarModal(true);
 }
 function abrirObsTarefa(cid,tid,day,editar){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
@@ -613,6 +661,7 @@ function bcardHTML(t, dayIso, dupOrig){
       '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito · clique de novo para desmarcar" aria-label="Feito">&#10003;</button>'+
       '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito · clique de novo para deixar neutro" aria-label="Não feito">&#10007;</button>'+
       '<button class="mover" data-mover="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Replanejar para outro dia" aria-label="Replanejar para outro dia">&#8618;</button>'+
+      (ehAdmin()?'<button class="mover del" data-delt="'+t.clienteId+'|'+escAttr(t.id)+'" title="Excluir tarefa" aria-label="Excluir tarefa">&#128465;</button>':'')+
       '<button class="mover obsb'+(ob?" tem":"")+'" data-obst="'+t.clienteId+'|'+escAttr(t.id)+'|'+dayIso+'" title="Observação da tarefa" aria-label="Observação da tarefa">&#128221;</button>'+
       (faceCli?'<span class="face-rodape" title="Cliente">'+faceCli+'</span>':'')+
     '</div>'+
@@ -635,7 +684,7 @@ function addDemanda(texto,area,data,resp,obs){
   ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demanda",id:id,nome:texto,area:area,data:data,resp:resp});
   persist(); rebuild(); render();
 }
-function removeDemanda(id){ snapshot(); ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>x.id!==id); persist(); rebuild(); render(); }
+function removeDemanda(id){ if(!ehAdmin()) return; snapshot(); ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>x.id!==id); persist(); rebuild(); render(); }
 function demConcluida(id){ const e=(ESTADO.concluidas["_dem"]||[]).find(x=>((x&&x.id)?x.id:x)===id); return !!(e&&!e.remove); }
 function listaDemandas(){
   const todas=(ESTADO.demandas||[]).slice().sort((a,b)=>String(b.data).localeCompare(String(a.data)));
@@ -1075,7 +1124,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -1089,7 +1138,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1571,6 +1620,7 @@ function render(){
   $("editbar").innerHTML =
     '<button class="ubtn" data-undo="1"'+(UNDO.length?"":" disabled")+' title="Desfazer">&#8624; Desfazer</button>'+
     '<button class="ubtn" data-redo="1"'+(REDO.length?"":" disabled")+' title="Refazer">&#8625; Refazer</button>'+
+    ((ehAdmin()&&nExcluidas())?'<button class="ubtn" data-lixeira="1" title="Ver tarefas excluídas">&#128465; '+nExcluidas()+' excluída'+(nExcluidas()>1?'s':'')+'</button>':'')+
     '<span class="salvo" id="salvo" aria-live="polite"></span>'+
     (nMud()?'<span class="umud">'+nMud()+' '+(nMud()>1?"tarefas marcadas":"tarefa marcada")+' por você · salvo neste navegador</span>'
            :'<span class="umud dim">Clique numa tarefa para marcar. Atalhos: <span class="kbd">?</span></span>');
@@ -1607,7 +1657,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-restaurar],[data-lixeira],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1661,6 +1711,10 @@ document.addEventListener("click", function(ev){
   if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
   if(D.demobs){ abrirObsDemanda(D.demobs, true); return; }
   if(D.demedit){ abrirEditarDemanda(D.demedit); return; }
+  if(D.delt){ const p=D.delt.split("|"); confirmarExcluir(p[0],p[1]); return; }
+  if(D.excl){ const p=D.excl.split("|"); excluirTarefa(p[0],p[1]); fecharModal(); return; }
+  if(D.restaurar){ const p=D.restaurar.split("|"); restaurarTarefa(p[0],p[1]); return; }
+  if(D.lixeira){ abrirExcluidas(); return; }
   if(D.obst){ const p=D.obst.split("|"); abrirObsTarefa(p[0],p[1],p[2]); return; }
   if(D.editarobst){ const p=D.editarobst.split("|"); abrirObsTarefa(p[0],p[1],p[2],true); return; }
   if(D.parcial){
