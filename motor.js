@@ -457,7 +457,7 @@ function rebuild(){
   TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})));
   (ESTADO.demandas||[]).forEach(dm=>{
     const done=(ESTADO.concluidas["_dem"]||[]).filter(e=>((e&&e.id)?e.id:e)===dm.id).pop();
-    const t={id:dm.id, clienteId:"_dem", cliente:dm.resp, tarefa:dm.texto, detalhe:"Demanda", data:dm.data, resp:dm.resp, fase:"Demanda", area:dm.area,
+    const t={id:dm.id, clienteId:"_dem", cliente:dm.resp, tarefa:dm.texto, detalhe:(dm.obs||"Demanda"), obs:dm.obs||"", data:dm.data, resp:dm.resp, fase:"Demanda", area:dm.area,
              feita:!!(done&&!done.remove), dataConclusao:(done&&done.data)||null};
     t.st=status(t);
     TODAS.push(t);
@@ -566,7 +566,7 @@ function bcardHTML(t, dayIso, dupOrig){
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     (face?'<span class="face-topo" title="Responsável">'+face+'</span>':'')+
     '<div class="bcard-t">'+esc(rot)+'</div>'+
-    '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
+    '<div class="bcard-c">'+esc(t.cliente)+(t.obs?' <span class="tem-obs" title="'+escAttr(t.obs)+'">&#128221;</span>':'')+'</div>'+
     (feita&&t.st.atraso?'<div class="bcard-atr">atrasou '+t.st.atraso+(t.st.atraso>1?' dias úteis':' dia útil')+'</div>':'')+
     '<div class="bcard-chk">'+
       '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito · clique de novo para desmarcar" aria-label="Feito">&#10003;</button>'+
@@ -583,11 +583,11 @@ function setNota(day, texto){
   if(texto && texto.trim()) ESTADO.notas[day]=texto; else delete ESTADO.notas[day];
   persist(); render();
 }
-function addDemanda(texto,area,data,resp){
+function addDemanda(texto,area,data,resp,obs){
   snapshot();
   ESTADO.demandas=ESTADO.demandas||[];
   const id="dem_"+Date.now()+"_"+Math.floor(Math.random()*1000);
-  ESTADO.demandas.push({id:id,texto:texto,area:area,data:data,resp:resp});
+  ESTADO.demandas.push({id:id,texto:texto,area:area,data:data,resp:resp,obs:(obs||"").trim()});
   ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demanda",id:id,nome:texto,area:area,data:data,resp:resp});
   persist(); rebuild(); render();
 }
@@ -598,9 +598,11 @@ function listaDemandas(){
   if(!ds.length) return '';
   const A={mkt:"Marketing",fin:"Financeiro",com:"Comercial"};
   return '<div class="dem-lista"><div class="dem-lista-h">Demandas cadastradas</div>'+ds.map(x=>
-    '<div class="dem-row"><span class="dem-d">'+fmt(x.data)+'</span>'+
-    '<span class="dem-t">'+esc(x.texto)+' <i>'+(A[x.area]||"")+'</i></span>'+
+    '<div class="dem-row'+(x.obs?" comobs":"")+'"><span class="dem-d">'+fmt(x.data)+'</span>'+
+    '<span class="dem-t">'+esc(x.texto)+' <i>'+(A[x.area]||"")+'</i>'+
+      (x.obs?'<span class="dem-obs">&#128221; '+esc(x.obs)+'</span>':'')+'</span>'+
     '<span class="dem-r">'+esc(x.resp)+'</span>'+
+    '<button class="dem-e" data-demobs="'+escAttr(x.id)+'" title="Observações" aria-label="Observações">&#9998;</button>'+
     '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover">&#215;</button></div>').join("")+'</div>';
 }
 let PORTAIS=null;
@@ -711,6 +713,20 @@ function setPin(nome,pin){
   const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
   p.pin=(pin||"").trim(); persist();
 }
+function abrirObsDemanda(id){
+  const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>&#128221; Observações</h3>'+
+    '<p class="msub">'+esc(dm.texto)+' · '+fmt(dm.data)+' · '+esc(dm.resp)+'</p>'+
+    '<textarea id="obsTxt" class="notepad-ta" rows="5" placeholder="Registre o que vale lembrar: evolução da equipe, o que deu certo, o que travou..." data-focar>'+esc(dm.obs||"")+'</textarea>'+
+    '<div class="mbtns"><button data-macao="salvarobs" data-demid="'+escAttr(id)+'">Salvar</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal();
+}
+function setObsDemanda(id,txt){
+  const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
+  snapshot(); dm.obs=(txt||"").trim(); persist(); rebuild(); render();
+}
 function abrirDemanda(diaSugerido){
   const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]];
   const pessoas=(ESTADO.pessoas||[]).map(p=>p.nome);
@@ -720,6 +736,7 @@ function abrirDemanda(diaSugerido){
     '<label class="mlab">Área<select id="darea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Data<input type="date" id="ddata" value="'+(diaSugerido||iso(HOJE))+'"></label>'+
     '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option>'+p+'</option>').join("")+'</select></label>'+
+    '<label class="mlab">Observações <i class="opt-l">(opcional)</i><textarea id="dobs" rows="2" placeholder="Ex.: primeira vez da Carla acompanhando a gravação sozinha"></textarea></label>'+
     '<div class="mbtns"><button data-macao="salvardemanda">Adicionar</button><button class="sec" data-macao="fechar">Fechar</button></div>'+
     listaDemandas()+
   '</div>';
@@ -892,7 +909,8 @@ function handleModal(D){
   if(D.macao==="neutro"){ neutralizar(D.mcid,D.mtid,D.mday); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); semPular(()=>abrirEquipe()); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
-  if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value); abrirDemanda(); return; }
+  if(D.macao==="salvarobs"){ setObsDemanda(D.demid, ($("obsTxt")&&$("obsTxt").value)||""); fecharModal(); toast("Observação salva",false); return; }
+  if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value,($("dobs")&&$("dobs").value)||""); abrirDemanda(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
   const dv = (D.macao==="hoje") ? iso(HOJE) : (($("mdata")&&$("mdata").value)||iso(HOJE));
@@ -1476,7 +1494,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1527,7 +1545,8 @@ document.addEventListener("click", function(ev){
   }
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
   if(D.pessoax){ semPular(()=>{ removePessoa(D.pessoax); abrirEquipe(); }); return; }
-  if(D.demx){ removeDemanda(D.demx); abrirDemanda(); return; }
+  if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
+  if(D.demobs){ abrirObsDemanda(D.demobs); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.area){ if(!podeArea(D.area)) return; VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
