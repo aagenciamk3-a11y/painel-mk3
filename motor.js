@@ -627,7 +627,7 @@ function abrirPortais(){
             ? '<button class="po-r" data-novolink="'+c.id+'" title="Gera um endereço novo e invalida o atual">Trocar link</button>'
             : '<span class="po-x">sem reservas</span>')+
         '</span>'+
-        '<input class="po-u" readonly value="'+escAttr(url)+'" onclick="this.select()" aria-label="Endereço do portal">'+
+        '<code class="po-u" title="Clique em Copiar para levar o link">'+esc(url)+'</code>'+
         (esc0&&esc0.ativo&&esc0.ativo!==tks[p.ativo||0]?'<span class="po-p">novo link · vale após a publicação</span>':'')+
         '</div>';
     }).join("") : '<div class="vazio">Carregando…</div>';
@@ -782,6 +782,21 @@ const MOTIVOS = [
   "Problema técnico",
   "Gravação não aconteceu"
 ];
+function abrirMotivoLeitura(cid,tid,day){
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  const cur=xInfo(segOf(day),cid,tid,day);
+  const rot=t?((EXEC[baseId(t.id)]||t.tarefa)+" — "+t.cliente):tid;
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox motivo-box"><h3>Motivo</h3>'+
+    '<p class="msub">'+esc(rot)+' · '+fmt(day)+'</p>'+
+    '<div class="mot-leitura">'+esc(cur?cur.motivo:"(sem motivo registrado)")+'</div>'+
+    '<div class="mbtns">'+
+      '<button data-editarmotivo="1" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">&#9998; Editar</button>'+
+      '<button class="sec" data-macao="neutro" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Deixar neutro</button>'+
+      '<button class="sec" data-macao="fechar">Fechar</button>'+
+    '</div></div>';
+  mostrarModal(true);
+}
 function abrirMotivo(cid,tid,day,sel){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
   const cur=xInfo(segOf(day),cid,tid,day);
@@ -1495,7 +1510,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-veobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-veobs],[data-editarmotivo],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1516,7 +1531,7 @@ document.addEventListener("click", function(ev){
     if(jaX){ neutralizar(D.mcid,D.mtid,D.mday); return; }
     abrirMotivo(D.mcid,D.mtid,D.mday); return;
   }
-  if(D.vermotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
+  if(D.vermotivo){ abrirMotivoLeitura(D.mcid,D.mtid,D.mday); return; }
   if(D.nota){ abrirNota(D.nota); return; }
   if(D.dia){ abrirDia(D.dia); return; }
   if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
@@ -1549,6 +1564,7 @@ document.addEventListener("click", function(ev){
   if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
   if(D.demobs){ abrirObsDemanda(D.demobs); return; }
   if(D.veobs){ abrirObsDemanda(D.veobs); return; }
+  if(D.editarmotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.area){ if(!podeArea(D.area)) return; VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
