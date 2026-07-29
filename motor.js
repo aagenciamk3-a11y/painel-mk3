@@ -495,6 +495,45 @@ function xInfo(week,cid,tid,day){
   const b=(ESTADO.semanal&&ESTADO.semanal[week])||null; if(!b) return null;
   return (day&&b[chaveTarefa(cid,tid,day)]) || b[chaveTarefa(cid,tid)] || null;   /* aceita chave antiga */
 }
+function obsInfo(cid,tid,day){
+  const wk=segOf(day), b=(ESTADO.obsT&&ESTADO.obsT[wk])||null;
+  return b ? (b[chaveTarefa(cid,tid,day)]||null) : null;
+}
+function setObsTarefa(cid,tid,day,txt,parcial){
+  snapshot();
+  const wk=segOf(day);
+  ESTADO.obsT=ESTADO.obsT||{}; ESTADO.obsT[wk]=ESTADO.obsT[wk]||{};
+  const k=chaveTarefa(cid,tid,day);
+  if((txt||"").trim() || parcial) ESTADO.obsT[wk][k]={txt:(txt||"").trim(), parcial:!!parcial};
+  else delete ESTADO.obsT[wk][k];
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,
+    acao:"observacao",id:tid,data:day,parcial:!!parcial,motivo:(txt||"").trim()});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
+}
+function abrirObsTarefa(cid,tid,day,editar){
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  const o=obsInfo(cid,tid,day)||{txt:"",parcial:false};
+  const temTexto=!!(o.txt||"").trim();
+  const modoEdicao = editar || !temTexto;
+  const rot=t?((EXEC[baseId(t.id)]||t.tarefa)+" — "+t.cliente):tid;
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>&#128221; Observação da tarefa</h3>'+
+    '<p class="msub">'+esc(rot)+' · '+fmt(day)+'</p>'+
+    (modoEdicao
+      ? '<label class="mlab"><span class="chkp'+(o.parcial?" on":"")+'" data-parcial="'+cid+'|'+escAttr(tid)+'|'+day+'" role="checkbox" aria-checked="'+(!!o.parcial)+'"><i></i>Entrega parcial (fizemos só uma parte)</span></label>'+
+        '<textarea id="obsT" class="notepad-ta" rows="4" placeholder="Ex.: fizemos 3 das 6 artes; faltam os materiais da cliente">'+esc(o.txt||"")+'</textarea>'+
+        '<div class="mbtns"><button data-macao="salvarobst" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'" data-mparc="'+(o.parcial?"1":"")+'">Salvar</button>'+
+        (temTexto||o.parcial?'<button class="danger" data-macao="limparobst" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+day+'">Remover</button>':'')+
+        '<button class="sec" data-macao="fechar">Cancelar</button></div>'
+      : (o.parcial?'<div class="parc-tag">Entrega parcial</div>':'')+
+        '<div class="obs-leitura">'+esc(o.txt)+'</div>'+
+        '<div class="mbtns"><button data-editarobst="'+cid+'|'+escAttr(tid)+'|'+day+'">&#9998; Editar</button>'+
+        '<button class="sec" data-macao="fechar">Fechar</button></div>')+
+  '</div>';
+  mostrarModal(true);
+}
 function setNaoFeito(cid,tid,day,motivo){
   snapshot();
   const wk=segOf(day);
@@ -558,6 +597,7 @@ function bcardHTML(t, dayIso, dupOrig){
   const st=feita?"ok":(x?"x":"none");
   const rot=EXEC[baseId(t.id)]||t.tarefa;
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
+  const ob=obsInfo(t.clienteId,t.id,dayIso);
   const nomeResp=(t.fase==="Demanda")?t.resp:AREARESP[t.area];
   const face=faceDe(nomeResp);
   const fc=FOTO[t.clienteId];
@@ -566,17 +606,19 @@ function bcardHTML(t, dayIso, dupOrig){
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     (face?'<span class="face-topo" title="Responsável">'+face+'</span>':'')+
-    '<div class="bcard-t">'+esc(rot)+'</div>'+
+    '<div class="bcard-t">'+esc(rot)+(ob&&ob.parcial?' <span class="parc">parcial</span>':'')+'</div>'+
     '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
     (feita&&t.st.atraso?'<div class="bcard-atr">atrasou '+t.st.atraso+(t.st.atraso>1?' dias úteis':' dia útil')+'</div>':'')+
     '<div class="bcard-chk">'+
       '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito · clique de novo para desmarcar" aria-label="Feito">&#10003;</button>'+
       '<button class="chk x'+(x?" on":"")+'" data-wkx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Não feito · clique de novo para deixar neutro" aria-label="Não feito">&#10007;</button>'+
       '<button class="mover" data-mover="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Replanejar para outro dia" aria-label="Replanejar para outro dia">&#8618;</button>'+
+      '<button class="mover obsb'+(ob?" tem":"")+'" data-obst="'+t.clienteId+'|'+escAttr(t.id)+'|'+dayIso+'" title="Observação da tarefa" aria-label="Observação da tarefa">&#128221;</button>'+
       (faceCli?'<span class="face-rodape" title="Cliente">'+faceCli+'</span>':'')+
     '</div>'+
     (x&&x.motivo?'<button class="ver-motivo" data-vermotivo="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'">Mostrar motivo</button>':'')+
     (t.obs?'<button class="ver-obs" data-veobs="'+escAttr(t.id)+'">&#128221; Ver observação</button>':'')+
+    (ob&&ob.txt?'<button class="ver-obs" data-obst="'+t.clienteId+'|'+escAttr(t.id)+'|'+dayIso+'">&#128221; Ver observação</button>':'')+
   '</div>';
 }
 function setNota(day, texto){
@@ -969,6 +1011,12 @@ function handleModal(D){
   if(D.macao==="neutro"){ neutralizar(D.mcid,D.mtid,D.mday); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); semPular(()=>abrirEquipe()); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
+  if(D.macao==="salvarobst"){
+    const o=obsInfo(D.mcid,D.mtid,D.mday);
+    setObsTarefa(D.mcid,D.mtid,D.mday,($("obsT")&&$("obsT").value)||"", o?o.parcial:(D.mparc==="1"));
+    fecharModal(); toast("Observação salva",true); return;
+  }
+  if(D.macao==="limparobst"){ setObsTarefa(D.mcid,D.mtid,D.mday,"",false); fecharModal(); toast("Observação removida",true); return; }
   if(D.macao==="salvaredit"){
     editarDemanda(D.demid,{texto:(($("edtexto")&&$("edtexto").value)||"").trim(),
       area:$("edarea")&&$("edarea").value, data:$("eddata")&&$("eddata").value, resp:$("edresp")&&$("edresp").value});
@@ -1027,7 +1075,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -1041,7 +1089,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1559,7 +1607,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1613,6 +1661,15 @@ document.addEventListener("click", function(ev){
   if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
   if(D.demobs){ abrirObsDemanda(D.demobs, true); return; }
   if(D.demedit){ abrirEditarDemanda(D.demedit); return; }
+  if(D.obst){ const p=D.obst.split("|"); abrirObsTarefa(p[0],p[1],p[2]); return; }
+  if(D.editarobst){ const p=D.editarobst.split("|"); abrirObsTarefa(p[0],p[1],p[2],true); return; }
+  if(D.parcial){
+    const p=D.parcial.split("|"); const o=obsInfo(p[0],p[1],p[2])||{txt:"",parcial:false};
+    const txt=($("obsT")&&$("obsT").value)||o.txt||"";
+    setObsTarefa(p[0],p[1],p[2],txt,!o.parcial);
+    semPular(()=>abrirObsTarefa(p[0],p[1],p[2],true));
+    return;
+  }
   if(D.veobs){ abrirObsDemanda(D.veobs); return; }
   if(D.editarmotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.editarobs){ abrirObsDemanda(D.editarobs, true); return; }

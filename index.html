@@ -666,6 +666,21 @@
     color:#C4B5FD;font:inherit;font-size:11px;font-weight:600;padding:6px 9px;border-radius:6px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;gap:5px;min-height:28px}
   .ver-obs:hover{background:rgba(139,92,246,.26);color:#fff}
+  /* ---- observação por tarefa / entrega parcial ---- */
+  .obsb{font-size:11px}
+  .obsb.tem{border-color:rgba(139,92,246,.5);color:#C4B5FD;background:rgba(139,92,246,.14)}
+  .parc{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    background:rgba(245,197,24,.18);color:var(--umdia);padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:5px}
+  .parc-tag{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    background:rgba(245,197,24,.16);color:var(--umdia);border:1px solid rgba(245,197,24,.35);
+    padding:5px 12px;border-radius:20px;margin-bottom:10px}
+  .chkp{display:inline-flex;align-items:center;gap:9px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:var(--r1);padding:9px 12px;cursor:pointer;font-size:13.5px;color:var(--txt);
+    font-weight:500;text-transform:none;letter-spacing:0;min-height:38px;width:100%;margin-top:6px}
+  .chkp i{width:17px;height:17px;border-radius:5px;border:2px solid var(--line);flex:none;position:relative;transition:.12s}
+  .chkp.on{border-color:var(--umdia);background:rgba(245,197,24,.12)}
+  .chkp.on i{border-color:var(--umdia);background:var(--umdia)}
+  .chkp.on i::after{content:"\2713";position:absolute;inset:0;display:grid;place-items:center;color:#241A3D;font-size:12px;font-weight:900}
   /* ---- toast com desfazer (4.1) ---- */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);z-index:1500;
     display:flex;align-items:center;gap:14px;background:var(--sup4);border:1px solid var(--line);
