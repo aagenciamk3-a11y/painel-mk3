@@ -704,6 +704,11 @@
   .ex-row button:hover{border-color:var(--ok);color:var(--ok);background:rgba(76,196,99,.10)}
   .mbtns button.danger{background:var(--atrasado);color:#fff}
   .mbtns button.danger:hover{background:#d63b40}
+  /* ---- indicador de sincronização ---- */
+  .syncst{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--mut)}
+  .syncst::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--futuro)}
+  .syncst.on{color:var(--ok)} .syncst.on::before{background:var(--ok);box-shadow:0 0 0 3px rgba(76,196,99,.18)}
+  .syncst.off{color:var(--hoje)} .syncst.off::before{background:var(--hoje)}
   /* ---- toast com desfazer (4.1) ---- */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(140%);z-index:1500;
     display:flex;align-items:center;gap:14px;background:var(--sup4);border:1px solid var(--line);
@@ -837,6 +842,19 @@
 <div id="tip"></div>
 <input type="file" id="fotoInput" accept="image/*" style="display:none">
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+  window.MK3_FIREBASE = {
+    apiKey: "AIzaSyCOqZXwvdvxYjADf5dECXW5CX1OB-KPdE0",
+    authDomain: "painel-mk3.firebaseapp.com",
+    databaseURL: "https://painel-mk3-default-rtdb.firebaseio.com",
+    projectId: "painel-mk3",
+    storageBucket: "painel-mk3.firebasestorage.app",
+    messagingSenderId: "435924911878",
+    appId: "1:435924911878:web:19d0e8e836131d6d29c087"
+  };
+</script>
 <script src="dados.js"></script>
 <script src="motor.js"></script>
 </body>

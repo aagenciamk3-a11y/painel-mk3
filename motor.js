@@ -482,7 +482,47 @@ function rebuild(){
 const tdOf = t => escAttr([t.cliente, (t.st&&t.st.txt), (t.data?fmt(t.data)+" "+dow(t.data):""), t.resp, t.detalhe].filter(Boolean).join(" · "));
 const attrsEdit = t => ' data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-tt="'+escAttr(t.tarefa||t.titulo||"")+'" data-td="'+tdOf(t)+'"';
 
-function persist(){ try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){} setTimeout(marcarSalvo,0); }
+/* ---------- sincronização em tempo real ---------- */
+let SYNC=null, SYNC_APLICANDO=false, SYNC_ON=false;
+function syncIniciar(){
+  try{
+    if(!window.firebase || !window.MK3_FIREBASE) return;
+    const app = firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(window.MK3_FIREBASE);
+    SYNC = firebase.database().ref("painel/estado");
+    /* recebe as mudanças de qualquer pessoa, na hora */
+    SYNC.on("value", snap=>{
+      const v=snap.val();
+      if(!v) return;
+      const meu=JSON.stringify(ESTADO);
+      const dele=JSON.stringify(v);
+      if(meu===dele) return;
+      SYNC_APLICANDO=true;
+      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],log:[], ...v};
+      try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
+      rebuild(); render();
+      SYNC_APLICANDO=false;
+      marcarSync("recebido");
+    }, err=>{ SYNC_ON=false; marcarSync("erro"); });
+    firebase.database().ref(".info/connected").on("value", s=>{ SYNC_ON=!!s.val(); marcarSync(SYNC_ON?"ligado":"offline"); });
+  }catch(e){ SYNC=null; }
+}
+function syncEnviar(){
+  if(!SYNC || SYNC_APLICANDO) return;
+  try{ SYNC.set(JSON.parse(JSON.stringify(ESTADO))); }catch(e){}
+}
+let syncTimer=null;
+function marcarSync(estado){
+  const el=document.getElementById("syncst"); if(!el) return;
+  const mapa={ligado:["Sincronizado","on"],recebido:["Atualizado agora","on"],offline:["Sem conexão","off"],erro:["Sem sincronizar","off"]};
+  const m0=mapa[estado]||mapa.offline;
+  el.textContent=m0[0]; el.className="syncst "+m0[1];
+  if(estado==="recebido"){ clearTimeout(syncTimer); syncTimer=setTimeout(()=>marcarSync(SYNC_ON?"ligado":"offline"),2500); }
+}
+function persist(){
+  try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
+  syncEnviar();
+  setTimeout(marcarSalvo,0);
+}
 function snapshot(){ UNDO.push(JSON.stringify(ESTADO)); if(UNDO.length>80)UNDO.shift(); REDO.length=0; }
 function nMud(){ let n=0; for(const k in ESTADO.concluidas)n+=(ESTADO.concluidas[k]||[]).filter(e=>!e.remove).length; return n; }
 
@@ -1276,7 +1316,7 @@ async function init(){
   USUARIO=null;
   try{ localStorage.removeItem("mk3_user"); }catch(e){}
   if(USUARIO && !eu()) USUARIO=null;
-  rebuild(); render(); montarTooltip();
+  rebuild(); render(); montarTooltip(); syncIniciar();
 }
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
@@ -1764,6 +1804,7 @@ function render(){
     '<button class="ubtn" data-redo="1"'+(REDO.length?"":" disabled")+' title="Refazer">&#8625; Refazer</button>'+
     ((ehAdmin()&&nExcluidas())?'<button class="ubtn" data-lixeira="1" title="Ver tarefas excluídas">&#128465; '+nExcluidas()+' excluída'+(nExcluidas()>1?'s':'')+'</button>':'')+
     '<span class="salvo" id="salvo" aria-live="polite"></span>'+
+    '<span class="syncst" id="syncst" title="Sincronização entre a equipe"></span>'+
     (nMud()?'<span class="umud">'+nMud()+' '+(nMud()>1?"tarefas marcadas":"tarefa marcada")+' por você · salvo neste navegador</span>'
            :'<span class="umud dim">Clique numa tarefa para marcar. Atalhos: <span class="kbd">?</span></span>');
   $("side").innerHTML = sidebarHTML();
