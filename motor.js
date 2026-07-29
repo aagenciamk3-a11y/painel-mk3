@@ -333,9 +333,10 @@ function mostrarModal(semFoco){
   if(!modalAberto()) focoAnterior=document.activeElement;   /* não perde a origem ao redesenhar */
   mm.style.display="flex";
   const ap=$("app"); if(ap) ap.setAttribute("inert","");
-  if(semFoco) return;
-  const alvo=mm.querySelector("[data-focar]")||mm.querySelector("input:not([type=password]),textarea,select");
-  if(alvo && alvo.focus) setTimeout(()=>alvo.focus(),20);
+  /* nunca focar campo de texto: o cursor não deve cair dentro de caixa nenhuma.
+     O foco vai para a própria janela, para o Esc e o leitor de tela funcionarem. */
+  const cx=mm.querySelector(".mbox");
+  if(cx){ cx.setAttribute("tabindex","-1"); if(cx.focus) setTimeout(()=>cx.focus({preventScroll:true}),20); }
 }
 function fecharModal(){
   const mm=$("modal"); if(!mm) return;
