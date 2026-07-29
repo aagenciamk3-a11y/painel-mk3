@@ -604,6 +604,7 @@ function listaDemandas(){
     '<span class="dem-t">'+esc(x.texto)+' <i>'+(A[x.area]||"")+'</i>'+
       (x.obs?'<span class="dem-obs">&#128221; '+esc(x.obs)+'</span>':'')+'</span>'+
     '<span class="dem-r">'+esc(x.resp)+'</span>'+
+    '<button class="dem-e" data-demedit="'+escAttr(x.id)+'" title="Editar demanda (texto, data, área, responsável)" aria-label="Editar demanda">&#9881;</button>'+
     '<button class="dem-e" data-demobs="'+escAttr(x.id)+'" title="Observações" aria-label="Observações">&#9998;</button>'+
     '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover">&#215;</button></div>').join("")+'</div>';
 }
@@ -714,6 +715,31 @@ function setPerm(nome,perm,valor){
 function setPin(nome,pin){
   const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
   p.pin=(pin||"").trim(); persist();
+}
+function abrirEditarDemanda(id){
+  const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
+  const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]];
+  const pessoas=(ESTADO.pessoas||[]).map(p=>p.nome);
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox demform"><h3>Editar demanda</h3>'+
+    '<p class="msub">Dá para mudar a data — por exemplo, se era para hoje mas foi feita dias atrás.</p>'+
+    '<label class="mlab">O que é a demanda<input type="text" id="edtexto" value="'+escAttr(dm.texto)+'" autocomplete="off"></label>'+
+    '<label class="mlab">Área<select id="edarea">'+areas.map(a=>'<option value="'+a[0]+'"'+(dm.area===a[0]?" selected":"")+'>'+a[1]+'</option>').join("")+'</select></label>'+
+    '<label class="mlab">Data<input type="date" id="eddata" value="'+escAttr(dm.data)+'"></label>'+
+    '<label class="mlab">Responsável<select id="edresp">'+pessoas.map(p=>'<option'+(dm.resp===p?" selected":"")+'>'+esc(p)+'</option>').join("")+'</select></label>'+
+    '<div class="mbtns"><button data-macao="salvaredit" data-demid="'+escAttr(id)+'">Salvar</button>'+
+    '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
+  mostrarModal(true);
+}
+function editarDemanda(id,campos){
+  const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
+  snapshot();
+  if(campos.texto) dm.texto=campos.texto;
+  if(campos.area) dm.area=campos.area;
+  if(campos.data) dm.data=campos.data;
+  if(campos.resp) dm.resp=campos.resp;
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:"_dem",acao:"editar",id:id,nome:dm.texto,data:dm.data});
+  persist(); rebuild(); render();
 }
 function abrirObsDemanda(id, editar){
   const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
@@ -932,6 +958,11 @@ function handleModal(D){
   if(D.macao==="neutro"){ neutralizar(D.mcid,D.mtid,D.mday); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); semPular(()=>abrirEquipe()); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
+  if(D.macao==="salvaredit"){
+    editarDemanda(D.demid,{texto:(($("edtexto")&&$("edtexto").value)||"").trim(),
+      area:$("edarea")&&$("edarea").value, data:$("eddata")&&$("eddata").value, resp:$("edresp")&&$("edresp").value});
+    fecharModal(); toast("Demanda atualizada",true); return;
+  }
   if(D.macao==="salvarobs"){ setObsDemanda(D.demid, ($("obsTxt")&&$("obsTxt").value)||""); fecharModal(); toast("Observação salva",false); return; }
   if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value,($("dobs")&&$("dobs").value)||""); abrirDemanda(); return; }
   const cid=D.mcid, tid=D.mtid;
@@ -1355,7 +1386,7 @@ function prioridadesHTML(){
     const nota=(ESTADO.notas&&ESTADO.notas[dayIso])||"";
     const notaEl='<div class="bnota'+(nota?" tem":"")+'" data-nota="'+dayIso+'"><span class="bnota-h">&#128221; Notas</span>'+
       (nota?'<span class="bnota-prev">'+esc(nota.length>70?nota.slice(0,70)+"\u2026":nota)+'</span>':'<span class="bnota-add">anotar\u2026</span>')+'</div>';
-    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h"><span>'+dias[i]+(cs.length?'<span class="bcount">'+cs.length+'</span>':'')+'</span><span>'+fmt(dayIso).slice(0,5)+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
+    cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h"><span>'+dias[i]+(cs.length?'<span class="bcount">'+cs.length+'</span>':'')+'</span><span class="bcol-hr">'+fmt(dayIso).slice(0,5)+(ehAdmin()?'<button class="bcol-add" data-demanda="1" data-demdia="'+dayIso+'" title="Nova demanda neste dia" aria-label="Nova demanda">+</button>':'')+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
   }
   const rotArea={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[VISTA.area]||"";
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+
@@ -1517,7 +1548,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1570,6 +1601,7 @@ document.addEventListener("click", function(ev){
   if(D.pessoax){ semPular(()=>{ removePessoa(D.pessoax); abrirEquipe(); }); return; }
   if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
   if(D.demobs){ abrirObsDemanda(D.demobs, true); return; }
+  if(D.demedit){ abrirEditarDemanda(D.demedit); return; }
   if(D.veobs){ abrirObsDemanda(D.veobs); return; }
   if(D.editarmotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.editarobs){ abrirObsDemanda(D.editarobs, true); return; }
