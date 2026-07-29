@@ -411,6 +411,7 @@ function sidebarHTML(){
   if(ehAdmin()){
     h+='<div class="side-sec">Demandas</div>';
     h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
+    h+='<button class="snav" data-clientes="1" title="Clientes"><span class="snav-i">'+IC.cards+'</span><span class="snav-t">Clientes</span></button>';
     h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
     h+='<button class="snav" data-portais="1" title="Links dos clientes"><span class="snav-i">'+IC.link+'</span><span class="snav-t">Links dos clientes</span></button>';
   }
@@ -442,10 +443,15 @@ const ANCORA = {
 const escAttr = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
 function rebuild(){
-  CLIENTES.forEach((c,i)=>{
-    const o=ORIG[i];
+  const base = ORIG.concat((ESTADO.novosClientes||[]).map(c=>JSON.parse(JSON.stringify(c))));
+  const ed = ESTADO.clientes||{};
+  CLIENTES.length=0;
+  base.forEach(o=>{
+    const ov = ed[o.id]||{};
+    if(ov.oculto) return;
+    const c = JSON.parse(JSON.stringify(o));
+    ["nome","segmento","entrada","vencimentoContrato"].forEach(k=>{ if(ov[k]) c[k]=ov[k]; });
     c.concluidas=(o.concluidas||[]).slice();
-    CAMPOS_DATA.forEach(k=>c[k]=o[k]);
     const dd=ESTADO.datas[c.id]||{};
     for(const k in dd){ if(dd[k]) c[k]=dd[k]; }
     c.__pendenteForcado=[];
@@ -454,6 +460,7 @@ function rebuild(){
       if(!e.remove) c.concluidas.push(e.data?{id:e.id,data:e.data}:e.id);
       else c.__pendenteForcado.push(e.id);
     }
+    CLIENTES.push(c);
   });
   TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})))
     .filter(t=>((ESTADO.excluidas||{})[t.clienteId]||[]).indexOf(t.id)<0)
@@ -462,12 +469,15 @@ function rebuild(){
   (ESTADO.demandas||[]).forEach(dm=>{
     if((((ESTADO.excluidas||{})["_dem"])||[]).indexOf(dm.id)>=0) return;
     const done=(ESTADO.concluidas["_dem"]||[]).filter(e=>((e&&e.id)?e.id:e)===dm.id).pop();
-    const t={id:dm.id, clienteId:"_dem", cliente:dm.resp, tarefa:dm.texto, detalhe:(dm.obs||"Demanda"), obs:dm.obs||"", data:dm.data, resp:dm.resp, fase:"Demanda", area:dm.area,
-             feita:!!(done&&!done.remove), dataConclusao:(done&&done.data)||null};
+    const cli=dm.cli?CLIENTES.find(c=>c.id===dm.cli):null;
+    const t={id:dm.id, clienteId:"_dem", cliDem:(cli?cli.id:null), cliente:(cli?cli.nome:dm.resp),
+             tarefa:dm.texto, detalhe:(dm.obs||"Demanda"), obs:dm.obs||"", data:dm.data, resp:dm.resp,
+             fase:"Demanda", area:dm.area, feita:!!(done&&!done.remove), dataConclusao:(done&&done.data)||null};
     t.st=status(t);
     TODAS.push(t);
   });
 }
+
 
 const tdOf = t => escAttr([t.cliente, (t.st&&t.st.txt), (t.data?fmt(t.data)+" "+dow(t.data):""), t.resp, t.detalhe].filter(Boolean).join(" · "));
 const attrsEdit = t => ' data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-tt="'+escAttr(t.tarefa||t.titulo||"")+'" data-td="'+tdOf(t)+'"';
@@ -678,8 +688,8 @@ function bcardHTML(t, dayIso, dupOrig){
   const ob=obsInfo(t.clienteId,t.id,dayIso);
   const nomeResp=(t.fase==="Demanda")?t.resp:AREARESP[t.area];
   const face=faceDe(nomeResp);
-  const fc=FOTO[t.clienteId];
-  const faceCli=(t.fase==="Demanda")?"":'<span class="card-face cli" title="'+escAttr(t.cliente)+'">'+esc((t.cliente||"?").slice(0,1))+
+  const fc=FOTO[t.cliDem||t.clienteId];
+  const faceCli=(t.fase==="Demanda" && !t.cliDem)?"":'<span class="card-face cli" title="'+escAttr(t.cliente)+'">'+esc((t.cliente||"?").slice(0,1))+
     (fc?'<img src="'+fc+'" alt="" onerror="this.remove()">':'')+'</span>';
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
@@ -708,11 +718,11 @@ function setNota(day, texto){
   if(texto && texto.trim()) ESTADO.notas[day]=texto; else delete ESTADO.notas[day];
   persist(); render();
 }
-function addDemanda(texto,area,data,resp,obs){
+function addDemanda(texto,area,data,resp,obs,cli){
   snapshot();
   ESTADO.demandas=ESTADO.demandas||[];
   const id="dem_"+Date.now()+"_"+Math.floor(Math.random()*1000);
-  ESTADO.demandas.push({id:id,texto:texto,area:area,data:data,resp:resp,obs:(obs||"").trim()});
+  ESTADO.demandas.push({id:id,texto:texto,area:area,data:data,resp:resp,obs:(obs||"").trim(),cli:cli||null});
   ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demanda",id:id,nome:texto,area:area,data:data,resp:resp});
   persist(); rebuild(); render();
 }
@@ -793,6 +803,76 @@ function trocarLink(cid){
   persist(); semPular(()=>abrirPortais());
   toast("Link novo gerado. O antigo para de funcionar na próxima publicação.",false);
 }
+function abrirClientes(){
+  if(!ehAdmin()) return;
+  const ed=ESTADO.clientes||{};
+  const ocultos=ORIG.concat(ESTADO.novosClientes||[]).filter(c=>(ed[c.id]||{}).oculto);
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox equipe"><h3>Clientes</h3>'+
+    '<p class="msub">Ajuste o nome, o segmento e o vencimento do contrato. Também dá para cadastrar um cliente novo.</p>'+
+    '<div class="eq-lista">'+CLIENTES.map(c=>{
+      const cor=coresDe(c), novo=(ESTADO.novosClientes||[]).some(x=>x.id===c.id);
+      return '<div class="pcard">'+
+        '<div class="pc-topo">'+avatarHTML(c,"card-face")+
+          '<div class="pc-id"><span class="pc-n">'+esc(c.nome)+(novo?' <i class="cl-novo">novo</i>':'')+'</span>'+
+          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · contrato até '+fmt(c.vencimentoContrato)+'</span></div>'+
+          '<button class="pc-ico" data-clied="'+escAttr(c.id)+'" title="Editar cliente" aria-label="Editar">&#9998;</button>'+
+          '<button class="pc-ico rm" data-cliocultar="'+escAttr(c.id)+'" title="Tirar do painel" aria-label="Tirar do painel">&#128465;</button>'+
+        '</div></div>';
+    }).join("")+'</div>'+
+    (ocultos.length?'<details class="dem-feitas"><summary>Fora do painel ('+ocultos.length+')</summary>'+
+      ocultos.map(c=>'<div class="ex-row"><span class="ex-t">'+esc(((ed[c.id]||{}).nome)||c.nome)+'</span>'+
+        '<button data-clirestaurar="'+escAttr(c.id)+'">Trazer de volta</button></div>').join("")+'</details>':'')+
+    '<div class="mbtns"><button data-clinovo="1">+ Novo cliente</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
+}
+function abrirClienteForm(id){
+  if(!ehAdmin()) return;
+  const c=id?CLIENTES.find(x=>x.id===id):null;
+  const segs=["Corretor","Corretora","Varejo","Moda","Escola","Educação","Tecnologia","Saúde","Alimentação","Beleza"];
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox demform"><h3>'+(c?"Editar cliente":"Novo cliente")+'</h3>'+
+    (c?'':'<p class="msub">Cadastro rápido: o painel já cria as tarefas de entrada e o ciclo mensal a partir das datas.</p>')+
+    '<label class="mlab">Nome<input type="text" id="clNome" value="'+escAttr(c?c.nome:"")+'" autocomplete="off"></label>'+
+    '<label class="mlab">Segmento<select id="clSeg">'+segs.map(s=>'<option'+((c&&c.segmento===s)?" selected":"")+'>'+s+'</option>').join("")+'</select></label>'+
+    '<label class="mlab">Entrada (assinatura)<input type="date" id="clEnt" value="'+escAttr(c?c.entrada:iso(HOJE))+'"></label>'+
+    '<label class="mlab">Vencimento do contrato<input type="date" id="clVen" value="'+escAttr(c?(c.vencimentoContrato||""):"")+'"></label>'+
+    '<div class="mbtns"><button data-macao="salvarcli" data-cliid="'+escAttr(c?c.id:"")+'">Salvar</button>'+
+    '<button class="sec" data-macao="fecharcli">Cancelar</button></div></div>';
+  mostrarModal(true);
+}
+function salvarCliente(id,dados){
+  if(!ehAdmin()) return;
+  snapshot();
+  if(id){
+    ESTADO.clientes=ESTADO.clientes||{};
+    ESTADO.clientes[id]={...(ESTADO.clientes[id]||{}), ...dados};
+    const n=(ESTADO.novosClientes||[]).find(x=>x.id===id);
+    if(n) Object.assign(n,dados);
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:id,acao:"cliente-editado",nome:dados.nome||id});
+  } else {
+    const novoId="cli_"+Date.now();
+    ESTADO.novosClientes=(ESTADO.novosClientes||[]).concat([{
+      id:novoId, nome:dados.nome||"Cliente novo", marca:dados.nome||"", segmento:dados.segmento||"",
+      plano:"", entrada:dados.entrada||iso(HOJE), contrato:"", inicioContrato:dados.entrada||iso(HOJE),
+      vencimentoContrato:dados.vencimentoContrato||null, mensalidade:null,
+      escopo:{agendamento:true,calendarioEditorial:false,trafegoPago:false},
+      imersao:null, reuniaoPlanejamentoEntrada:null, envioPlanejamento:null, aprovacaoPlanejamento:null,
+      envioMidia:null, aprovacaoMidia:null, gravacao:null, artesDependemDaGravacao:false,
+      inicioCicloPadrao:null, justificados:[], concluidas:[], marcos:[]
+    }]);
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:novoId,acao:"cliente-novo",nome:dados.nome||""});
+  }
+  persist(); rebuild(); render();
+}
+function ocultarCliente(id,valor){
+  if(!ehAdmin()) return;
+  snapshot();
+  ESTADO.clientes=ESTADO.clientes||{};
+  ESTADO.clientes[id]={...(ESTADO.clientes[id]||{}), oculto:!!valor};
+  persist(); rebuild(); render(); semPular(()=>abrirClientes());
+}
 function abrirEquipe(){
   if(!ehAdmin()) return;
   const ps=ESTADO.pessoas||[];
@@ -858,6 +938,8 @@ function abrirEditarDemanda(id){
   mm.innerHTML='<div class="mbox demform"><h3>Editar demanda</h3>'+
     '<p class="msub">Dá para mudar a data — por exemplo, se era para hoje mas foi feita dias atrás.</p>'+
     '<label class="mlab">O que é a demanda<input type="text" id="edtexto" value="'+escAttr(dm.texto)+'" autocomplete="off"></label>'+
+    '<label class="mlab">Cliente<select id="edcli"><option value=""'+(dm.cli?"":" selected")+'>Sem cliente / interno</option>'+
+      CLIENTES.map(c=>'<option value="'+c.id+'"'+(dm.cli===c.id?" selected":"")+'>'+esc(c.nome)+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Área<select id="edarea">'+areas.map(a=>'<option value="'+a[0]+'"'+(dm.area===a[0]?" selected":"")+'>'+a[1]+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Data<input type="date" id="eddata" value="'+escAttr(dm.data)+'"></label>'+
     '<label class="mlab">Responsável<select id="edresp">'+pessoas.map(p=>'<option'+(dm.resp===p?" selected":"")+'>'+esc(p)+'</option>').join("")+'</select></label>'+
@@ -872,6 +954,7 @@ function editarDemanda(id,campos){
   if(campos.area) dm.area=campos.area;
   if(campos.data) dm.data=campos.data;
   if(campos.resp) dm.resp=campos.resp;
+  if(campos.cli!==undefined) dm.cli=campos.cli||null;
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:"_dem",acao:"editar",id:id,nome:dm.texto,data:dm.data});
   persist(); rebuild(); render();
 }
@@ -901,6 +984,8 @@ function abrirDemanda(diaSugerido){
   const mm=$("modal");
   mm.innerHTML='<div class="mbox demform"><h3>Nova demanda</h3>'+
     '<label class="mlab">O que é a demanda<input type="text" id="dtexto" placeholder="Descreva a demanda..." autocomplete="off" data-focar></label>'+
+    '<label class="mlab">Cliente <i class="opt-l">(opcional)</i><select id="dcli"><option value="">Sem cliente / interno</option>'+
+      CLIENTES.map(c=>'<option value="'+c.id+'">'+esc(c.nome)+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Área<select id="darea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Data<input type="date" id="ddata" value="'+(diaSugerido||iso(HOJE))+'"></label>'+
     '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option>'+p+'</option>').join("")+'</select></label>'+
@@ -1092,6 +1177,13 @@ function handleModal(D){
   if(D.macao==="neutro"){ neutralizar(D.mcid,D.mtid,D.mday); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); semPular(()=>abrirEquipe()); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
+  if(D.macao==="salvarcli"){
+    salvarCliente(D.cliid||null,{nome:(($("clNome")&&$("clNome").value)||"").trim(),
+      segmento:$("clSeg")&&$("clSeg").value, entrada:$("clEnt")&&$("clEnt").value,
+      vencimentoContrato:($("clVen")&&$("clVen").value)||null});
+    semPular(()=>abrirClientes()); toast("Cliente salvo",true); return;
+  }
+  if(D.macao==="fecharcli"){ semPular(()=>abrirClientes()); return; }
   if(D.macao==="salvartit"){ renomearTarefa(D.mcid,D.mtid,($("novoTit")&&$("novoTit").value)||""); fecharModal(); toast("Título atualizado",true); return; }
   if(D.macao==="restauratit"){ renomearTarefa(D.mcid,D.mtid,""); fecharModal(); toast("Nome original restaurado",true); return; }
   if(D.macao==="salvarobst"){
@@ -1102,11 +1194,11 @@ function handleModal(D){
   if(D.macao==="limparobst"){ setObsTarefa(D.mcid,D.mtid,D.mday,"",false); fecharModal(); toast("Observação removida",true); return; }
   if(D.macao==="salvaredit"){
     editarDemanda(D.demid,{texto:(($("edtexto")&&$("edtexto").value)||"").trim(),
-      area:$("edarea")&&$("edarea").value, data:$("eddata")&&$("eddata").value, resp:$("edresp")&&$("edresp").value});
+      area:$("edarea")&&$("edarea").value, data:$("eddata")&&$("eddata").value, resp:$("edresp")&&$("edresp").value, cli:($("edcli")&&$("edcli").value)||null});
     fecharModal(); toast("Demanda atualizada",true); return;
   }
   if(D.macao==="salvarobs"){ setObsDemanda(D.demid, ($("obsTxt")&&$("obsTxt").value)||""); fecharModal(); toast("Observação salva",false); return; }
-  if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value,($("dobs")&&$("dobs").value)||""); abrirDemanda(); return; }
+  if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value,($("dobs")&&$("dobs").value)||"",($("dcli")&&$("dcli").value)||null); abrirDemanda(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
   const dv = (D.macao==="hoje") ? iso(HOJE) : (($("mdata")&&$("mdata").value)||iso(HOJE));
@@ -1158,7 +1250,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, clientes:{...(a.clientes||{}),...((b&&b.clientes)||{})}, novosClientes:(b&&b.novosClientes)?b.novosClientes:(a.novosClientes||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -1172,7 +1264,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1707,7 +1799,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1766,6 +1858,11 @@ document.addEventListener("click", function(ev){
   if(D.excl){ const p=D.excl.split("|"); excluirTarefa(p[0],p[1]); fecharModal(); return; }
   if(D.restaurar){ const p=D.restaurar.split("|"); restaurarTarefa(p[0],p[1]); return; }
   if(D.lixeira){ abrirExcluidas(); return; }
+  if(D.clientes){ abrirClientes(); return; }
+  if(D.clied){ abrirClienteForm(D.clied); return; }
+  if(D.clinovo){ abrirClienteForm(null); return; }
+  if(D.cliocultar){ ocultarCliente(D.cliocultar,true); return; }
+  if(D.clirestaurar){ ocultarCliente(D.clirestaurar,false); return; }
   if(D.obst){ const p=D.obst.split("|"); abrirObsTarefa(p[0],p[1],p[2]); return; }
   if(D.editarobst){ const p=D.editarobst.split("|"); abrirObsTarefa(p[0],p[1],p[2],true); return; }
   if(D.parcial){
