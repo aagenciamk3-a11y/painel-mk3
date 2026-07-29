@@ -298,6 +298,13 @@
   .bcol-h{padding:11px 13px;font-size:13px;font-weight:700;background:var(--panel2);border-bottom:1px solid var(--line);
     display:flex;align-items:center;justify-content:space-between}
   .bcol-h span{font-size:12px;color:var(--mut);font-weight:600}
+  .bcol-hr{display:inline-flex;align-items:center;gap:4px}
+  .bcol-add{background:none;border:1px solid transparent;color:var(--mut);font:inherit;font-size:15px;
+    line-height:1;width:24px;height:24px;border-radius:7px;cursor:pointer;display:grid;place-items:center;
+    opacity:.45;transition:.12s;flex:none}
+  .bcol:hover .bcol-add{opacity:1}
+  .bcol-add:hover{background:rgba(139,92,246,.20);border-color:var(--mk3);color:#fff}
+  .bcol.hoje .bcol-add{opacity:.8}
   .bcol.hoje .bcol-h{color:var(--mk3o);background:rgba(249,115,22,.10)}
   .bcol-body{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:60px;flex:1 1 auto}
   .bcol-vazio{color:#4a4f5a;font-size:12px;text-align:center;padding:10px 0}
