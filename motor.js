@@ -714,15 +714,22 @@ function setPin(nome,pin){
   const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
   p.pin=(pin||"").trim(); persist();
 }
-function abrirObsDemanda(id){
+function abrirObsDemanda(id, editar){
   const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
+  const temTexto=!!(dm.obs||"").trim();
+  const modoEdicao = editar || !temTexto;      /* sem nada escrito, já abre para escrever */
   const mm=$("modal");
   mm.innerHTML='<div class="mbox"><h3>&#128221; Observações</h3>'+
     '<p class="msub">'+esc(dm.texto)+' · '+fmt(dm.data)+' · '+esc(dm.resp)+'</p>'+
-    '<textarea id="obsTxt" class="notepad-ta" rows="5" placeholder="Registre o que vale lembrar: evolução da equipe, o que deu certo, o que travou..." data-focar>'+esc(dm.obs||"")+'</textarea>'+
-    '<div class="mbtns"><button data-macao="salvarobs" data-demid="'+escAttr(id)+'">Salvar</button>'+
-    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
-  mostrarModal();
+    (modoEdicao
+      ? '<textarea id="obsTxt" class="notepad-ta" rows="5" placeholder="Registre o que vale lembrar: evolução da equipe, o que deu certo, o que travou..." data-focar>'+esc(dm.obs||"")+'</textarea>'+
+        '<div class="mbtns"><button data-macao="salvarobs" data-demid="'+escAttr(id)+'">Salvar</button>'+
+        '<button class="sec" data-macao="fechar">Cancelar</button></div>'
+      : '<div class="obs-leitura">'+esc(dm.obs)+'</div>'+
+        '<div class="mbtns"><button data-editarobs="'+escAttr(id)+'">&#9998; Editar</button>'+
+        '<button class="sec" data-macao="fechar">Fechar</button></div>')+
+  '</div>';
+  mostrarModal(!modoEdicao);
 }
 function setObsDemanda(id,txt){
   const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
@@ -1510,7 +1517,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-veobs],[data-editarmotivo],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1562,9 +1569,10 @@ document.addEventListener("click", function(ev){
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
   if(D.pessoax){ semPular(()=>{ removePessoa(D.pessoax); abrirEquipe(); }); return; }
   if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
-  if(D.demobs){ abrirObsDemanda(D.demobs); return; }
+  if(D.demobs){ abrirObsDemanda(D.demobs, true); return; }
   if(D.veobs){ abrirObsDemanda(D.veobs); return; }
   if(D.editarmotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
+  if(D.editarobs){ abrirObsDemanda(D.editarobs, true); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.area){ if(!podeArea(D.area)) return; VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
