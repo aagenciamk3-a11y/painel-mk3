@@ -456,7 +456,9 @@ function rebuild(){
     }
   });
   TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})))
-    .filter(t=>((ESTADO.excluidas||{})[t.clienteId]||[]).indexOf(t.id)<0);
+    .filter(t=>((ESTADO.excluidas||{})[t.clienteId]||[]).indexOf(t.id)<0)
+    .map(t=>{ const nv=((ESTADO.titulos||{})[t.clienteId]||{})[t.id];
+              return nv ? {...t, tarefa:nv, tituloOriginal:t.tarefa} : t; });
   (ESTADO.demandas||[]).forEach(dm=>{
     if((((ESTADO.excluidas||{})["_dem"])||[]).indexOf(dm.id)>=0) return;
     const done=(ESTADO.concluidas["_dem"]||[]).filter(e=>((e&&e.id)?e.id:e)===dm.id).pop();
@@ -513,6 +515,34 @@ function setObsTarefa(cid,tid,day,txt,parcial){
     acao:"observacao",id:tid,data:day,parcial:!!parcial,motivo:(txt||"").trim()});
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
+}
+function renomearTarefa(cid,tid,novo){
+  if(!ehAdmin()) return;
+  snapshot();
+  ESTADO.titulos=ESTADO.titulos||{};
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
+  const orig=(t&&t.tituloOriginal)||(t&&t.tarefa)||tid;
+  novo=(novo||"").trim();
+  if(!novo || novo===orig){ if(ESTADO.titulos[cid]){ delete ESTADO.titulos[cid][tid]; if(!Object.keys(ESTADO.titulos[cid]).length) delete ESTADO.titulos[cid]; } }
+  else { ESTADO.titulos[cid]=ESTADO.titulos[cid]||{}; ESTADO.titulos[cid][tid]=novo; }
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"renomear",id:tid,nome:novo||orig});
+  persist(); rebuild(); render();
+}
+function abrirRenomear(cid,tid){
+  if(!ehAdmin()) return;
+  if(cid==="_dem"){ abrirEditarDemanda(tid); return; }   /* demanda edita tudo no formulário */
+  const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
+  const atual=EXEC[baseId(t.id)]||t.tarefa;
+  const renomeada=!!((ESTADO.titulos||{})[cid]||{})[tid];
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>Renomear tarefa</h3>'+
+    '<p class="msub">'+esc(t.cliente)+' · '+fmt(t.data)+'</p>'+
+    '<label class="mlab">Título<input type="text" id="novoTit" value="'+escAttr(t.tarefa)+'" autocomplete="off"></label>'+
+    (renomeada?'<p class="msub">Nome original: '+esc(t.tituloOriginal||atual)+'</p>':'')+
+    '<div class="mbtns"><button data-macao="salvartit" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Salvar</button>'+
+    (renomeada?'<button class="sec" data-macao="restauratit" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Voltar ao original</button>':'')+
+    '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
+  mostrarModal(true);
 }
 function excluirTarefa(cid,tid){
   if(!ehAdmin()) return;
@@ -654,7 +684,9 @@ function bcardHTML(t, dayIso, dupOrig){
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
     (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     (face?'<span class="face-topo" title="Responsável">'+face+'</span>':'')+
-    '<div class="bcard-t">'+esc(rot)+(ob&&ob.parcial?' <span class="parc">parcial</span>':'')+'</div>'+
+    (ehAdmin()
+      ? '<button class="bcard-t edit" data-rename="'+t.clienteId+'|'+escAttr(t.id)+'" title="Clique para renomear">'+esc(rot)+(ob&&ob.parcial?' <span class="parc">parcial</span>':'')+'</button>'
+      : '<div class="bcard-t">'+esc(rot)+(ob&&ob.parcial?' <span class="parc">parcial</span>':'')+'</div>')+
     '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
     (feita&&t.st.atraso?'<div class="bcard-atr">atrasou '+t.st.atraso+(t.st.atraso>1?' dias úteis':' dia útil')+'</div>':'')+
     '<div class="bcard-chk">'+
@@ -1060,6 +1092,8 @@ function handleModal(D){
   if(D.macao==="neutro"){ neutralizar(D.mcid,D.mtid,D.mday); fecharModal(); return; }
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); semPular(()=>abrirEquipe()); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
+  if(D.macao==="salvartit"){ renomearTarefa(D.mcid,D.mtid,($("novoTit")&&$("novoTit").value)||""); fecharModal(); toast("Título atualizado",true); return; }
+  if(D.macao==="restauratit"){ renomearTarefa(D.mcid,D.mtid,""); fecharModal(); toast("Nome original restaurado",true); return; }
   if(D.macao==="salvarobst"){
     const o=obsInfo(D.mcid,D.mtid,D.mday);
     setObsTarefa(D.mcid,D.mtid,D.mday,($("obsT")&&$("obsT").value)||"", o?o.parcial:(D.mparc==="1"));
@@ -1124,7 +1158,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -1138,7 +1172,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1671,7 +1705,7 @@ function render(){
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-restaurar],[data-lixeira],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   const D = alvo.dataset;
 
@@ -1725,6 +1759,7 @@ document.addEventListener("click", function(ev){
   if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
   if(D.demobs){ abrirObsDemanda(D.demobs, true); return; }
   if(D.demedit){ abrirEditarDemanda(D.demedit); return; }
+  if(D.rename){ const p=D.rename.split("|"); abrirRenomear(p[0],p[1]); return; }
   if(D.delt){ const p=D.delt.split("|"); confirmarExcluir(p[0],p[1]); return; }
   if(D.excl){ const p=D.excl.split("|"); excluirTarefa(p[0],p[1]); fecharModal(); return; }
   if(D.restaurar){ const p=D.restaurar.split("|"); restaurarTarefa(p[0],p[1]); return; }
