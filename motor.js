@@ -1145,7 +1145,10 @@ async function init(){
     if(!p.admin) p.areas=(p.areas||[]).filter(a=>a!=="all");   /* "all" é exclusivo de admin */
     if(p.pin===undefined) p.pin="";
   });
-  try{ USUARIO=localStorage.getItem("mk3_user")||null; }catch(e){}
+  /* o perfil NÃO é lembrado entre aberturas: sempre passa pela tela de escolha.
+     (protege quando alguém abre em outro computador e esquece aberto) */
+  USUARIO=null;
+  try{ localStorage.removeItem("mk3_user"); }catch(e){}
   if(USUARIO && !eu()) USUARIO=null;
   rebuild(); render(); montarTooltip();
 }
@@ -1323,7 +1326,8 @@ const areasDe = () => { const p=eu(); if(!p) return []; return p.admin?["all","m
 const podeArea = a => areasDe().indexOf(a)>=0;
 function entrar(nome){
   USUARIO=nome; VISTA.pinPara=null;
-  try{ localStorage.setItem("mk3_user",nome); }catch(e){}
+  if(typeof reiniciarOcioso==="function") reiniciarOcioso();
+
   const as=areasDe(); if(as.indexOf(VISTA.area)<0) VISTA.area=as[0]||"mkt";
   VISTA.escopo=null; VISTA.modo="cards"; VISTA.filtro=null; render();
 }
@@ -1332,7 +1336,17 @@ function tentarEntrar(nome){
   if(p && p.pin){ VISTA.pinPara=nome; render(); return; }
   entrar(nome);
 }
-function sair(){ USUARIO=null; VISTA.pinPara=null; try{ localStorage.removeItem("mk3_user"); }catch(e){} render(); }
+function sair(){ USUARIO=null; VISTA.pinPara=null; fecharModal(); render(); }
+
+/* sai sozinho depois de um tempo parado (evita ficar aberto na mesa de alguém) */
+const OCIOSO_MIN=30;
+let ocioso=null;
+function reiniciarOcioso(){
+  if(!USUARIO) return;
+  clearTimeout(ocioso);
+  ocioso=setTimeout(()=>{ if(USUARIO){ toast("Sessão encerrada por inatividade",false); sair(); } }, OCIOSO_MIN*60*1000);
+}
+["click","keydown","mousemove","touchstart"].forEach(ev=>document.addEventListener(ev,()=>{ if(USUARIO) reiniciarOcioso(); },{passive:true}));
 const pessoaPorNome = n => (ESTADO.pessoas||[]).find(p=>p.nome===n);
 function faceDe(nome){
   if(!nome) return '';
