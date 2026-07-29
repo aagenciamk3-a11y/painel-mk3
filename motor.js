@@ -596,17 +596,28 @@ function addDemanda(texto,area,data,resp,obs){
 function removeDemanda(id){ snapshot(); ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>x.id!==id); persist(); rebuild(); render(); }
 function demConcluida(id){ const e=(ESTADO.concluidas["_dem"]||[]).find(x=>((x&&x.id)?x.id:x)===id); return !!(e&&!e.remove); }
 function listaDemandas(){
-  const ds=(ESTADO.demandas||[]).filter(x=>!demConcluida(x.id)).slice().sort((a,b)=>String(a.data).localeCompare(String(b.data)));
-  if(!ds.length) return '';
+  const todas=(ESTADO.demandas||[]).slice().sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+  if(!todas.length) return '<div class="dem-lista"><div class="dem-vazio">Nenhuma demanda cadastrada ainda. A primeira que você criar aparece aqui, com opção de editar depois.</div></div>';
   const A={mkt:"Marketing",fin:"Financeiro",com:"Comercial"};
-  return '<div class="dem-lista"><div class="dem-lista-h">Demandas cadastradas</div>'+ds.map(x=>
-    '<div class="dem-row'+(x.obs?" comobs":"")+'"><span class="dem-d">'+fmt(x.data)+'</span>'+
-    '<span class="dem-t">'+esc(x.texto)+' <i>'+(A[x.area]||"")+'</i>'+
-      (x.obs?'<span class="dem-obs">&#128221; '+esc(x.obs)+'</span>':'')+'</span>'+
-    '<span class="dem-r">'+esc(x.resp)+'</span>'+
-    '<button class="dem-e" data-demedit="'+escAttr(x.id)+'" title="Editar demanda (texto, data, área, responsável)" aria-label="Editar demanda">&#9881;</button>'+
-    '<button class="dem-e" data-demobs="'+escAttr(x.id)+'" title="Observações" aria-label="Observações">&#9998;</button>'+
-    '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover">&#215;</button></div>').join("")+'</div>';
+  const linha=x=>{
+    const feita=demConcluida(x.id);
+    return '<div class="dem-row'+(x.obs?" comobs":"")+(feita?" feita":"")+'">'+
+      '<span class="dem-d">'+(feita?'<i class="dem-ok">&#10003;</i> ':'')+fmt(x.data)+'</span>'+
+      '<span class="dem-t">'+esc(x.texto)+' <i>'+(A[x.area]||"")+'</i>'+
+        (x.obs?'<span class="dem-obs">&#128221; '+esc(x.obs)+'</span>':'')+'</span>'+
+      '<span class="dem-r">'+esc(x.resp)+'</span>'+
+      '<button class="dem-e" data-demedit="'+escAttr(x.id)+'" title="Editar demanda (texto, data, área, responsável)" aria-label="Editar demanda">&#9881;</button>'+
+      '<button class="dem-e" data-demobs="'+escAttr(x.id)+'" title="Observações" aria-label="Observações">&#9998;</button>'+
+      '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover">&#215;</button></div>';
+  };
+  const pend=todas.filter(x=>!demConcluida(x.id));
+  const feitas=todas.filter(x=>demConcluida(x.id));
+  return '<div class="dem-lista">'+
+    '<div class="dem-lista-h">Demandas cadastradas <span class="dem-n">'+pend.length+' em aberto</span></div>'+
+    (pend.length?pend.map(linha).join(""):'<div class="dem-vazio">Nada em aberto.</div>')+
+    (feitas.length?'<details class="dem-feitas"><summary>Concluídas ('+feitas.length+') — ainda dá para editar ou corrigir a data</summary>'+
+       feitas.map(linha).join("")+'</details>':'')+
+  '</div>';
 }
 let PORTAIS=null;
 function abrirPortais(){
