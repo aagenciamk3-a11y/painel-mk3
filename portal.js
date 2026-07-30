@@ -131,7 +131,7 @@ function resultados(){
     '<p class="nota">'+esc(r.periodo||"")+(r.compara?' · comparado com '+esc(r.compara):'')+'.</p>'+
   '</section>'+
   (r.dash?('<section class="bloco"><h2>Painel completo</h2>'+
-    '<p class="nota">Todos os números do mês, direto da nossa ferramenta de relatórios. Atualiza sozinho.</p>'+
+    '<p class="nota">Todos os números do mês, direto da nossa ferramenta de relatórios. Atualiza sozinho. Role dentro do quadro para ver tudo.</p>'+
     '<div class="dash-box" id="dashBox">'+(DASH_ABERTO?dashFrameHTML(r.dash):
       '<button class="dash-abrir" id="dashAbrir">Carregar painel completo</button>'+
       '<a class="res-link" href="'+esc(r.dash)+'" target="_blank" rel="noopener">ou abrir em outra aba</a>')+
