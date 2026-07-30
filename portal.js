@@ -129,10 +129,27 @@ function resultados(){
       '<span class="rs-k">'+esc(x.k)+'</span>'+seta(x.d)+'</div>').join("")+'</div>'+
     (r.resumo?'<p class="nota">'+esc(r.resumo)+'</p>':'')+
     '<p class="nota">'+esc(r.periodo||"")+(r.compara?' · comparado com '+esc(r.compara):'')+'.</p>'+
-    (r.link?'<p><a class="res-link" href="'+esc(r.link)+'" target="_blank" rel="noopener">Ver relatório completo</a></p>':'')+
-  '</section>';
+  '</section>'+
+  (r.dash?('<section class="bloco"><h2>Painel completo</h2>'+
+    '<p class="nota">Todos os números do mês, direto da nossa ferramenta de relatórios. Atualiza sozinho.</p>'+
+    '<div class="dash-box" id="dashBox">'+
+      '<button class="dash-abrir" id="dashAbrir">Carregar painel completo</button>'+
+      '<a class="res-link" href="'+esc(r.dash)+'" target="_blank" rel="noopener">ou abrir em outra aba</a>'+
+    '</div></section>'):'');
 }
-function desenhar(){ $("view").innerHTML = esperando() + resultados() + proximos() + historico(); }
+function ligarDash(){
+  const b=document.getElementById("dashAbrir"); if(!b) return;
+  b.onclick=()=>{
+    const ks=Object.keys(RESULTADOS||{}).sort(); const r=RESULTADOS[ks[ks.length-1]]; if(!r||!r.dash) return;
+    const cx=document.getElementById("dashBox");
+    cx.innerHTML='<div class="dash-carrega">Carregando o painel, isso leva alguns segundos...</div>'+
+      '<iframe class="dash-fr" src="'+esc(r.dash)+'" loading="lazy" title="Painel de resultados"></iframe>'+
+      '<a class="res-link" href="'+esc(r.dash)+'" target="_blank" rel="noopener">abrir em outra aba</a>';
+    const fr=cx.querySelector(".dash-fr");
+    fr.addEventListener("load",()=>{ const c=cx.querySelector(".dash-carrega"); if(c) c.remove(); fr.classList.add("pronto"); });
+  };
+}
+function desenhar(){ $("view").innerHTML = esperando() + resultados() + proximos() + historico(); ligarDash(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
