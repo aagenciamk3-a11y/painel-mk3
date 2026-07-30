@@ -387,6 +387,7 @@ const IC = {
   mkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
   fin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
   com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  inicio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-6h5v6"/></svg>',
   dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="9" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>',
   todas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
   tend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="1"/><rect x="13" y="7" width="3" height="10" rx="1"/></svg>',
@@ -399,19 +400,41 @@ function navItem(key,label,icon,kind,on,n){
     '<span class="snav-i">'+icon+'</span><span class="snav-t">'+esc(label)+'</span>'+
     (n?'<span class="snav-b">'+n+'</span>':'')+'</button>';
 }
+function areasTopoHTML(){
+  if(!USUARIO) return '';
+  const areas=[["all","Visão geral",IC.todas],["mkt","Mkt Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]]
+    .filter(a=>podeArea(a[0]));
+  if(areas.length<2) return '';
+  return '<div class="abar"><span class="abar-pill" id="abarPill"></span>'+
+    areas.map(a=>{
+      const on=VISTA.area===a[0];
+      const n=TODAS.filter(t=>(a[0]==="all"||t.area===a[0]) && (t.st.k==="atrasado"||t.st.k==="hoje")).length;
+      return '<button class="abar-b'+(on?" on":"")+'" data-area="'+a[0]+'" aria-pressed="'+on+'">'+
+        '<span class="abar-i">'+a[2]+'</span>'+esc(a[1])+
+        (n?'<span class="abar-n">'+n+'</span>':'')+'</button>';
+    }).join("")+'</div>';
+}
+window.addEventListener("resize",()=>{ try{ posicionarPill(); }catch(e){} }); // MK3_RESIZE_PILL
+function posicionarPill(){
+  const bar=$("areabar"); if(!bar) return;
+  const pill=bar.querySelector(".abar-pill"), ativo=bar.querySelector(".abar-b.on");
+  if(!pill||!ativo) return;
+  requestAnimationFrame(()=>{
+    pill.style.width=ativo.offsetWidth+"px";
+    pill.style.transform="translateX("+ativo.offsetLeft+"px)";
+    pill.style.opacity="1";
+  });
+}
 function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
-  const views=[["cal","Visão geral",IC.geral],["dash","Dashboard",IC.dash],["prio","Prioridades",IC.prio],
-               ["cards","Clientes",IC.cards],["lista","Lista",IC.lista],["tend","Tendência",IC.tend]]
+  const views=[["cards","Clientes",IC.cards],["prio","Tarefas",IC.prio],["lista","Lista",IC.dash],
+               ["cal","Agenda",IC.cal],["tend","Tendência",IC.tend]]
     .filter(v=>v[0]!=="tend" || ehAdmin());
-  const areas=[["all","Todas as áreas",IC.todas],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]]
-    .filter(a=>podeArea(a[0]));
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
+  h+='<button class="snav inicio" data-sair="1" title="Voltar para a escolha de perfil"><span class="snav-i">'+IC.inicio+'</span><span class="snav-t">Início<i>trocar de perfil</i></span></button>';
   h+='<div class="side-sec">Ver</div>';
   h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
-  h+='<div class="side-sec">Áreas</div>';
-  h+=areas.map(a=>navItem(a[0],a[1],a[2],"area",(VISTA.area===a[0]))).join("");
   if(ehAdmin()){
     h+='<div class="side-sec">Demandas</div>';
     h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
@@ -1529,7 +1552,7 @@ function dashboardHTML(completo){
 }
 function listaGlobalHTML(){
   const ts = tarefasArea();
-  const semaf = dashboardHTML();
+  const semaf = dashboardHTML(true);
   const lista = (VISTA.filtro ? ts.filter(t=>t.st.k===VISTA.filtro) : ts.filter(t=>t.st.k!=="ok"))
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
   return semaf +
@@ -1840,7 +1863,7 @@ function histHTML(c){
 function tituloContexto(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const A={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
-  const V={cards:"Clientes",prio:"Prioridades",cal:"Visão geral",dash:"Dashboard",lista:"Lista",tend:"Tendência de atrasos"};
+  const V={cards:"Clientes",prio:"Tarefas",cal:"Agenda",lista:"Lista",tend:"Tendência de atrasos"};
   const AB={cal:"Calendário",tarefas:"Tarefas",tend:"Tendência",hist:"Histórico"};
   let t = c ? c.nome : (V[VISTA.modo]||"");
   const bits=[A[VISTA.area]||""];
@@ -1893,7 +1916,7 @@ function animar(){
 }
 function render(){
   if(!USUARIO){
-    $("ctx").innerHTML=''; $("editbar").innerHTML=''; $("side").innerHTML='';
+    $("ctx").innerHTML=''; $("editbar").innerHTML=''; $("side").innerHTML=''; $("areabar").innerHTML='';
     $("view").innerHTML = loginHTML(VISTA.pinPara);
     const pi=document.getElementById("pinInput"); if(pi&&pi.focus) setTimeout(()=>pi.focus(),30);
     return;
@@ -1908,14 +1931,15 @@ function render(){
     (nMud()?'<span class="umud">'+nMud()+' '+(nMud()>1?"tarefas marcadas":"tarefa marcada")+' por você · salvo neste navegador</span>'
            :'<span class="umud dim">Clique numa tarefa para marcar. Atalhos: <span class="kbd">?</span></span>');
   $("side").innerHTML = sidebarHTML();
+  $("areabar").innerHTML = areasTopoHTML();
+  posicionarPill();
 
   const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
 
   if(!c){
     let body;
-    if(VISTA.modo==="tend" && !ehAdmin()) VISTA.modo="dash";
-    if(VISTA.modo==="dash")       body = dashboardHTML(true);
-    else if(VISTA.modo==="tend")  body = tendenciaHTML();
+    if(VISTA.modo==="tend" && !ehAdmin()) VISTA.modo="lista";
+    if(VISTA.modo==="tend")       body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
@@ -2021,8 +2045,10 @@ document.addEventListener("click", function(ev){
   if(D.editarobs){ abrirObsDemanda(D.editarobs, true); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
   if(D.view){ if(D.view==="tend" && !ehAdmin()) return; VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
-  if(D.area){ if(!podeArea(D.area)) return; VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false;
-    if(D.area==="all"){ VISTA.modo="cal"; VISTA.mes=0; }   /* Visão Geral abre direto o calendário */ render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(D.area){ if(!podeArea(D.area)) return; if(VISTA.area===D.area) return;
+    VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false;
+    /* a área é só um filtro: mantém a seção e o cliente abertos */
+    semPular(render); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }

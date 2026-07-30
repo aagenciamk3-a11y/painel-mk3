@@ -902,6 +902,37 @@
     .semsel-area{margin-left:0}
     .mbox{padding:18px 16px}
   }
+
+/* ===== barra de áreas (topo) ===== */
+#areabar{margin:2px 0 12px}
+#areabar:empty{display:none}
+.abar{position:relative;display:flex;gap:4px;padding:5px;border-radius:14px;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  border:1px solid var(--line);width:max-content;max-width:100%;overflow-x:auto;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.abar-pill{position:absolute;top:5px;bottom:5px;left:0;width:0;opacity:0;border-radius:10px;
+  background:linear-gradient(135deg,var(--mk3),#A78BFA);
+  box-shadow:0 6px 18px -6px rgba(139,92,246,.85);
+  transition:transform .34s cubic-bezier(.34,1.4,.5,1),width .34s cubic-bezier(.34,1.4,.5,1),opacity .2s;
+  pointer-events:none;z-index:0}
+.abar-b{position:relative;z-index:1;display:flex;align-items:center;gap:8px;min-height:38px;
+  padding:0 14px;border:0;border-radius:10px;background:transparent;color:var(--dim);
+  font:600 13.5px/1 inherit;letter-spacing:.2px;cursor:pointer;white-space:nowrap;
+  transition:color .18s,transform .18s}
+.abar-b .abar-i{display:inline-flex;width:16px;height:16px;opacity:.75;transition:opacity .18s,transform .3s}
+.abar-b .abar-i svg{width:16px;height:16px}
+.abar-b:hover{color:var(--txt)}
+.abar-b:hover .abar-i{opacity:1;transform:scale(1.1)}
+.abar-b.on{color:#fff}
+.abar-b.on .abar-i{opacity:1}
+.abar-b:focus-visible{outline:2px solid var(--mk3o);outline-offset:2px}
+.abar-n{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;
+  padding:0 5px;border-radius:99px;background:var(--mk3o);color:#1a1005;font:800 11px/1 inherit}
+.abar-b.on .abar-n{background:rgba(255,255,255,.92);color:#3B1D74}
+.snav.inicio{margin:2px 8px 6px}
+.snav.inicio .snav-i svg{width:19px;height:19px}
+@media (prefers-reduced-motion:reduce){.abar-pill{transition:none}.abar-b,.abar-b .abar-i{transition:none}}
+@media(max-width:760px){.abar{width:100%}.abar-b{padding:0 10px;font-size:12.5px}}
 </style>
 </head>
 <body>
@@ -912,6 +943,7 @@
       <div id="ctx"></div>
       <div class="hoje" id="hoje"></div>
     </header>
+    <div id="areabar" role="tablist" aria-label="Áreas"></div>
     <div id="editbar"></div>
     <div id="view"></div>
     <footer>
