@@ -1783,7 +1783,7 @@ function prioridadesHTML(){
   }
   const rotArea={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[VISTA.area]||"";
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+
-           '<span class="semsel-area">'+esc(rotArea)+'</span></div>'+
+           '</div>'+
          '<div class="board">'+cols+'</div>'+resumoSemanaHTML();
 }
 
