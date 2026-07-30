@@ -428,7 +428,7 @@ function posicionarPill(){
 function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
-  const views=[["cards","Clientes",IC.cards],["prio","Tarefas",IC.prio],["lista","Lista",IC.dash],
+  const views=[["cards","Clientes",IC.cards],["prio","Tarefas",IC.prio],["lista","Dashboard",IC.dash],
                ["cal","Agenda",IC.cal],["tend","Tendência",IC.tend]]
     .filter(v=>v[0]!=="tend" || ehAdmin());
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
@@ -1863,7 +1863,7 @@ function histHTML(c){
 function tituloContexto(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const A={all:"Visão geral · todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
-  const V={cards:"Clientes",prio:"Tarefas",cal:"Agenda",lista:"Lista",tend:"Tendência de atrasos"};
+  const V={cards:"Clientes",prio:"Tarefas",cal:"Agenda",lista:"Dashboard",tend:"Tendência de atrasos"};
   const AB={cal:"Calendário",tarefas:"Tarefas",tend:"Tendência",hist:"Histórico"};
   let t = c ? c.nome : (V[VISTA.modo]||"");
   const bits=[A[VISTA.area]||""];
