@@ -1963,10 +1963,11 @@ function animar(){
   /* números contando */
   el.querySelectorAll("[data-num]").forEach(n=>{
     const alvo=+n.getAttribute("data-num")||0;
-    if(reduz || alvo<=0){ n.textContent=alvo; return; }
-    const dur=Math.min(900, 260+alvo*18); const ini=performance.now();
+    const fmtN=v=>Number(v).toLocaleString("pt-BR");
+    if(reduz || alvo<=0){ n.textContent=fmtN(alvo); return; }
+    const dur=Math.min(900, 260+Math.min(alvo,40)*18); const ini=performance.now();
     const passo=t=>{ const p=Math.min(1,(t-ini)/dur);
-      n.textContent=Math.round(alvo*(1-Math.pow(1-p,3)));
+      n.textContent=fmtN(Math.round(alvo*(1-Math.pow(1-p,3))));
       if(p<1) requestAnimationFrame(passo); };
     requestAnimationFrame(passo);
   });
