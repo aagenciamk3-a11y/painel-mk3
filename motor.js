@@ -403,7 +403,8 @@ function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
   const views=[["cal","Visão geral",IC.geral],["dash","Dashboard",IC.dash],["prio","Prioridades",IC.prio],
-               ["cards","Clientes",IC.cards],["lista","Lista",IC.lista],["tend","Tendência",IC.tend]];
+               ["cards","Clientes",IC.cards],["lista","Lista",IC.lista],["tend","Tendência",IC.tend]]
+    .filter(v=>v[0]!=="tend" || ehAdmin());
   const areas=[["all","Todas as áreas",IC.todas],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]]
     .filter(a=>podeArea(a[0]));
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
@@ -1912,6 +1913,7 @@ function render(){
 
   if(!c){
     let body;
+    if(VISTA.modo==="tend" && !ehAdmin()) VISTA.modo="dash";
     if(VISTA.modo==="dash")       body = dashboardHTML(true);
     else if(VISTA.modo==="tend")  body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
@@ -1923,7 +1925,8 @@ function render(){
   }
 
   const cor = coresDe(c);
-  const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["tend","Tendência"],["hist","Histórico"]];
+  const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["tend","Tendência"],["hist","Histórico"]]
+    .filter(t=>t[0]!=="tend" || ehAdmin());
   const bar =
     '<div class="cli-bar"><button class="voltar" data-nav="home">&larr; Todos os clientes</button>'+
     '<div class="cli-title">'+avatarHTML(c,"cli-av2")+
@@ -1933,7 +1936,7 @@ function render(){
 
   const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), (VISTA.area==="all"||VISTA.area==="mkt")?c.marcos:[], false)
              : VISTA.aba==="tarefas" ? tarefasHTML(c)
-             : VISTA.aba==="tend" ? tendenciaHTML()
+             : (VISTA.aba==="tend" && ehAdmin()) ? tendenciaHTML()
              : histHTML(c);
   $("view").innerHTML = bar + body; animar();
 }
@@ -2017,7 +2020,7 @@ document.addEventListener("click", function(ev){
   if(D.editarmotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.editarobs){ abrirObsDemanda(D.editarobs, true); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
-  if(D.view){ VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(D.view){ if(D.view==="tend" && !ehAdmin()) return; VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.area){ if(!podeArea(D.area)) return; VISTA.escopo=null; VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false;
     if(D.area==="all"){ VISTA.modo="cal"; VISTA.mes=0; }   /* Visão Geral abre direto o calendário */ render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
@@ -2028,7 +2031,7 @@ document.addEventListener("click", function(ev){
 
   if(D.cliente){ VISTA.escopo=D.cliente; VISTA.aba="cal"; VISTA.mes=0; VISTA.dia=null; VISTA.filtro=null; }
   if(D.nav==="home"){ VISTA.escopo=null; VISTA.filtro=null; VISTA.dia=null; }
-  if(D.cliaba){ VISTA.aba=D.cliaba; VISTA.filtro=null; VISTA.dia=null; }
+  if(D.cliaba){ if(D.cliaba==="tend" && !ehAdmin()) return; VISTA.aba=D.cliaba; VISTA.filtro=null; VISTA.dia=null; }
   if(D.mes!==undefined){ const nn=Number(D.mes); VISTA.mes=(nn===0)?0:VISTA.mes+nn; VISTA.dia=null; topo=false; }
   if(D.bucket){ VISTA.filtro=(VISTA.filtro===D.bucket)?null:D.bucket; topo=false; }
 
