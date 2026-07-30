@@ -132,21 +132,27 @@ function resultados(){
   '</section>'+
   (r.dash?('<section class="bloco"><h2>Painel completo</h2>'+
     '<p class="nota">Todos os números do mês, direto da nossa ferramenta de relatórios. Atualiza sozinho.</p>'+
-    '<div class="dash-box" id="dashBox">'+
+    '<div class="dash-box" id="dashBox">'+(DASH_ABERTO?dashFrameHTML(r.dash):
       '<button class="dash-abrir" id="dashAbrir">Carregar painel completo</button>'+
-      '<a class="res-link" href="'+esc(r.dash)+'" target="_blank" rel="noopener">ou abrir em outra aba</a>'+
+      '<a class="res-link" href="'+esc(r.dash)+'" target="_blank" rel="noopener">ou abrir em outra aba</a>')+
     '</div></section>'):'');
 }
+function dashFrameHTML(u){
+  return '<div class="dash-carrega">Carregando o painel, isso leva alguns segundos...</div>'+
+    '<iframe class="dash-fr" src="'+esc(u)+'" loading="lazy" title="Painel de resultados"></iframe>'+
+    '<a class="res-link" href="'+esc(u)+'" target="_blank" rel="noopener">abrir em outra aba</a>';
+}
+function armarFrame(cx){
+  const fr=cx.querySelector(".dash-fr"); if(!fr) return;
+  fr.addEventListener("load",()=>{ const c=cx.querySelector(".dash-carrega"); if(c) c.remove(); fr.classList.add("pronto"); });
+}
 function ligarDash(){
+  const cx=document.getElementById("dashBox"); if(!cx) return;
+  if(DASH_ABERTO){ armarFrame(cx); return; }
   const b=document.getElementById("dashAbrir"); if(!b) return;
   b.onclick=()=>{
     const ks=Object.keys(RESULTADOS||{}).sort(); const r=RESULTADOS[ks[ks.length-1]]; if(!r||!r.dash) return;
-    const cx=document.getElementById("dashBox");
-    cx.innerHTML='<div class="dash-carrega">Carregando o painel, isso leva alguns segundos...</div>'+
-      '<iframe class="dash-fr" src="'+esc(r.dash)+'" loading="lazy" title="Painel de resultados"></iframe>'+
-      '<a class="res-link" href="'+esc(r.dash)+'" target="_blank" rel="noopener">abrir em outra aba</a>';
-    const fr=cx.querySelector(".dash-fr");
-    fr.addEventListener("load",()=>{ const c=cx.querySelector(".dash-carrega"); if(c) c.remove(); fr.classList.add("pronto"); });
+    DASH_ABERTO=true; cx.innerHTML=dashFrameHTML(r.dash); armarFrame(cx);
   };
 }
 function desenhar(){ $("view").innerHTML = esperando() + resultados() + proximos() + historico(); ligarDash(); }
@@ -154,7 +160,7 @@ desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
 const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
-let TEM_ESPELHO=false, FONTE=null;
+let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
 
 function marcarAtualizado(){
   let el=document.getElementById("atualiz");
@@ -166,6 +172,9 @@ function marcarAtualizado(){
 function aplicarEspelho(v){
   if(!v || typeof v!=="object") return false;
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
+  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo});
+  if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
+  ULTIMO=assinatura;
   RESULTADOS = v.resultados || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
