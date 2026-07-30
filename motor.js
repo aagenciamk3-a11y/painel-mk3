@@ -432,7 +432,7 @@ function sidebarHTML(){
                ["cal","Agenda",IC.cal],["tend","Tendência",IC.tend]]
     .filter(v=>v[0]!=="tend" || ehAdmin());
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
-  h+='<button class="snav inicio" data-sair="1" title="Voltar para a escolha de perfil"><span class="snav-i">'+IC.inicio+'</span><span class="snav-t">Início<i>trocar de perfil</i></span></button>';
+  h+='<button class="snav inicio" data-sair="1" title="Voltar para a escolha de perfil"><span class="snav-i">'+IC.inicio+'</span><span class="snav-t">Início</span></button>';
   h+='<div class="side-sec">Ver</div>';
   h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
   if(ehAdmin()){
@@ -1862,7 +1862,7 @@ function histHTML(c){
 /* ---------------- RENDER ---------------- */
 function tituloContexto(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
-  const A={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
+  const A={all:"Visão geral · todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
   const V={cards:"Clientes",prio:"Tarefas",cal:"Agenda",lista:"Lista",tend:"Tendência de atrasos"};
   const AB={cal:"Calendário",tarefas:"Tarefas",tend:"Tendência",hist:"Histórico"};
   let t = c ? c.nome : (V[VISTA.modo]||"");
