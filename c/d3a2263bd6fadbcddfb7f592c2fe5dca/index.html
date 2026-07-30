@@ -65,6 +65,16 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
 .atualiz .pt{width:8px;height:8px;border-radius:50%;background:#4CC463;box-shadow:0 0 0 0 rgba(76,196,99,.6);animation:pulsa 2.4s infinite}
 @keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(76,196,99,.55)}70%{box-shadow:0 0 0 7px rgba(76,196,99,0)}100%{box-shadow:0 0 0 0 rgba(76,196,99,0)}}
 @media (prefers-reduced-motion:reduce){.atualiz .pt{animation:none}}
+
+.res-ms{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:4px 0 10px}
+.res-m{background:#241A3D;border:1px solid #40325F;border-radius:12px;padding:12px 13px}
+.rs-v{display:block;font-size:21px;font-weight:800;letter-spacing:-.5px;line-height:1.15;color:#F1EEFB}
+.rs-k{display:block;font-size:11.5px;color:#B9B0D2;margin:3px 0 6px}
+.rs-d{font-size:11.5px;font-weight:700}
+.rs-d.sobe{color:#4CC463} .rs-d.desce{color:#F2555A} .rs-d.zero{color:#8B85A0;font-weight:600}
+.res-link{color:#A78BFA;font-size:13px;text-decoration:none;border-bottom:1px dashed rgba(167,139,250,.5)}
+.res-link:hover{color:#fff;border-bottom-color:#fff}
+@media(max-width:560px){.res-ms{grid-template-columns:repeat(2,1fr)}}
 </style></head><body>
 <div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
 <h1 id="titulo"></h1><div id="view"></div>
@@ -483,7 +493,29 @@ function historico(){
   h+='</section>';
   return h;
 }
-function desenhar(){ $("view").innerHTML = esperando() + proximos() + historico(); }
+
+/* ---- resultados do mês (dados do Reportei, enviados pela MK3) ---- */
+let RESULTADOS=null;
+const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
+function seta(d){
+  if(d==null) return '<span class="rs-d zero">estável</span>';
+  const p=Math.round(d*10)/10, cls=p>0?"sobe":(p<0?"desce":"zero");
+  return '<span class="rs-d '+cls+'">'+(p>0?"\u25B2":(p<0?"\u25BC":"\u2022"))+' '+(p>0?"+":"")+String(p).replace(".",",")+'%</span>';
+}
+function resultados(){
+  if(!RESULTADOS) return '';
+  const ks=Object.keys(RESULTADOS).sort(); if(!ks.length) return '';
+  const r=RESULTADOS[ks[ks.length-1]]; if(!r || !(r.metricas||[]).length) return '';
+  return '<section class="bloco"><h2>Resultados do mês</h2>'+
+    '<div class="res-ms">'+r.metricas.map(x=>
+      '<div class="res-m"><span class="rs-v">'+numBR(x.v)+'</span>'+
+      '<span class="rs-k">'+esc(x.k)+'</span>'+seta(x.d)+'</div>').join("")+'</div>'+
+    (r.resumo?'<p class="nota">'+esc(r.resumo)+'</p>':'')+
+    '<p class="nota">'+esc(r.periodo||"")+(r.compara?' · comparado com '+esc(r.compara):'')+'.</p>'+
+    (r.link?'<p><a class="res-link" href="'+esc(r.link)+'" target="_blank" rel="noopener">Ver relatório completo</a></p>':'')+
+  '</section>';
+}
+function desenhar(){ $("view").innerHTML = esperando() + resultados() + proximos() + historico(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
@@ -500,6 +532,7 @@ function marcarAtualizado(){
 function aplicarEspelho(v){
   if(!v || typeof v!=="object") return false;
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
+  RESULTADOS = v.resultados || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};

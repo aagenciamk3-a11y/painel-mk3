@@ -524,7 +524,7 @@ function syncIniciar(){
       const dele=JSON.stringify(v);
       if(meu===dele) return;
       SYNC_APLICANDO=true;
-      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],log:[], ...v};
+      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},log:[], ...v};
       try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
       rebuild(); render();
       SYNC_APLICANDO=false;
@@ -552,6 +552,7 @@ function espelhoDe(cid){
   const p=(ESTADO.portais&&ESTADO.portais[cid])||null;
   return { ts:Date.now(),
            ativo:(p&&p.ativo)||null,
+           resultados:((ESTADO.resultados&&ESTADO.resultados[cid])||null),
            concluidas:((ESTADO.concluidas&&ESTADO.concluidas[cid])||[]),
            datas:((ESTADO.datas&&ESTADO.datas[cid])||{}) };
 }
@@ -1340,7 +1341,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, clientes:{...(a.clientes||{}),...((b&&b.clientes)||{})}, novosClientes:(b&&b.novosClientes)?b.novosClientes:(a.novosClientes||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, clientes:{...(a.clientes||{}),...((b&&b.clientes)||{})}, resultados:{...(a.resultados||{}),...((b&&b.resultados)||{})}, novosClientes:(b&&b.novosClientes)?b.novosClientes:(a.novosClientes||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -1354,7 +1355,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1497,6 +1498,42 @@ function vazioHTML(filtro){
     '<p>Nenhuma pendência aberta. Aproveite para adiantar o que vem pela frente.</p>'+
     '<button data-demanda="1">+ Nova demanda</button></div>';
 }
+
+/* ================= RESULTADOS (Reportei) ================= */
+const REPORTEI_PROJ = { leonardo:1100216, suelem:1265569, oceanus:1180490 };   /* cliente do painel -> projeto no Reportei */
+const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
+function mesAtualYM(){ const d=HOJE; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function resultadoDe(cid, ym){
+  const r=(ESTADO.resultados&&ESTADO.resultados[cid])||null; if(!r) return null;
+  if(ym && r[ym]) return {...r[ym], ym:ym};
+  const ks=Object.keys(r).sort(); if(!ks.length) return null;
+  const u=ks[ks.length-1]; return {...r[u], ym:u};
+}
+function setaHTML(d){
+  if(d==null) return '<span class="rs-d zero">estável</span>';
+  const p=Math.round(d*10)/10, cls=p>0?"sobe":(p<0?"desce":"zero");
+  const ic=p>0?"&#9650;":(p<0?"&#9660;":"&#8226;");
+  return '<span class="rs-d '+cls+'">'+ic+' '+(p>0?"+":"")+String(p).replace(".",",")+'%</span>';
+}
+function resultadosPainelHTML(){
+  const linhas=CLIENTES.map(c=>{
+    const r=resultadoDe(c.id, mesAtualYM()); if(!r) return null; return {c:c, r:r};
+  }).filter(Boolean);
+  if(!linhas.length) return '';
+  return '<div class="db-cx res"><div class="db-h">Resultados do mês <i class="res-f">via Reportei</i></div>'+
+    linhas.map((L,i)=>{
+      const ms=(L.r.metricas||[]).slice(0,4);
+      return '<div class="res-cli" style="animation-delay:'+(i*70)+'ms">'+
+        '<div class="res-nome">'+avatarHTML(L.c,"res-av")+'<b>'+esc(L.c.nome)+'</b>'+
+          (L.r.link?'<a class="res-link" href="'+esc(L.r.link)+'" target="_blank" rel="noopener">relatório completo</a>':'')+'</div>'+
+        '<div class="res-ms">'+ms.map(x=>
+          '<div class="res-m"><span class="rs-v" data-num="'+(x.v||0)+'">0</span>'+
+          '<span class="rs-k">'+esc(x.k)+'</span>'+setaHTML(x.d)+'</div>').join("")+'</div>'+
+        (L.r.resumo?'<div class="res-txt">'+esc(L.r.resumo)+'</div>':'')+
+      '</div>';
+    }).join("")+
+    '<div class="db-obs">'+esc(linhas[0].r.periodo||"")+(linhas[0].r.compara?" · comparado com "+esc(linhas[0].r.compara):"")+'</div></div>';
+}
 function dashboardHTML(completo){
   const ts=tarefasArea();
   const n=k=>ts.filter(t=>t.st.k===k).length;
@@ -1562,6 +1599,7 @@ function dashboardHTML(completo){
         '<span class="db-pn cli"><b>'+cli+'</b>Cliente</span></div>'+
         '<div class="db-obs">dias úteis já consumados</div></div>'+
     '</div>'+
+    (completo?resultadosPainelHTML():'')+
     (completo?(function(){
       const porCli={};
       ts.filter(t=>t.st.k==="atrasado").forEach(t=>{ porCli[t.cliente]=(porCli[t.cliente]||0)+1; });

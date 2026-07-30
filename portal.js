@@ -110,7 +110,29 @@ function historico(){
   h+='</section>';
   return h;
 }
-function desenhar(){ $("view").innerHTML = esperando() + proximos() + historico(); }
+
+/* ---- resultados do mês (dados do Reportei, enviados pela MK3) ---- */
+let RESULTADOS=null;
+const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
+function seta(d){
+  if(d==null) return '<span class="rs-d zero">estável</span>';
+  const p=Math.round(d*10)/10, cls=p>0?"sobe":(p<0?"desce":"zero");
+  return '<span class="rs-d '+cls+'">'+(p>0?"\u25B2":(p<0?"\u25BC":"\u2022"))+' '+(p>0?"+":"")+String(p).replace(".",",")+'%</span>';
+}
+function resultados(){
+  if(!RESULTADOS) return '';
+  const ks=Object.keys(RESULTADOS).sort(); if(!ks.length) return '';
+  const r=RESULTADOS[ks[ks.length-1]]; if(!r || !(r.metricas||[]).length) return '';
+  return '<section class="bloco"><h2>Resultados do mês</h2>'+
+    '<div class="res-ms">'+r.metricas.map(x=>
+      '<div class="res-m"><span class="rs-v">'+numBR(x.v)+'</span>'+
+      '<span class="rs-k">'+esc(x.k)+'</span>'+seta(x.d)+'</div>').join("")+'</div>'+
+    (r.resumo?'<p class="nota">'+esc(r.resumo)+'</p>':'')+
+    '<p class="nota">'+esc(r.periodo||"")+(r.compara?' · comparado com '+esc(r.compara):'')+'.</p>'+
+    (r.link?'<p><a class="res-link" href="'+esc(r.link)+'" target="_blank" rel="noopener">Ver relatório completo</a></p>':'')+
+  '</section>';
+}
+function desenhar(){ $("view").innerHTML = esperando() + resultados() + proximos() + historico(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
@@ -127,6 +149,7 @@ function marcarAtualizado(){
 function aplicarEspelho(v){
   if(!v || typeof v!=="object") return false;
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
+  RESULTADOS = v.resultados || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};
