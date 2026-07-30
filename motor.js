@@ -387,6 +387,8 @@ const IC = {
   mkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
   fin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
   com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="9" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>',
+  todas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
   tend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="1"/><rect x="13" y="7" width="3" height="10" rx="1"/></svg>',
   add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
   link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12 19"/></svg>',
@@ -400,8 +402,9 @@ function navItem(key,label,icon,kind,on,n){
 function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
-  const views=[["cards","Cartões",IC.cards],["prio","Prioridades",IC.prio],["cal","Calendário",IC.cal],["lista","Lista",IC.lista],["tend","Tendência",IC.tend]];
-  const areas=[["all","Visão Geral · calendário",IC.geral],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]]
+  const views=[["cal","Visão geral",IC.geral],["dash","Dashboard",IC.dash],["prio","Prioridades",IC.prio],
+               ["cards","Clientes",IC.cards],["lista","Lista",IC.lista],["tend","Tendência",IC.tend]];
+  const areas=[["all","Todas as áreas",IC.todas],["mkt","Marketing Digital",IC.mkt],["fin","Financeiro",IC.fin],["com","Comercial",IC.com]]
     .filter(a=>podeArea(a[0]));
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
   h+='<div class="side-sec">Ver</div>';
@@ -1445,12 +1448,12 @@ function vazioHTML(filtro){
     '<p>Nenhuma pendência aberta. Aproveite para adiantar o que vem pela frente.</p>'+
     '<button data-demanda="1">+ Nova demanda</button></div>';
 }
-function dashboardHTML(){
+function dashboardHTML(completo){
   const ts=tarefasArea();
   const n=k=>ts.filter(t=>t.st.k===k).length;
-  const cards=BUCKETS.map(k=>
-    '<button class="kpi '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'">'+
-      '<b>'+n(k)+'</b><small>'+ROTULO[k]+'</small></button>').join("");
+  const cards=BUCKETS.map((k,i)=>
+    '<button class="kpi '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'" style="animation-delay:'+(i*45)+'ms">'+
+      '<b data-num="'+n(k)+'">0</b><small>'+ROTULO[k]+'</small></button>').join("");
 
   const esper=(VISTA.escopo?[cliente(VISTA.escopo)]:CLIENTES).flatMap(contadores);
   const espHtml = esper.length
@@ -1471,7 +1474,7 @@ function dashboardHTML(){
   const proxHtml='<div class="db-sem">'+prox.map(p=>{
     const dw=d(p.d).toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","");
     return '<div class="db-col'+(p.d===hoje?" hj":"")+'" title="'+fmt(p.d)+': '+p.n+'">'+
-      '<span class="db-bar" style="height:'+Math.round(p.n/topo*100)+'%"></span>'+
+      '<span class="db-bar" style="height:0" data-alt="'+Math.round(p.n/topo*100)+'"></span>'+
       '<i>'+(p.n||"")+'</i><span class="db-dw">'+dw+'</span></div>';
   }).join("")+'</div>';
 
@@ -1480,7 +1483,27 @@ function dashboardHTML(){
   const mk3=H.filter(a=>a.quem==="MK3").reduce((s,a)=>s+a.dias,0);
   const cli=H.filter(a=>a.quem==="Cliente").reduce((s,a)=>s+a.dias,0);
 
-  return '<div class="dash">'+
+  /* anel de progresso do mês */
+  const doMes=ts.filter(t=>t.data && t.data.slice(0,7)===iso(HOJE).slice(0,7));
+  const feitasMes=doMes.filter(t=>t.st.k==="ok").length;
+  const pct=doMes.length?Math.round(feitasMes/doMes.length*100):0;
+  const R=42, C=2*Math.PI*R;
+  const anel='<div class="db-anel"><svg viewBox="0 0 110 110" aria-hidden="true">'+
+      '<circle cx="55" cy="55" r="'+R+'" class="an-bg"/>'+
+      '<circle cx="55" cy="55" r="'+R+'" class="an-fg" style="stroke-dasharray:'+C+';stroke-dashoffset:'+C+'" data-arco="'+(C-(C*pct/100))+'"/>'+
+    '</svg><div class="an-txt"><b data-num="'+pct+'">0</b><span>%</span><i>do mês concluído</i></div></div>';
+
+  /* o que fazer agora: 3 mais críticos */
+  const criticos=ts.filter(t=>t.st.k!=="ok" && t.data)
+    .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]||String(a.data).localeCompare(String(b.data))).slice(0,3);
+  const agoraHtml=criticos.length
+    ? criticos.map((t,i)=>'<button class="db-ag editavel" data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" style="animation-delay:'+(i*70)+'ms">'+
+        tagHTML(t)+'<span class="db-agt">'+esc(EXEC[baseId(t.id)]||t.tarefa)+' <i>'+esc(t.cliente)+'</i></span>'+
+        '<span class="db-agr">'+esc(t.resp)+'</span></button>').join("")
+    : '<div class="db-vazio">Nada crítico agora. Respira.</div>';
+
+  return '<div class="dash'+(completo?" full":"")+'">'+
+    (completo?'<div class="db-topo">'+anel+'<div class="db-agora"><div class="db-h">O que fazer agora</div>'+agoraHtml+'</div></div>':'')+
     '<div class="kpis">'+cards+'</div>'+
     '<div class="db-linha">'+
       '<div class="db-cx"><div class="db-h">Esperando o cliente</div>'+espHtml+'</div>'+
@@ -1489,7 +1512,19 @@ function dashboardHTML(){
         '<div class="db-pl"><span class="db-pn mk3"><b>'+mk3+'</b>MK3</span>'+
         '<span class="db-pn cli"><b>'+cli+'</b>Cliente</span></div>'+
         '<div class="db-obs">dias úteis já consumados</div></div>'+
-    '</div></div>';
+    '</div>'+
+    (completo?(function(){
+      const porCli={};
+      ts.filter(t=>t.st.k==="atrasado").forEach(t=>{ porCli[t.cliente]=(porCli[t.cliente]||0)+1; });
+      const r=Object.entries(porCli).sort((a,b)=>b[1]-a[1]);
+      if(!r.length) return '';
+      const tp=Math.max(1,r[0][1]);
+      return '<div class="db-cx"><div class="db-h">Atrasos abertos por cliente</div>'+
+        r.map(([nome,q],i)=>'<div class="db-rk" style="animation-delay:'+(i*60)+'ms"><span class="db-rn">'+esc(nome)+'</span>'+
+          '<span class="db-rb"><i style="width:0" data-larg="'+Math.round(q/tp*100)+'"></i></span>'+
+          '<span class="db-rv" data-num="'+q+'">0</span></div>').join("")+'</div>';
+    })():'')+
+  '</div>';
 }
 function listaGlobalHTML(){
   const ts = tarefasArea();
@@ -1803,8 +1838,8 @@ function histHTML(c){
 /* ---------------- RENDER ---------------- */
 function tituloContexto(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
-  const A={all:"Visão Geral",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
-  const V={cards:"Clientes",prio:"Prioridades",cal:"Calendário",lista:"Lista",tend:"Tendência de atrasos"};
+  const A={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
+  const V={cards:"Clientes",prio:"Prioridades",cal:"Visão geral",dash:"Dashboard",lista:"Lista",tend:"Tendência de atrasos"};
   const AB={cal:"Calendário",tarefas:"Tarefas",tend:"Tendência",hist:"Histórico"};
   let t = c ? c.nome : (V[VISTA.modo]||"");
   const bits=[A[VISTA.area]||""];
@@ -1835,6 +1870,26 @@ function loginHTML(pendente){
       (p.pin?'<span class="lp-pin" title="Protegido por PIN">&#128274;</span>':'')+'</button>').join("")+
     '</div></div></div>';
 }
+function animar(){
+  const el=document.getElementById("view"); if(!el) return;
+  const reduz = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /* números contando */
+  el.querySelectorAll("[data-num]").forEach(n=>{
+    const alvo=+n.getAttribute("data-num")||0;
+    if(reduz || alvo<=0){ n.textContent=alvo; return; }
+    const dur=Math.min(900, 260+alvo*18); const ini=performance.now();
+    const passo=t=>{ const p=Math.min(1,(t-ini)/dur);
+      n.textContent=Math.round(alvo*(1-Math.pow(1-p,3)));
+      if(p<1) requestAnimationFrame(passo); };
+    requestAnimationFrame(passo);
+  });
+  /* barras e anel crescendo */
+  requestAnimationFrame(()=>{
+    el.querySelectorAll("[data-alt]").forEach(b=>{ b.style.height=b.getAttribute("data-alt")+"%"; });
+    el.querySelectorAll("[data-larg]").forEach(b=>{ b.style.width=b.getAttribute("data-larg")+"%"; });
+    el.querySelectorAll("[data-arco]").forEach(a=>{ a.style.strokeDashoffset=a.getAttribute("data-arco"); });
+  });
+}
 function render(){
   if(!USUARIO){
     $("ctx").innerHTML=''; $("editbar").innerHTML=''; $("side").innerHTML='';
@@ -1857,12 +1912,13 @@ function render(){
 
   if(!c){
     let body;
-    if(VISTA.modo==="tend")       body = tendenciaHTML();
+    if(VISTA.modo==="dash")       body = dashboardHTML(true);
+    else if(VISTA.modo==="tend")  body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
     else                          body = listaGlobalHTML();
-    $("view").innerHTML = body;
+    $("view").innerHTML = body; animar();
     return;
   }
 
@@ -1879,7 +1935,7 @@ function render(){
              : VISTA.aba==="tarefas" ? tarefasHTML(c)
              : VISTA.aba==="tend" ? tendenciaHTML()
              : histHTML(c);
-  $("view").innerHTML = bar + body;
+  $("view").innerHTML = bar + body; animar();
 }
 
 /* ---------------- CLIQUES ---------------- */
