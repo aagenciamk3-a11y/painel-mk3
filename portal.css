@@ -55,3 +55,8 @@ h3.sub{font-size:13px;font-weight:600;color:var(--txt);margin:20px 0 4px}
  padding:12px 14px;font-size:13.5px}
 footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--mut);text-align:center}
 @media(max-width:600px){body{padding:18px 12px 40px}.bloco{padding:16px 14px}h1{font-size:20px}}
+
+.atualiz{display:flex;align-items:center;gap:8px;margin:18px 0 4px;font-size:12.5px;color:#8B85A0}
+.atualiz .pt{width:8px;height:8px;border-radius:50%;background:#4CC463;box-shadow:0 0 0 0 rgba(76,196,99,.6);animation:pulsa 2.4s infinite}
+@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(76,196,99,.55)}70%{box-shadow:0 0 0 7px rgba(76,196,99,0)}100%{box-shadow:0 0 0 0 rgba(76,196,99,0)}}
+@media (prefers-reduced-motion:reduce){.atualiz .pt{animation:none}}

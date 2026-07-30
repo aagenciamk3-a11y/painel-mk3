@@ -530,7 +530,7 @@ function syncIniciar(){
       SYNC_APLICANDO=false;
       marcarSync("recebido");
     }, err=>{ SYNC_ON=false; marcarSync("erro"); });
-    firebase.database().ref(".info/connected").on("value", s=>{ SYNC_ON=!!s.val(); marcarSync(SYNC_ON?"ligado":"offline"); });
+    firebase.database().ref(".info/connected").on("value", s=>{ SYNC_ON=!!s.val(); marcarSync(SYNC_ON?"ligado":"offline"); if(SYNC_ON) agendarEspelho(); });
   }catch(e){ SYNC=null; }
 }
 function syncEnviar(){
@@ -545,9 +545,32 @@ function marcarSync(estado){
   el.textContent=m0[0]; el.className="syncst "+m0[1];
   if(estado==="recebido"){ clearTimeout(syncTimer); syncTimer=setTimeout(()=>marcarSync(SYNC_ON?"ligado":"offline"),2500); }
 }
+
+/* ---- espelho público: cada portal de cliente lê só o nó do token dele ---- */
+let ESPELHO_T=null;
+function espelhoDe(cid){
+  const p=(ESTADO.portais&&ESTADO.portais[cid])||null;
+  return { ts:Date.now(),
+           ativo:(p&&p.ativo)||null,
+           concluidas:((ESTADO.concluidas&&ESTADO.concluidas[cid])||[]),
+           datas:((ESTADO.datas&&ESTADO.datas[cid])||{}) };
+}
+function publicarEspelho(){
+  if(!SYNC_ON || !PORTAIS || !window.firebase) return;
+  try{
+    const base=firebase.database().ref("painel/publico");
+    Object.keys(PORTAIS).forEach(cid=>{
+      const dados=espelhoDe(cid);
+      const tks=(PORTAIS[cid]&&PORTAIS[cid].tokens)||[];
+      const ativo=dados.ativo||tks[(PORTAIS[cid]||{}).ativo||0]||null;
+      tks.forEach(tk=>{ base.child(tk).set({...dados, ativo:ativo}); });
+    });
+  }catch(e){}
+}
+function agendarEspelho(){ clearTimeout(ESPELHO_T); ESPELHO_T=setTimeout(publicarEspelho,1500); }
 function persist(){
   try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
-  syncEnviar();
+  syncEnviar(); agendarEspelho();
   setTimeout(marcarSalvo,0);
 }
 function snapshot(){ UNDO.push(JSON.stringify(ESTADO)); if(UNDO.length>80)UNDO.shift(); REDO.length=0; }
@@ -1344,6 +1367,8 @@ async function init(){
   try{ localStorage.removeItem("mk3_user"); }catch(e){}
   if(USUARIO && !eu()) USUARIO=null;
   rebuild(); render(); montarTooltip(); syncIniciar();
+  fetch("portais.json?ts="+Date.now()).then(r=>r.ok?r.json():null)
+    .then(j=>{ if(j){ PORTAIS=j; agendarEspelho(); } }).catch(()=>{});
 }
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});

@@ -112,7 +112,48 @@ function historico(){
 }
 function desenhar(){ $("view").innerHTML = esperando() + proximos() + historico(); }
 desenhar();
-fetch("../../estado.json?ts="+Date.now())
-  .then(r=>r.ok?r.json():null)
-  .then(E=>{ if(!E) return; if(!linkValido(E)){ expirado(); return; } aplicarEstado(E); desenhar(); })
-  .catch(()=>{});
+
+/* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
+const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
+let TEM_ESPELHO=false, FONTE=null;
+
+function marcarAtualizado(){
+  let el=document.getElementById("atualiz");
+  if(!el){ el=document.createElement("div"); el.id="atualiz"; el.className="atualiz";
+    const f=document.querySelector("footer"); if(f) f.parentNode.insertBefore(el,f); else document.body.appendChild(el); }
+  const h=new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  el.innerHTML='<span class="pt"></span>Atualiza sozinho. Última leitura às '+h+'.';
+}
+function aplicarEspelho(v){
+  if(!v || typeof v!=="object") return false;
+  if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
+  const E={concluidas:{},datas:{}};
+  E.concluidas[CLIENTE_ID]=v.concluidas||[];
+  E.datas[CLIENTE_ID]=v.datas||{};
+  aplicarEstado(E); desenhar(); marcarAtualizado();
+  return true;
+}
+function lerPublicado(){
+  fetch("../../estado.json?ts="+Date.now())
+    .then(r=>r.ok?r.json():null)
+    .then(E=>{ if(!E) return; if(!linkValido(E)){ expirado(); return; } aplicarEstado(E); desenhar(); })
+    .catch(()=>{});
+}
+function puxarEspelho(){
+  if(!URL_ESP){ lerPublicado(); return; }
+  fetch(URL_ESP+"?ts="+Date.now())
+    .then(r=>r.ok?r.json():null)
+    .then(v=>{ if(v && aplicarEspelho(v)){ TEM_ESPELHO=true; } else if(!TEM_ESPELHO){ lerPublicado(); } })
+    .catch(()=>{ if(!TEM_ESPELHO) lerPublicado(); });
+}
+puxarEspelho();
+if(URL_ESP && window.EventSource){
+  try{
+    FONTE=new EventSource(URL_ESP);
+    FONTE.addEventListener("put",  ()=>puxarEspelho());
+    FONTE.addEventListener("patch",()=>puxarEspelho());
+    FONTE.onerror=()=>{ /* cai para a checagem periódica */ };
+  }catch(e){}
+}
+setInterval(puxarEspelho, 60000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) puxarEspelho(); });

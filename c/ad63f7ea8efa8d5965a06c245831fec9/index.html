@@ -60,12 +60,17 @@ h3.sub{font-size:13px;font-weight:600;color:var(--txt);margin:20px 0 4px}
  padding:12px 14px;font-size:13.5px}
 footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--mut);text-align:center}
 @media(max-width:600px){body{padding:18px 12px 40px}.bloco{padding:16px 14px}h1{font-size:20px}}
+
+.atualiz{display:flex;align-items:center;gap:8px;margin:18px 0 4px;font-size:12.5px;color:#8B85A0}
+.atualiz .pt{width:8px;height:8px;border-radius:50%;background:#4CC463;box-shadow:0 0 0 0 rgba(76,196,99,.6);animation:pulsa 2.4s infinite}
+@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(76,196,99,.55)}70%{box-shadow:0 0 0 7px rgba(76,196,99,0)}100%{box-shadow:0 0 0 0 rgba(76,196,99,0)}}
+@media (prefers-reduced-motion:reduce){.atualiz .pt{animation:none}}
 </style></head><body>
 <div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
 <h1 id="titulo"></h1><div id="view"></div>
 <footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer></div>
 <script>const CLIENTES=[{"id":"suelem","nome":"Suelem","entrada":"2026-07-15","vencimentoContrato":"2026-10-15","escopo":{"agendamento":true,"calendarioEditorial":false,"trafegoPago":true},"imersao":null,"reuniaoPlanejamentoEntrada":"2026-07-15","envioPlanejamento":"2026-07-15","aprovacaoPlanejamento":"2026-07-15","envioMidia":"2026-07-16","aprovacaoMidia":null,"gravacao":null,"artesDependemDaGravacao":false,"inicioCicloPadrao":"2026-08","concluidas":["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva","pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan","c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao","c1_artes","c1_lembMid"],"tarefasExtras":[],"marcos":[{"data":"2025-05-30","titulo":"Cliente desde 2025","detalhe":"Primeiro contrato"},{"data":"2026-07-15","titulo":"Renovação de contrato","detalhe":"Novo plano + 2 campanhas de tráfego · aguardando assinatura"},{"data":"2026-07-15","titulo":"Planejamento de julho aprovado","detalhe":"Aprovado no mesmo dia"},{"data":"2026-07-15","titulo":"Produção de julho","detalhe":"Vídeos já produzidos; artes em produção, seguem para o Pode Postar após aprovação"},{"data":"2026-07-20","titulo":"Pacote de fotos 1/3","detalhe":"· parcela 1 de 3"},{"data":"2026-08-20","titulo":"Pacote de fotos 2/3","detalhe":"· parcela 2 de 3"},{"data":"2026-09-20","titulo":"Pacote de fotos 3/3","detalhe":"· parcela 3 de 3"}]}];const MOSTRA_HISTORICO=true;
-const CLIENTE_ID="suelem";const MEU_TOKEN="ad63f7ea8efa8d5965a06c245831fec9";</script>
+const CLIENTE_ID="suelem";const MEU_TOKEN="ad63f7ea8efa8d5965a06c245831fec9";const MK3_DB="https://painel-mk3-default-rtdb.firebaseio.com";</script>
 <script>/* ═══════════════════════════════════════════════════════════════
    MOTOR — regras do Manual de Processos MK3 v1.0 + render.
    Régua da MK3: 2 DIAS ÚTEIS em toda etapa de entrega e aprovação.
@@ -166,10 +171,16 @@ function regras(c){
           uteis(c.alteracaoPedida,PRAZO),"Analista");
     add("c1_roteiro","1º ciclo","Enviar roteiro à produtora",
         "No mesmo dia da aprovação do planejamento", baseAprPlan, "Analista");
-    if(c.gravacao)
-      add("c1_gravacao","1º ciclo",c.semFotos?"Gravação":"Gravação + fotos","Manhã, 8h às 17h"+(c.artesDependemDaGravacao?" · insumo das artes":""),c.gravacao,"Produtora / Cliente");
-    else
-      add("c1_gravacao","1º ciclo","Agendar diária de gravação","Manhã, 8h às 17h · régua a confirmar",null,"Analista / Estagiário");
+    if(c.gravacao){
+      add("c1_gravacaoMarcar","1º ciclo","Marcar a gravação",
+          "Combinado para "+fmt(c.gravacao)+" · confirmar véspera",addD(c.gravacao,-3),"Analista / Estagiário");
+      add("c1_gravacao","1º ciclo",c.semFotos?"Dia de gravação":"Dia de gravação + fotos",
+          "Manhã, 8h às 17h"+(c.artesDependemDaGravacao?" · insumo das artes":""),c.gravacao,"Produtora / Cliente");
+    } else {
+      add("c1_gravacaoMarcar","1º ciclo","Marcar a gravação",
+          "Falar com o cliente e fechar a data",null,"Analista / Estagiário");
+      add("c1_gravacao","1º ciclo","Dia de gravação","Data a definir",null,"Produtora / Cliente");
+    }
     add("c1_artes","1º ciclo","Criar as artes",
         (c.artesDependemDaGravacao && c.gravacao)
           ? "2 dias úteis após a gravação · depende das fotos de "+fmt(c.gravacao)
@@ -243,9 +254,31 @@ function regras(c){
     add("midia"+sfx,"Ciclo padrão","Produzir a mídia","Semana 4 · "+cic,dd(28),"Analista");
     add("agendado"+sfx,"Ciclo padrão","Conteúdo agendado","Pronto para publicar no dia 1 · "+cic,dd(ult),"Analista");
   }
+  /* o contrato encerra: nada de tarefa de ciclo depois da data final */
+  if(c.vencimentoContrato){
+    for(let i=T.length-1;i>=0;i--){
+      if(T[i].fase==="Ciclo padrão" && T[i].data && T[i].data > c.vencimentoContrato) T.splice(i,1);
+    }
+  }
 
   /* TAREFAS EXTRAS por cliente (itens fora do padrão: pagamentos a fornecedor, etc.) */
   (c.tarefasExtras||[]).forEach((t,i)=>add(t.id||("extra"+i), t.fase||"Outros", t.tarefa, t.detalhe||"", t.data||null, t.resp||"MK3"));
+
+  /* ---- coerência: o que já tem data real está feito; o lembrete perde o sentido após a resposta ---- */
+  const forcado=(c.__pendenteForcado||[]);
+  const marcaAuto=(id,quando)=>{
+    if(!quando || forcado.indexOf(id)>=0) return;   /* respeita o "não feito" marcado por você */
+    const t=T.find(x=>x.id===id);
+    if(t && !t.feita){ t.feita=true; t.dataConclusao=quando; }
+  };
+  marcaAuto("c1_plan",    c.envioPlanejamento);
+  marcaAuto("c1_aprPlan", c.aprovacaoPlanejamento);
+  marcaAuto("c1_roteiro", c.aprovacaoPlanejamento);
+  marcaAuto("c1_artes",   c.envioMidia);
+  marcaAuto("c1_aprMid",  c.aprovacaoMidia);
+  marcaAuto("c1_lembPlan",c.aprovacaoPlanejamento);
+  marcaAuto("c1_lembMid", c.aprovacaoMidia);
+  if(c.gravacao && c.gravacao <= iso(HOJE)) marcaAuto("c1_gravacao", c.gravacao);
 
   return T;
 }
@@ -452,9 +485,50 @@ function historico(){
 }
 function desenhar(){ $("view").innerHTML = esperando() + proximos() + historico(); }
 desenhar();
-fetch("../../estado.json?ts="+Date.now())
-  .then(r=>r.ok?r.json():null)
-  .then(E=>{ if(!E) return; if(!linkValido(E)){ expirado(); return; } aplicarEstado(E); desenhar(); })
-  .catch(()=>{});
+
+/* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
+const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
+let TEM_ESPELHO=false, FONTE=null;
+
+function marcarAtualizado(){
+  let el=document.getElementById("atualiz");
+  if(!el){ el=document.createElement("div"); el.id="atualiz"; el.className="atualiz";
+    const f=document.querySelector("footer"); if(f) f.parentNode.insertBefore(el,f); else document.body.appendChild(el); }
+  const h=new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  el.innerHTML='<span class="pt"></span>Atualiza sozinho. Última leitura às '+h+'.';
+}
+function aplicarEspelho(v){
+  if(!v || typeof v!=="object") return false;
+  if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
+  const E={concluidas:{},datas:{}};
+  E.concluidas[CLIENTE_ID]=v.concluidas||[];
+  E.datas[CLIENTE_ID]=v.datas||{};
+  aplicarEstado(E); desenhar(); marcarAtualizado();
+  return true;
+}
+function lerPublicado(){
+  fetch("../../estado.json?ts="+Date.now())
+    .then(r=>r.ok?r.json():null)
+    .then(E=>{ if(!E) return; if(!linkValido(E)){ expirado(); return; } aplicarEstado(E); desenhar(); })
+    .catch(()=>{});
+}
+function puxarEspelho(){
+  if(!URL_ESP){ lerPublicado(); return; }
+  fetch(URL_ESP+"?ts="+Date.now())
+    .then(r=>r.ok?r.json():null)
+    .then(v=>{ if(v && aplicarEspelho(v)){ TEM_ESPELHO=true; } else if(!TEM_ESPELHO){ lerPublicado(); } })
+    .catch(()=>{ if(!TEM_ESPELHO) lerPublicado(); });
+}
+puxarEspelho();
+if(URL_ESP && window.EventSource){
+  try{
+    FONTE=new EventSource(URL_ESP);
+    FONTE.addEventListener("put",  ()=>puxarEspelho());
+    FONTE.addEventListener("patch",()=>puxarEspelho());
+    FONTE.onerror=()=>{ /* cai para a checagem periódica */ };
+  }catch(e){}
+}
+setInterval(puxarEspelho, 60000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) puxarEspelho(); });
 </script>
 </body></html>

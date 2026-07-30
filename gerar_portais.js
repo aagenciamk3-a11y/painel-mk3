@@ -4,6 +4,7 @@
 const fs=require("fs"), path=require("path"), crypto=require("crypto"), vm=require("vm");
 
 const raiz=__dirname;
+const DB_URL="https://painel-mk3-default-rtdb.firebaseio.com";   /* leitura só do nó painel/publico/<token> */
 const ctx={console};
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(raiz,"dados.js"),"utf8")+"\nthis.__C=CLIENTES;",ctx);
@@ -58,7 +59,7 @@ CLIENTES.forEach(c=>{
 <h1 id="titulo"></h1><div id="view"></div>
 <footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer></div>
 <script>const CLIENTES=[${JSON.stringify(pub)}];const MOSTRA_HISTORICO=${cfg.historico?"true":"false"};
-const CLIENTE_ID=${JSON.stringify(c.id)};const MEU_TOKEN=${JSON.stringify(tk)};</script>
+const CLIENTE_ID=${JSON.stringify(c.id)};const MEU_TOKEN=${JSON.stringify(tk)};const MK3_DB=${JSON.stringify(DB_URL)};</script>
 <script>${regrasSrc}</script>
 <script>${portalJs}</script>
 </body></html>`;
