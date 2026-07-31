@@ -1490,7 +1490,12 @@ function calendario(tasks, marcos, showCli){
     const mk   = marcos.filter(m=>m.data===s);
     const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":""].filter(Boolean).join(" ");
     const maxEv = 2;
-    const items = mk.map(m=>({o:m,marco:true})).concat(evs.map(t=>({o:t,marco:false})));
+    /* dentro do dia: o que está atrasado vem primeiro, o que já foi aprovado/concluído vem por último */
+    const peso = it => it.marco ? 3.5 : (ORDEM[it.o.st.k]!=null ? ORDEM[it.o.st.k] : 9);
+    const items = mk.map(m=>({o:m,marco:true})).concat(evs.map(t=>({o:t,marco:false})))
+      .sort((a,b)=> peso(a)-peso(b)
+        || String(a.marco?a.o.titulo:a.o.cliente||"").localeCompare(String(b.marco?b.o.titulo:b.o.cliente||""))
+        || String(a.marco?a.o.titulo:a.o.tarefa||"").localeCompare(String(b.marco?b.o.titulo:b.o.tarefa||"")));
     const cap = Math.min(items.length, maxEv);
     const evsHtml = items.slice(0,cap).map(it=> it.marco ? evCard(it.o,false,true) : evCard(it.o,showCli,false)).join("");
     const resto = items.length - cap;
@@ -1542,7 +1547,7 @@ function resultadosPainelHTML(){
     linhas.map((L,i)=>{
       const ms=(L.r.metricas||[]).slice(0,4);
       return '<div class="res-cli" style="animation-delay:'+(i*70)+'ms">'+
-        '<div class="res-nome">'+avatarHTML(L.c,"res-av")+'<b>'+esc(L.c.nome)+'</b>'+
+        '<div class="res-nome">'+avatarHTML(L.c,"card-face res-av")+'<b>'+esc(L.c.nome)+'</b>'+
           (L.r.link?'<a class="res-link" href="'+esc(L.r.link)+'" target="_blank" rel="noopener">relatório completo</a>':'')+'</div>'+
         '<div class="res-ms">'+ms.map(x=>
           '<div class="res-m"><span class="rs-v" data-num="'+(x.v||0)+'">0</span>'+
@@ -1844,7 +1849,8 @@ function prioridadesHTML(){
   let cols="";
   for(let i=0;i<5;i++){
     const dayIso=addD(VISTA.psem,i);
-    const reais=TODAS.filter(t=>t.data===dayIso && relevanteBoard(t)).sort((a,b)=>a.clienteId.localeCompare(b.clienteId));
+    const reais=TODAS.filter(t=>t.data===dayIso && relevanteBoard(t))
+      .sort((a,b)=> (ORDEM[a.st.k]??9)-(ORDEM[b.st.k]??9) || a.clienteId.localeCompare(b.clienteId));
     const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso)
       .map(e=>({t:TODAS.find(x=>x.clienteId===e.cid&&x.id===e.tid),orig:e.orig}))
       .filter(o=>o.t && relevanteBoard(o.t));   /* a cópia respeita a área, como a original */
