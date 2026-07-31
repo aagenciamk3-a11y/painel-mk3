@@ -396,9 +396,10 @@ const IC = {
   equipe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-3-4.9"/></svg>'
 };
 function navItem(key,label,icon,kind,on,n){
-  return '<button class="snav'+(on?" on":"")+'" data-'+kind+'="'+key+'" title="'+esc(label)+'"'+(on?' aria-current="true"':'')+'>'+
+  const href = kind==="view" ? rotaDe({modo:key,escopo:null}) : rotaDe({area:key});
+  return '<a class="snav'+(on?" on":"")+'" href="'+href+'" data-'+kind+'="'+key+'" title="'+esc(label)+'"'+(on?' aria-current="true"':'')+'>'+
     '<span class="snav-i">'+icon+'</span><span class="snav-t">'+esc(label)+'</span>'+
-    (n?'<span class="snav-b">'+n+'</span>':'')+'</button>';
+    (n?'<span class="snav-b">'+n+'</span>':'')+'</a>';
 }
 function areasTopoHTML(){
   if(!USUARIO) return '';
@@ -409,9 +410,9 @@ function areasTopoHTML(){
     areas.map(a=>{
       const on=VISTA.area===a[0];
       const n=TODAS.filter(t=>(a[0]==="all"||t.area===a[0]) && (t.st.k==="atrasado"||t.st.k==="hoje")).length;
-      return '<button class="abar-b'+(on?" on":"")+'" data-area="'+a[0]+'" aria-pressed="'+on+'">'+
+      return '<a class="abar-b'+(on?" on":"")+'" href="'+rotaDe({area:a[0]})+'" data-area="'+a[0]+'" aria-pressed="'+on+'">'+
         '<span class="abar-i">'+a[2]+'</span>'+esc(a[1])+
-        (n?'<span class="abar-n">'+n+'</span>':'')+'</button>';
+        (n?'<span class="abar-n">'+n+'</span>':'')+'</a>';
     }).join("")+'</div>';
 }
 window.addEventListener("resize",()=>{ try{ posicionarPill(); }catch(e){} }); // MK3_RESIZE_PILL
@@ -1457,7 +1458,7 @@ function cardsHTML(){
       ["semana","A fazer",    n(["semana","futuro","sem"])],
       ["ok","Concluído",      n(["ok"])]
     ];
-    return '<button class="ccard" data-cliente="'+c.id+'">'+
+    return '<a class="ccard" href="'+rotaDe({escopo:c.id,aba:"cal"})+'" data-cliente="'+c.id+'">'+
       '<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
       avatarHTML(c,"ccard-av")+
       '<div class="ccard-body">'+
@@ -1678,7 +1679,10 @@ function entrar(nome){
   if(typeof reiniciarOcioso==="function") reiniciarOcioso();
 
   const as=areasDe(); if(as.indexOf(VISTA.area)<0) VISTA.area=as[0]||"mkt";
-  VISTA.escopo=null; VISTA.modo="cards"; VISTA.filtro=null; render();
+  VISTA.escopo=null; VISTA.modo="cards"; VISTA.filtro=null;
+  aplicarRota();                                  /* abriu com endereço de uma tela? vai direto para ela */
+  const as2=areasDe(); if(as2.indexOf(VISTA.area)<0) VISTA.area=as2[0]||"mkt";
+  render();
 }
 function tentarEntrar(nome){
   const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome);
@@ -2025,7 +2029,7 @@ function render(){
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
     else                          body = listaGlobalHTML();
-    $("view").innerHTML = body; animar();
+    $("view").innerHTML = body; animar(); gravarRota();
     return;
   }
 
@@ -2033,23 +2037,73 @@ function render(){
   const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["tend","Tendência"],["hist","Histórico"]]
     .filter(t=>t[0]!=="tend" || ehAdmin());
   const bar =
-    '<div class="cli-bar"><button class="voltar" data-nav="home">&larr; Todos os clientes</button>'+
+    '<div class="cli-bar"><a class="voltar" href="'+rotaDe({escopo:null,modo:"cards"})+'" data-nav="home">&larr; Todos os clientes</a>'+
     '<div class="cli-title">'+avatarHTML(c,"cli-av2")+
       '<strong>'+esc(c.nome)+'</strong></div>'+
     '<div class="cli-tabs">'+tabs.map(t=>
-      '<button class="'+(VISTA.aba===t[0]?"on":"")+'" data-cliaba="'+t[0]+'">'+t[1]+'</button>').join("")+'</div></div>';
+      '<a class="'+(VISTA.aba===t[0]?"on":"")+'" href="'+rotaDe({aba:t[0]})+'" data-cliaba="'+t[0]+'">'+t[1]+'</a>').join("")+'</div></div>';
 
   const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), (VISTA.area==="all"||VISTA.area==="mkt")?c.marcos:[], false)
              : VISTA.aba==="tarefas" ? tarefasHTML(c)
              : (VISTA.aba==="tend" && ehAdmin()) ? tendenciaHTML()
              : histHTML(c);
-  $("view").innerHTML = bar + body; animar();
+  $("view").innerHTML = bar + body; animar(); gravarRota();
 }
+
+
+/* ---------------- ROTAS (endereço da página) ----------------
+   Permite ctrl+clique / clique do meio abrir em outra aba, e o voltar do navegador funcionar. */
+let ROTA_APLICANDO=false;
+function rotaAtual(){
+  const a = VISTA.area && VISTA.area!=="all" ? "/"+VISTA.area : "";
+  if(VISTA.escopo) return "#/cliente/"+encodeURIComponent(VISTA.escopo)+"/"+(VISTA.aba||"cal")+a;
+  return "#/"+(VISTA.modo||"cards")+a;
+}
+function rotaDe(op){
+  const v = {modo:VISTA.modo, area:VISTA.area, escopo:VISTA.escopo, aba:VISTA.aba, ...op};
+  const a = v.area && v.area!=="all" ? "/"+v.area : "";
+  if(v.escopo) return "#/cliente/"+encodeURIComponent(v.escopo)+"/"+(v.aba||"cal")+a;
+  return "#/"+(v.modo||"cards")+a;
+}
+function gravarRota(){
+  if(ROTA_APLICANDO || !USUARIO) return;
+  const r=rotaAtual();
+  if(location.hash!==r){ ROTA_APLICANDO=true; history.replaceState(null,"",r); ROTA_APLICANDO=false; }
+}
+function aplicarRota(){
+  const h=(location.hash||"").replace(/^#\/?/,"");
+  if(!h) return false;
+  const p=h.split("/").filter(Boolean).map(decodeURIComponent);
+  const areas=["all","mkt","fin","com"];
+  const modos=["cards","prio","lista","cal","tend"];
+  const abas=["cal","tarefas","tend","hist"];
+  let mudou=false;
+  if(p[0]==="cliente" && p[1]){
+    if(cliente(p[1])){ VISTA.escopo=p[1]; mudou=true;
+      if(p[2] && abas.indexOf(p[2])>=0) VISTA.aba=p[2];
+      if(p[3] && areas.indexOf(p[3])>=0 && podeArea(p[3])) VISTA.area=p[3];
+    }
+  } else if(p[0] && modos.indexOf(p[0])>=0){
+    VISTA.escopo=null; VISTA.modo=p[0]; mudou=true;
+    if(p[1] && areas.indexOf(p[1])>=0 && podeArea(p[1])) VISTA.area=p[1];
+  }
+  if(VISTA.modo==="tend" && !ehAdmin()) VISTA.modo="lista";
+  if(VISTA.aba==="tend" && !ehAdmin()) VISTA.aba="cal";
+  return mudou;
+}
+window.addEventListener("hashchange", ()=>{
+  if(ROTA_APLICANDO || !USUARIO) return;
+  if(aplicarRota()){ VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); }
+});
+/* ctrl/cmd/shift+clique e clique do meio: deixa o navegador abrir em outra aba */
+const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
   const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
+  if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
+  if(alvo.tagName==="A") ev.preventDefault();
   const D = alvo.dataset;
 
   if(D.entrar){ tentarEntrar(D.entrar); return; }

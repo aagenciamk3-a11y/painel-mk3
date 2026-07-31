@@ -131,10 +131,10 @@
   .cli-av2{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;
     font-weight:700;font-size:13px}
   .cli-tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
-  .cli-tabs button{background:none;border:none;color:var(--mut);font:inherit;font-size:14px;font-weight:500;
+  .cli-tabs button,.cli-tabs a{background:none;border:none;color:var(--mut);font:inherit;font-size:14px;font-weight:500;
     padding:9px 15px;border-radius:9px;cursor:pointer}
-  .cli-tabs button:hover{color:var(--txt)}
-  .cli-tabs button.on{background:var(--panel2);color:var(--txt)}
+  .cli-tabs button:hover,.cli-tabs a:hover{color:var(--txt)}
+  .cli-tabs button.on,.cli-tabs a.on{background:var(--panel2);color:var(--txt)}
 
   /* ---- semáforo (dentro de Tarefas) ---- */
   .semaforo{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
@@ -954,6 +954,14 @@
 .res-txt{margin-top:9px;font-size:12.5px;color:var(--mut);line-height:1.5}
 @media(max-width:600px){.res-ms{grid-template-columns:repeat(2,1fr)}}
 .mdica{display:block;font-style:normal;font-size:11.5px;color:var(--dim);margin-top:5px;font-weight:500}
+
+/* links de navegação: comportam como botão, mas abrem em outra aba com ctrl+clique */
+a.snav,a.abar-b,a.ccard,a.voltar,.cli-tabs a{text-decoration:none;color:inherit;cursor:pointer}
+a.ccard{display:block}
+a.voltar{display:inline-flex;align-items:center;text-decoration:none}
+.cli-tabs a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+a.snav:visited,a.abar-b:visited,a.ccard:visited,a.voltar:visited,.cli-tabs a:visited{color:inherit}
+a.abar-b.on,a.abar-b.on:visited{color:#fff}
 </style>
 </head>
 <body>
@@ -992,7 +1000,7 @@
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202607311415"></script>
-<script src="motor.js?v=202607311415"></script>
+<script src="dados.js?v=202607311626"></script>
+<script src="motor.js?v=202607311626"></script>
 </body>
 </html>
