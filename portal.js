@@ -5,6 +5,7 @@ const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","a
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+let RESULTADOS=null, OBJETIVO="", META=null;
 
 /* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
 function aplicarEstado(E){
@@ -143,7 +144,6 @@ function heroHTML(){
   '</section>';
 }
 /* ---- resultados do mês (dados do Reportei, enviados pela MK3) ---- */
-let RESULTADOS=null, OBJETIVO="", META=null;
 const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
 function seta(d){
   if(d==null) return '<span class="rs-d zero">estável</span>';
