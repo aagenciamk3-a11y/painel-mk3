@@ -562,7 +562,7 @@ function heroHTML(){
   '</section>';
 }
 /* ---- resultados do mês (dados do Reportei, enviados pela MK3) ---- */
-let RESULTADOS=null;
+let RESULTADOS=null, OBJETIVO="", META=null;
 const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
 function seta(d){
   if(d==null) return '<span class="rs-d zero">estável</span>';
@@ -610,7 +610,7 @@ desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
 const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
-let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false, OBJETIVO="", META=null;
+let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
 
 function marcarAtualizado(){
   let el=document.getElementById("atualiz");
