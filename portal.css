@@ -84,3 +84,25 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
 
 .dash-box .res-link{margin-top:2px}
 @media(max-width:560px){.dash-fr{height:560px}}
+
+/* ===== destaque do objetivo ===== */
+.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#2E2249,#241A3D);
+  border:1px solid #4a3a70;border-radius:18px;padding:22px 24px 20px;margin:0 0 18px;
+  box-shadow:0 18px 40px -22px rgba(0,0,0,.9)}
+.hero::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(180deg,#8B5CF6,#A78BFA)}
+.hero.up::before{background:linear-gradient(180deg,#4CC463,#8fe0a0)}
+.hero.down::before{background:linear-gradient(180deg,#F2555A,#ff8a8d)}
+.hero-k{font-size:11.5px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:#B9B0D2}
+.hero-k i{display:block;font-style:normal;font-weight:500;font-size:11.5px;letter-spacing:.2px;
+  text-transform:none;color:#8B85A0;margin-top:3px}
+.hero-v{font-size:46px;font-weight:800;letter-spacing:-1.6px;line-height:1.05;margin:8px 0 6px;color:#F1EEFB}
+.hero-l{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.hero-x{font-size:12px;color:#B9B0D2;border:1px solid #40325F;border-radius:99px;padding:2px 9px}
+.hero-meta{margin-top:14px}
+.hero-bar{height:9px;background:#1C1430;border-radius:20px;overflow:hidden;border:1px solid #40325F}
+.hero-bar i{display:block;height:100%;background:linear-gradient(90deg,#8B5CF6,#A78BFA);border-radius:20px;
+  transition:width 1s cubic-bezier(.2,0,0,1)}
+.hero-meta span{display:block;margin-top:6px;font-size:12px;color:#B9B0D2}
+.hero-p{margin-top:12px;font-size:11.5px;color:#8B85A0}
+@media(max-width:560px){.hero-v{font-size:36px}.hero{padding:18px 18px 16px}}
+@media (prefers-reduced-motion:reduce){.hero-bar i{transition:none}}

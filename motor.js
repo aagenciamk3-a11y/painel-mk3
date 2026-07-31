@@ -550,8 +550,11 @@ function marcarSync(estado){
 let ESPELHO_T=null;
 function espelhoDe(cid){
   const p=(ESTADO.portais&&ESTADO.portais[cid])||null;
+  const cli=CLIENTES.find(x=>x.id===cid)||null;
   return { ts:Date.now(),
            ativo:(p&&p.ativo)||null,
+           objetivo:cli?objetivoDe(cli):"",
+           meta:cli?metaDe(cli):null,
            resultados:((ESTADO.resultados&&ESTADO.resultados[cid])||null),
            concluidas:((ESTADO.concluidas&&ESTADO.concluidas[cid])||[]),
            datas:((ESTADO.datas&&ESTADO.datas[cid])||{}) };
@@ -894,6 +897,17 @@ function trocarLink(cid){
   persist(); semPular(()=>abrirPortais());
   toast("Link novo gerado. O antigo para de funcionar na próxima publicação.",false);
 }
+
+/* objetivos possíveis para o destaque do cliente */
+const OBJETIVOS = [
+  ["", "Sem destaque"],
+  ["seguidores", "Seguidores"],
+  ["alcance", "Alcance"],
+  ["perfil", "Visitas ao perfil"],
+  ["views", "Visualizações"]
+];
+const objetivoDe = c => ((ESTADO.clientes&&ESTADO.clientes[c.id]&&ESTADO.clientes[c.id].objetivo)||c.objetivo||"");
+const metaDe = c => { const v=((ESTADO.clientes&&ESTADO.clientes[c.id]&&ESTADO.clientes[c.id].meta)||c.meta||null); return v?Number(v):null; };
 function abrirClientes(){
   if(!ehAdmin()) return;
   const ed=ESTADO.clientes||{};
@@ -906,7 +920,8 @@ function abrirClientes(){
       return '<div class="pcard">'+
         '<div class="pc-topo">'+avatarHTML(c,"card-face")+
           '<div class="pc-id"><span class="pc-n">'+esc(c.nome)+(novo?' <i class="cl-novo">novo</i>':'')+'</span>'+
-          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · contrato até '+fmt(c.vencimentoContrato)+'</span></div>'+
+          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · contrato até '+fmt(c.vencimentoContrato)+
+          (objetivoDe(c)?' · objetivo: '+esc((OBJETIVOS.find(o=>o[0]===objetivoDe(c))||["",""])[1].toLowerCase())+(metaDe(c)?' (meta '+numBR(metaDe(c))+')':''):'')+'</span></div>'+
           '<button class="pc-ico" data-clied="'+escAttr(c.id)+'" title="Editar cliente" aria-label="Editar">&#9998;</button>'+
           '<button class="pc-ico rm" data-cliocultar="'+escAttr(c.id)+'" title="Tirar do painel" aria-label="Tirar do painel">&#128465;</button>'+
         '</div></div>';
@@ -1271,7 +1286,9 @@ function handleModal(D){
   if(D.macao==="salvarcli"){
     salvarCliente(D.cliid||null,{nome:(($("clNome")&&$("clNome").value)||"").trim(),
       segmento:$("clSeg")&&$("clSeg").value, entrada:$("clEnt")&&$("clEnt").value,
-      vencimentoContrato:($("clVen")&&$("clVen").value)||null});
+      vencimentoContrato:($("clVen")&&$("clVen").value)||null,
+      objetivo:($("clObj")&&$("clObj").value)||"",
+      meta:(($("clMeta")&&$("clMeta").value)||"")===""?null:Number($("clMeta").value)});
     semPular(()=>abrirClientes()); toast("Cliente salvo",true); return;
   }
   if(D.macao==="fecharcli"){ semPular(()=>abrirClientes()); return; }

@@ -111,6 +111,37 @@ function historico(){
   return h;
 }
 
+
+/* ---- destaque: o objetivo do cliente, em primeiro lugar ---- */
+const ROT_OBJ = { seguidores:"Seguidores", alcance:"Alcance", perfil:"Visitas ao perfil", views:"Visualizações" };
+function destaqueAtual(){
+  if(!OBJETIVO || !RESULTADOS) return null;
+  const ks=Object.keys(RESULTADOS).sort(); if(!ks.length) return null;
+  const r=RESULTADOS[ks[ks.length-1]]; if(!r) return null;
+  if(r.destaque && r.destaque.obj===OBJETIVO) return {...r.destaque, periodo:r.periodo, compara:r.compara};
+  const rot=ROT_OBJ[OBJETIVO];
+  const m=(r.metricas||[]).find(x=>x.k===rot);
+  return m ? {k:rot, v:m.v, d:m.d, periodo:r.periodo, compara:r.compara} : null;
+}
+function heroHTML(){
+  const h=destaqueAtual(); if(!h) return '';
+  const pct = (META && META>0) ? Math.max(0, Math.min(100, Math.round(h.v/META*100))) : null;
+  const sobe = h.d==null ? null : h.d>0;
+  return '<section class="hero'+(sobe===true?" up":(sobe===false?" down":""))+'">'+
+    '<div class="hero-k">'+esc(h.k)+'<i>o foco do trabalho agora</i></div>'+
+    '<div class="hero-v">'+numBR(h.v)+'</div>'+
+    '<div class="hero-l">'+
+      (h.d==null?'<span class="rs-d zero">sem comparação</span>'
+               :'<span class="rs-d '+(h.d>0?"sobe":(h.d<0?"desce":"zero"))+'">'+
+                 (h.d>0?"\u25B2":(h.d<0?"\u25BC":"\u2022"))+' '+(h.d>0?"+":"")+
+                 String(Math.round(h.d*10)/10).replace(".",",")+'% em relação a '+esc(h.compara||"antes")+'</span>')+
+      (h.novos!=null?'<span class="hero-x">'+(h.novos>0?"+":"")+numBR(h.novos)+' no mês</span>':'')+
+    '</div>'+
+    (pct!=null?'<div class="hero-meta"><div class="hero-bar"><i style="width:'+pct+'%"></i></div>'+
+      '<span>'+numBR(h.v)+' de '+numBR(META)+' · '+pct+'% da meta</span></div>':'')+
+    (h.periodo?'<div class="hero-p">'+esc(h.periodo)+'</div>':'')+
+  '</section>';
+}
 /* ---- resultados do mês (dados do Reportei, enviados pela MK3) ---- */
 let RESULTADOS=null;
 const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
@@ -155,12 +186,12 @@ function ligarDash(){
     DASH_ABERTO=true; cx.innerHTML=dashFrameHTML(r.dash); armarFrame(cx);
   };
 }
-function desenhar(){ $("view").innerHTML = esperando() + resultados() + proximos() + historico(); ligarDash(); }
+function desenhar(){ $("view").innerHTML = heroHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
 const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
-let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
+let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false, OBJETIVO="", META=null;
 
 function marcarAtualizado(){
   let el=document.getElementById("atualiz");
@@ -175,7 +206,7 @@ function aplicarEspelho(v){
   const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
-  RESULTADOS = v.resultados || null;
+  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};

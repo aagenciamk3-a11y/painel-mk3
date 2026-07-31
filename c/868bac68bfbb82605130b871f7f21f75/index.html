@@ -89,6 +89,28 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
 
 .dash-box .res-link{margin-top:2px}
 @media(max-width:560px){.dash-fr{height:560px}}
+
+/* ===== destaque do objetivo ===== */
+.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#2E2249,#241A3D);
+  border:1px solid #4a3a70;border-radius:18px;padding:22px 24px 20px;margin:0 0 18px;
+  box-shadow:0 18px 40px -22px rgba(0,0,0,.9)}
+.hero::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(180deg,#8B5CF6,#A78BFA)}
+.hero.up::before{background:linear-gradient(180deg,#4CC463,#8fe0a0)}
+.hero.down::before{background:linear-gradient(180deg,#F2555A,#ff8a8d)}
+.hero-k{font-size:11.5px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:#B9B0D2}
+.hero-k i{display:block;font-style:normal;font-weight:500;font-size:11.5px;letter-spacing:.2px;
+  text-transform:none;color:#8B85A0;margin-top:3px}
+.hero-v{font-size:46px;font-weight:800;letter-spacing:-1.6px;line-height:1.05;margin:8px 0 6px;color:#F1EEFB}
+.hero-l{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.hero-x{font-size:12px;color:#B9B0D2;border:1px solid #40325F;border-radius:99px;padding:2px 9px}
+.hero-meta{margin-top:14px}
+.hero-bar{height:9px;background:#1C1430;border-radius:20px;overflow:hidden;border:1px solid #40325F}
+.hero-bar i{display:block;height:100%;background:linear-gradient(90deg,#8B5CF6,#A78BFA);border-radius:20px;
+  transition:width 1s cubic-bezier(.2,0,0,1)}
+.hero-meta span{display:block;margin-top:6px;font-size:12px;color:#B9B0D2}
+.hero-p{margin-top:12px;font-size:11.5px;color:#8B85A0}
+@media(max-width:560px){.hero-v{font-size:36px}.hero{padding:18px 18px 16px}}
+@media (prefers-reduced-motion:reduce){.hero-bar i{transition:none}}
 </style></head><body>
 <div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
 <h1 id="titulo"></h1><div id="view"></div>
@@ -508,6 +530,37 @@ function historico(){
   return h;
 }
 
+
+/* ---- destaque: o objetivo do cliente, em primeiro lugar ---- */
+const ROT_OBJ = { seguidores:"Seguidores", alcance:"Alcance", perfil:"Visitas ao perfil", views:"Visualizações" };
+function destaqueAtual(){
+  if(!OBJETIVO || !RESULTADOS) return null;
+  const ks=Object.keys(RESULTADOS).sort(); if(!ks.length) return null;
+  const r=RESULTADOS[ks[ks.length-1]]; if(!r) return null;
+  if(r.destaque && r.destaque.obj===OBJETIVO) return {...r.destaque, periodo:r.periodo, compara:r.compara};
+  const rot=ROT_OBJ[OBJETIVO];
+  const m=(r.metricas||[]).find(x=>x.k===rot);
+  return m ? {k:rot, v:m.v, d:m.d, periodo:r.periodo, compara:r.compara} : null;
+}
+function heroHTML(){
+  const h=destaqueAtual(); if(!h) return '';
+  const pct = (META && META>0) ? Math.max(0, Math.min(100, Math.round(h.v/META*100))) : null;
+  const sobe = h.d==null ? null : h.d>0;
+  return '<section class="hero'+(sobe===true?" up":(sobe===false?" down":""))+'">'+
+    '<div class="hero-k">'+esc(h.k)+'<i>o foco do trabalho agora</i></div>'+
+    '<div class="hero-v">'+numBR(h.v)+'</div>'+
+    '<div class="hero-l">'+
+      (h.d==null?'<span class="rs-d zero">sem comparação</span>'
+               :'<span class="rs-d '+(h.d>0?"sobe":(h.d<0?"desce":"zero"))+'">'+
+                 (h.d>0?"\u25B2":(h.d<0?"\u25BC":"\u2022"))+' '+(h.d>0?"+":"")+
+                 String(Math.round(h.d*10)/10).replace(".",",")+'% em relação a '+esc(h.compara||"antes")+'</span>')+
+      (h.novos!=null?'<span class="hero-x">'+(h.novos>0?"+":"")+numBR(h.novos)+' no mês</span>':'')+
+    '</div>'+
+    (pct!=null?'<div class="hero-meta"><div class="hero-bar"><i style="width:'+pct+'%"></i></div>'+
+      '<span>'+numBR(h.v)+' de '+numBR(META)+' · '+pct+'% da meta</span></div>':'')+
+    (h.periodo?'<div class="hero-p">'+esc(h.periodo)+'</div>':'')+
+  '</section>';
+}
 /* ---- resultados do mês (dados do Reportei, enviados pela MK3) ---- */
 let RESULTADOS=null;
 const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
@@ -552,12 +605,12 @@ function ligarDash(){
     DASH_ABERTO=true; cx.innerHTML=dashFrameHTML(r.dash); armarFrame(cx);
   };
 }
-function desenhar(){ $("view").innerHTML = esperando() + resultados() + proximos() + historico(); ligarDash(); }
+function desenhar(){ $("view").innerHTML = heroHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
 const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
-let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
+let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false, OBJETIVO="", META=null;
 
 function marcarAtualizado(){
   let el=document.getElementById("atualiz");
@@ -572,7 +625,7 @@ function aplicarEspelho(v){
   const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
-  RESULTADOS = v.resultados || null;
+  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};
