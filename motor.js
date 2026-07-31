@@ -2068,8 +2068,18 @@ function rotaDe(op){
 function gravarRota(){
   if(ROTA_APLICANDO || !USUARIO) return;
   const r=rotaAtual();
-  if(location.hash!==r){ ROTA_APLICANDO=true; history.replaceState(null,"",r); ROTA_APLICANDO=false; }
+  if(location.hash===r) return;
+  ROTA_APLICANDO=true;
+  /* primeira tela depois do login só ajusta o endereço; as seguintes viram histórico,
+     para o voltar e o avançar do navegador andarem dentro do painel */
+  try{ if(!location.hash) history.replaceState(null,"",r); else history.pushState(null,"",r); }
+  catch(e){ location.hash=r.slice(1); }
+  ROTA_APLICANDO=false;
 }
+window.addEventListener("popstate", ()=>{
+  if(!USUARIO) return;
+  if(aplicarRota()){ VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; ROTA_APLICANDO=true; render(); ROTA_APLICANDO=false; }
+});
 function aplicarRota(){
   const h=(location.hash||"").replace(/^#\/?/,"");
   if(!h) return false;
