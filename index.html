@@ -967,6 +967,50 @@ a.voltar{display:inline-flex;align-items:center;text-decoration:none}
 .cli-tabs a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 a.snav:visited,a.abar-b:visited,a.ccard:visited,a.voltar:visited,.cli-tabs a:visited{color:inherit}
 a.abar-b.on,a.abar-b.on:visited{color:#fff}
+
+/* ===== Funcionários ===== */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+.fcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);padding:16px 16px 14px;
+  animation:slideUp .45s both;transition:transform .18s,border-color .18s}
+.fcard:hover{transform:translateY(-2px);border-color:var(--sup4)}
+.fcard.risco{border-color:rgba(242,85,90,.55)}
+.fcard.cheio{border-color:rgba(249,115,22,.5)}
+.fc-topo{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.fc-topo .card-face{width:38px;height:38px;font-size:14px;margin:0;flex:none}
+.fc-id{min-width:0;flex:1}
+.fc-id b{display:block;font-size:15px;letter-spacing:-.2px}
+.fc-id i{display:block;font-style:normal;font-size:11.5px;color:var(--dim);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fc-tag{flex:none;font-size:10.5px;font-weight:800;color:#1a1005;background:var(--atrasado);
+  border-radius:99px;padding:3px 9px;color:#fff}
+.fc-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+.fc-n{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r2);padding:8px 6px;text-align:center}
+.fc-n span{display:block;font-size:18px;font-weight:800;line-height:1.1}
+.fc-n i{display:block;font-style:normal;font-size:9.5px;color:var(--mut);margin-top:3px;letter-spacing:.2px}
+.fc-n.atrasado span{color:var(--atrasado)} .fc-n.hoje span{color:var(--hoje)}
+.fc-n.semana span{color:var(--semana)} .fc-n.ok span{color:var(--ok)}
+.fc-h{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:7px}
+.fc-barras{display:flex;align-items:flex-end;gap:7px;height:62px}
+.fc-b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative}
+.fc-b i{display:block;width:100%;background:linear-gradient(180deg,var(--mk3),#7C3AED);border-radius:5px 5px 0 0;
+  min-height:3px;transition:height .8s cubic-bezier(.2,0,0,1)}
+.fc-b.alto i{background:linear-gradient(180deg,var(--hoje),#e06a1f)}
+.fc-b.hj i{background:linear-gradient(180deg,var(--mk3o),#e06a1f)}
+.fc-b b{font-size:10.5px;font-weight:700;margin-top:3px;min-height:13px}
+.fc-b span{font-size:9.5px;color:var(--dim)}
+.fc-b.hj span{color:var(--mk3o);font-weight:700}
+.fc-prox{margin-top:11px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
+.fc-prox b{color:var(--txt);font-weight:600}
+.fc-prox.vazio{color:var(--dim);font-style:italic}
+/* ===== Recado do dia ===== */
+.ubtn.rec{border-color:rgba(139,92,246,.5);color:var(--roxo)}
+.ubtn.rec:hover{background:rgba(139,92,246,.14);color:#fff}
+.mbox.recado{max-width:560px}
+.rec-txt{white-space:pre-wrap;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;
+  background:var(--bg);border:1px solid var(--line);border-radius:var(--r2);padding:14px 15px;
+  max-height:52vh;overflow:auto;color:var(--txt);margin:4px 0 4px;user-select:text}
+@media (prefers-reduced-motion:reduce){.fcard{animation:none}.fc-b i{transition:none}}
+@media(max-width:600px){.fgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -1005,7 +1049,7 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202607311659"></script>
-<script src="motor.js?v=202607311659"></script>
+<script src="dados.js?v=202608031624"></script>
+<script src="motor.js?v=202608031624"></script>
 </body>
 </html>

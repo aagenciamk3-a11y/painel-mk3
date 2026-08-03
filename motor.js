@@ -387,6 +387,7 @@ const IC = {
   mkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
   fin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
   com:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  pessoas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.6c3 .2 5 2.3 5 5.4"/></svg>',
   inicio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-6h5v6"/></svg>',
   dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="9" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>',
   todas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
@@ -429,9 +430,9 @@ function posicionarPill(){
 function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
-  const views=[["cards","Clientes",IC.cards],["prio","Tarefas",IC.prio],["lista","Dashboard",IC.dash],
-               ["cal","Agenda",IC.cal],["tend","Tendência",IC.tend]]
-    .filter(v=>v[0]!=="tend" || ehAdmin());
+  const views=[["cards","Clientes",IC.cards],["prio","Tarefas",IC.prio],["equipe","Funcionários",IC.pessoas],
+               ["lista","Dashboard",IC.dash],["cal","Agenda",IC.cal],["tend","Tendência",IC.tend]]
+    .filter(v=>(v[0]!=="tend" && v[0]!=="equipe") || ehAdmin());
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
   h+='<button class="snav inicio" data-sair="1" title="Voltar para a escolha de perfil"><span class="snav-i">'+IC.inicio+'</span><span class="snav-t">Início</span></button>';
   h+='<div class="side-sec">Ver</div>';
@@ -1293,6 +1294,12 @@ function handleModal(D){
     semPular(()=>abrirClientes()); toast("Cliente salvo",true); return;
   }
   if(D.macao==="fecharcli"){ semPular(()=>abrirClientes()); return; }
+  if(D.macao==="copiarrecado"){
+    const el=$("recTxt"); const t=el?el.textContent:"";
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast("Recado copiado",true)).catch(()=>toast("Não consegui copiar, selecione o texto")); }
+    else toast("Selecione o texto para copiar");
+    return;
+  }
   if(D.macao==="salvartit"){ renomearTarefa(D.mcid,D.mtid,($("novoTit")&&$("novoTit").value)||""); fecharModal(); toast("Título atualizado",true); return; }
   if(D.macao==="restauratit"){ renomearTarefa(D.mcid,D.mtid,""); fecharModal(); toast("Nome original restaurado",true); return; }
   if(D.macao==="salvarobst"){
@@ -1556,6 +1563,103 @@ function resultadosPainelHTML(){
       '</div>';
     }).join("")+
     '<div class="db-obs">'+esc(linhas[0].r.periodo||"")+(linhas[0].r.compara?" · comparado com "+esc(linhas[0].r.compara):"")+'</div></div>';
+}
+
+/* ================= FUNCIONÁRIOS (carga por pessoa) ================= */
+function pessoasVisiveis(){ return (ESTADO.pessoas||[]).slice(); }
+function areasDaPessoa(p){ return p.admin ? ["all"] : ((p.areas||[]).filter(a=>a!=="all")); }
+function tarefasDe(nome){
+  const p=pessoaPorNome(nome); if(!p) return [];
+  return TODAS.filter(t=>{
+    if(t.fase==="Demanda") return t.resp===nome;      /* demanda tem dono com nome */
+    if(p.admin) return false;                          /* admin só conta o que tem o nome dele */
+    return (p.areas||[]).indexOf(t.area)>=0;
+  });
+}
+function cargaSemana(ts){
+  const ini=segOf(iso(HOJE)), dias=[0,1,2,3,4].map(i=>addD(ini,i));
+  return dias.map(d=>({dia:d, n:ts.filter(t=>t.data===d && t.st.k!=="ok").length}));
+}
+function funcionariosHTML(){
+  if(!ehAdmin()) return '<div class="vazio">Só a administração vê esta tela.</div>';
+  const ROT={all:"todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
+  const pes=pessoasVisiveis();
+  const cartoes=pes.map((p,i)=>{
+    const ts=tarefasDe(p.nome);
+    const n=k=>ts.filter(t=>t.st.k===k).length;
+    const atras=n("atrasado"), hoje=n("hoje");
+    const semana=ts.filter(t=>["umdia","semana"].indexOf(t.st.k)>=0).length;
+    const ym=iso(HOJE).slice(0,7);
+    const feitas=ts.filter(t=>t.st.k==="ok" && t.dataConclusao && String(t.dataConclusao).slice(0,7)===ym).length;
+    const sem=cargaSemana(ts), pico=Math.max(1,...sem.map(x=>x.n));
+    const prox=ts.filter(t=>t.st.k!=="ok" && t.data).sort((a,b)=>String(a.data).localeCompare(String(b.data)))[0];
+    const DOW=["Seg","Ter","Qua","Qui","Sex"];
+    const alerta = atras>0 ? "risco" : (sem.some(x=>x.n>=5) ? "cheio" : "");
+    return '<div class="fcard '+alerta+'" style="animation-delay:'+(i*70)+'ms">'+
+      '<div class="fc-topo">'+faceDe(p.nome)+
+        '<div class="fc-id"><b>'+esc(p.nome)+'</b><i>'+esc(areasDaPessoa(p).map(a=>ROT[a]||a).join(" · ")||"sem área")+
+        (p.admin?' · administração':'')+'</i></div>'+
+        (atras>0?'<span class="fc-tag">'+atras+' atrasada'+(atras>1?'s':'')+'</span>':'')+
+      '</div>'+
+      '<div class="fc-nums">'+
+        '<div class="fc-n atrasado"><span data-num="'+atras+'">0</span><i>atrasado</i></div>'+
+        '<div class="fc-n hoje"><span data-num="'+hoje+'">0</span><i>vence hoje</i></div>'+
+        '<div class="fc-n semana"><span data-num="'+semana+'">0</span><i>esta semana</i></div>'+
+        '<div class="fc-n ok"><span data-num="'+feitas+'">0</span><i>feitas no mês</i></div>'+
+      '</div>'+
+      '<div class="fc-sem"><div class="fc-h">Carga da semana</div><div class="fc-barras">'+
+        sem.map((x,j)=>'<div class="fc-b'+(x.dia===iso(HOJE)?" hj":"")+(x.n>=5?" alto":"")+'">'+
+          '<i style="height:0" data-alt="'+Math.round(x.n/pico*100)+'"></i>'+
+          '<b>'+(x.n||"")+'</b><span>'+DOW[j]+'</span></div>').join("")+
+      '</div></div>'+
+      (prox?'<div class="fc-prox">Próxima: <b>'+esc(prox.tarefa)+'</b> · '+esc(prox.cliente||"")+' · '+fmt(prox.data)+'</div>'
+           :'<div class="fc-prox vazio">Nada na fila.</div>')+
+    '</div>';
+  }).join("");
+  const semDono=["mkt","fin","com"].filter(a=>!(ESTADO.pessoas||[]).some(p=>!p.admin && (p.areas||[]).indexOf(a)>=0));
+  return '<div class="fgrid">'+cartoes+'</div>'+
+    (semDono.length?'<div class="db-obs">Sem ninguém responsável: '+semDono.map(a=>ROT[a]).join(", ")+
+      '. Defina em Equipe para a carga aparecer aqui.</div>':'');
+}
+
+/* ================= RECADO DO DIA ================= */
+function recadoTexto(){
+  const ts=TODAS.filter(t=>t.st.k!=="ok");
+  const cli=t=>t.cliente||"";
+  const donoDe=t=>{
+    if(t.fase==="Demanda") return t.resp||"";
+    if(t.resp==="Cliente") return "cliente";
+    const p=(ESTADO.pessoas||[]).find(x=>!x.admin && (x.areas||[]).indexOf(t.area)>=0);
+    return p?p.nome:"";
+  };
+  const linha=t=>{ const d=donoDe(t); return "- "+cli(t)+": "+t.tarefa+(d?" ("+d+")":""); };
+  const LIM=8;
+  const bloco=(tit,arr,fn)=>{ if(!arr.length) return "";
+    const cabe=arr.slice(0,LIM), resto=arr.length-cabe.length;
+    return "\n"+tit+" ("+arr.length+")\n"+cabe.map(fn).join("\n")+(resto>0?"\n- e mais "+resto:"")+"\n"; };
+  const atras=ts.filter(t=>t.st.k==="atrasado").sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  const hoje=ts.filter(t=>t.st.k==="hoje");
+  const amanha=ts.filter(t=>t.st.k==="umdia");
+  const cobrar=ts.filter(t=>t.resp==="Cliente" && (t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia"));
+  const dia=HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"2-digit"});
+  let s="MK3 - "+dia.charAt(0).toUpperCase()+dia.slice(1)+"\n";
+  s+=bloco("ATRASADO", atras, t=>linha(t)+" - venceu "+fmt(t.data));
+  s+=bloco("VENCE HOJE", hoje, linha);
+  s+=bloco("AMANHA", amanha, linha);
+  s+=bloco("COBRAR O CLIENTE", cobrar, t=>"- "+cli(t)+": "+t.tarefa+" - prazo "+fmt(t.data));
+  if(!atras.length && !hoje.length && !amanha.length){ s+="\nNada vencendo hoje nem amanha. Dia livre para adiantar o que vem.\n"; }
+  return s.trim();
+}
+function abrirRecado(){
+  if(!ehAdmin()) return;
+  const txt=recadoTexto();
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox recado"><h3>Recado do dia</h3>'+
+    '<p class="msub">Texto pronto para colar no grupo. Gerado agora, com o que está no painel.</p>'+
+    '<pre class="rec-txt" id="recTxt">'+esc(txt)+'</pre>'+
+    '<div class="mbtns"><button data-macao="copiarrecado">Copiar texto</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
 }
 function dashboardHTML(completo){
   const ts=tarefasArea();
@@ -1953,7 +2057,7 @@ function histHTML(c){
 function tituloContexto(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const A={all:"Visão geral · todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
-  const V={cards:"Clientes",prio:"Tarefas",cal:"Agenda",lista:"Dashboard",tend:"Tendência de atrasos"};
+  const V={cards:"Clientes",prio:"Tarefas",equipe:"Funcionários",cal:"Agenda",lista:"Dashboard",tend:"Tendência de atrasos"};
   const AB={cal:"Calendário",tarefas:"Tarefas",tend:"Tendência",hist:"Histórico"};
   let t = c ? c.nome : (V[VISTA.modo]||"");
   const bits=[A[VISTA.area]||""];
@@ -2016,6 +2120,7 @@ function render(){
   $("editbar").innerHTML =
     '<button class="ubtn" data-undo="1"'+(UNDO.length?"":" disabled")+' title="Desfazer">&#8624; Desfazer</button>'+
     '<button class="ubtn" data-redo="1"'+(REDO.length?"":" disabled")+' title="Refazer">&#8625; Refazer</button>'+
+    (ehAdmin()?'<button class="ubtn rec" data-recado="1" title="Texto pronto para o grupo">&#9998; Recado do dia</button>':'')+
     ((ehAdmin()&&nExcluidas())?'<button class="ubtn" data-lixeira="1" title="Ver tarefas excluídas">&#128465; '+nExcluidas()+' excluída'+(nExcluidas()>1?'s':'')+'</button>':'')+
     '<span class="salvo" id="salvo" aria-live="polite"></span>'+
     '<span class="syncst" id="syncst" title="Sincronização entre a equipe"></span>'+
@@ -2029,8 +2134,9 @@ function render(){
 
   if(!c){
     let body;
-    if(VISTA.modo==="tend" && !ehAdmin()) VISTA.modo="lista";
-    if(VISTA.modo==="tend")       body = tendenciaHTML();
+    if((VISTA.modo==="tend"||VISTA.modo==="equipe") && !ehAdmin()) VISTA.modo="lista";
+    if(VISTA.modo==="equipe")     body = funcionariosHTML();
+    else if(VISTA.modo==="tend")  body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
@@ -2091,7 +2197,7 @@ function aplicarRota(){
   if(!h) return false;
   const p=h.split("/").filter(Boolean).map(decodeURIComponent);
   const areas=["all","mkt","fin","com"];
-  const modos=["cards","prio","lista","cal","tend"];
+  const modos=["cards","prio","equipe","lista","cal","tend"];
   const abas=["cal","tarefas","tend","hist"];
   let mudou=false;
   if(p[0]==="cliente" && p[1]){
@@ -2103,7 +2209,7 @@ function aplicarRota(){
     VISTA.escopo=null; VISTA.modo=p[0]; mudou=true;
     if(p[1] && areas.indexOf(p[1])>=0 && podeArea(p[1])) VISTA.area=p[1];
   }
-  if(VISTA.modo==="tend" && !ehAdmin()) VISTA.modo="lista";
+  if((VISTA.modo==="tend"||VISTA.modo==="equipe") && !ehAdmin()) VISTA.modo="lista";
   if(VISTA.aba==="tend" && !ehAdmin()) VISTA.aba="cal";
   return mudou;
 }
@@ -2116,7 +2222,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -2160,6 +2266,7 @@ document.addEventListener("click", function(ev){
     setPerm(D.pnome, D.permb, !atual); return;
   }
   if(D.portais){ abrirPortais(); return; }
+  if(D.recado){ abrirRecado(); return; }
   if(D.novolink){ trocarLink(D.novolink); return; }
   if(D.copiar){
     const txt=D.copiar;
@@ -2195,7 +2302,7 @@ document.addEventListener("click", function(ev){
   if(D.editarmotivo){ abrirMotivo(D.mcid,D.mtid,D.mday); return; }
   if(D.editarobs){ abrirObsDemanda(D.editarobs, true); return; }
   if(D.side==="toggle"){ VISTA.side=!VISTA.side; try{localStorage.setItem("mk3_side",VISTA.side?"1":"0");}catch(e){} const ap=$("app"); if(ap) ap.classList.toggle("side-col",VISTA.side); return; }
-  if(D.view){ if(D.view==="tend" && !ehAdmin()) return; VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  if(D.view){ if((D.view==="tend"||D.view==="equipe") && !ehAdmin()) return; VISTA.escopo=null; VISTA.modo=D.view; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.area){ if(!podeArea(D.area)) return; if(VISTA.area===D.area) return;
     VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false;
     /* a área é só um filtro: mantém a seção e o cliente abertos */
