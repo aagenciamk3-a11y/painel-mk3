@@ -43,6 +43,28 @@ const conclusaoDe = (c, id) => {
   return {feita:false, data:null};
 };
 
+const CORTE_CHECKLIST = "2026-07-01";   /* o checklist de 14 etapas vale para quem entrou daqui em diante */
+function mesesDepois(isoData, n){
+  const p=String(isoData).split("-").map(Number);
+  const d=new Date(p[0], p[1]-1+n, 1);
+  const ultimo=new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  d.setDate(Math.min(p[2], ultimo));
+  return iso(d);
+}
+/* devolve só a ocorrência corrente de um ciclo: a primeira ainda não concluída */
+function ocorrenciaAtual(cli, inicio, meses, prefixo, idPrimeira){
+  if(!inicio) return null;
+  const limite = addD(iso(HOJE), 45);
+  let base = inicio;
+  for(let i=0;i<80;i++){
+    const prox = mesesDepois(base, meses);
+    const id = (i===0 && idPrimeira) ? idPrimeira : prefixo+"_"+prox;
+    if(!conclusaoDe(cli, id).feita) return {id:id, data:prox};
+    base = prox;
+    if(prox > limite) return null;
+  }
+  return null;
+}
 function regras(c){
   const T=[];
   const add=(id,fase,tarefa,detalhe,data,resp)=>{
@@ -58,6 +80,10 @@ function regras(c){
   add("boasvindas","Entrada","Mensagem de boas-vindas","No grupo, com os próximos passos",D0,"Estagiário");
   add("onboarding","Entrada","Enviar onboarding","Por WhatsApp e por e-mail",D0,"Estagiário");
   add("acessos","Entrada","Coletar acessos","Instagram, Facebook, LinkedIn e demais",D0,"Estagiário");
+  if(D0 && D0>=CORTE_CHECKLIST){
+    add("planilha","Entrada","Planilha de acessos","E-mail, senha, 2FA e códigos de reserva · 01. ACESSOS",D0,"Estagiário");
+    add("fotoMarca","Entrada","Salvar a foto da marca","02 → 06. Identidade Visual · vira a foto do grupo",D0,"Estagiário");
+  }
   add("prints","Entrada","Print das redes na chegada","Antes de qualquer ação · 02 → 04 Registro visual",D0,"Estagiário");
   add("reserva","Entrada","Código de reserva 2FA","Print salvo em 01. Acessos",D0,"Estagiário");
 
@@ -69,6 +95,11 @@ function regras(c){
       c.imersao?uteis(c.imersao,1):null,"Analista");
   add("reuniaoPlan","Entrada","Reunião de planejamento (entrada)","Temas, datas do negócio, tráfego",
       c.reuniaoPlanejamentoEntrada,"Analista");
+  if(D0 && D0>=CORTE_CHECKLIST)
+    add("revisaoOnb","Entrada","Revisão final do onboarding","Conferir as 14 etapas uma a uma antes de encerrar",
+        c.imersao?uteis(c.imersao,2):uteis(D0,10),"Analista");
+
+
 
   /* 1º CICLO — cadeia de 2 dias úteis. Cada etapa re-ancora na data
      REAL quando ela existe; sem data real, usa o limite do prazo. */
@@ -125,8 +156,13 @@ function regras(c){
   }
 
   /* GATILHOS RECORRENTES */
-  add("reserva3m","Recorrente","Atualizar código de reserva","A cada 3 meses",addM(D0,3),"Estagiário");
-  add("pesq6m","Recorrente","Atualizar as duas pesquisas","A cada 6 meses",addM(D0,6),"Analista");
+  /* ciclos que voltam sozinhos: ao concluir um, o painel já marca o próximo */
+  const r2fa = ocorrenciaAtual(c, D0, 3, "rec_2fa", "reserva3m");
+  if(r2fa) add(r2fa.id,"Recorrente","Atualizar código de reserva (2FA)",
+      "A cada 3 meses · pegar no Instagram e salvar em 01. ACESSOS", r2fa.data, "Estagiário");
+  const rpq = ocorrenciaAtual(c, D0, 6, "rec_pesq", "pesq6m");
+  if(rpq) add(rpq.id,"Recorrente","Atualizar as duas pesquisas",
+      "A cada 6 meses · mercado e comportamento, cada uma na pasta do ano e do mês", rpq.data, "Analista");
   add("renov","Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
       c.vencimentoContrato?addD(c.vencimentoContrato,-20):null,"Gestão");
   if(c.vencimentoContrato)
@@ -1472,7 +1508,7 @@ function cardsHTML(){
         '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3><span class="badge-ativo">Ativo</span></div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
           '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
-      '</div></button>';
+      onbBadgeHTML(c)+'</div></a>';
   }).join("");
 }
 
@@ -1565,6 +1601,61 @@ function resultadosPainelHTML(){
     '<div class="db-obs">'+esc(linhas[0].r.periodo||"")+(linhas[0].r.compara?" · comparado com "+esc(linhas[0].r.compara):"")+'</div></div>';
 }
 
+
+/* ================= ONBOARDING (as 14 etapas obrigatórias) ================= */
+const ONBOARDING = [
+  ["pasta","Estrutura de pastas do cliente"],
+  ["planilha","Planilha de acessos com e-mail e senha"],
+  ["acessos","Coletar os acessos das redes"],
+  ["fotoMarca","Foto da marca salva como arquivo"],
+  ["grupo","Grupo de WhatsApp criado"],
+  ["boasvindas","Boas-vindas enviadas no grupo"],
+  ["onboarding","Onboarding por WhatsApp e por e-mail"],
+  ["prints","Prints das redes na chegada", true],
+  ["reserva","Códigos de reserva 2FA", true],
+  ["pesq2","Pesquisa de mercado e demanda", true],
+  ["pesq1","Pesquisa de comportamento em redes", true],
+  ["imersao","Reunião de imersão marcada e feita"],
+  ["imersaoDoc","Documento da imersão tratado"],
+  ["revisaoOnb","Revisão final, etapa por etapa"]
+];
+const CURTO = {prints:"prints de chegada", reserva:"códigos 2FA", pesq2:"pesquisa de mercado", pesq1:"pesquisa de comportamento"};
+function onboardingDe(c){
+  const ts=TODAS.filter(t=>t.clienteId===c.id);
+  const itens=ONBOARDING.map(o=>{
+    const t=ts.find(x=>x.id===o[0]);
+    return t ? {id:o[0], rot:o[1], critico:!!o[2], feita:t.st.k==="ok", data:t.data, st:t.st.k} : null;
+  }).filter(Boolean);
+  const feitas=itens.filter(i=>i.feita).length;
+  const criticas=itens.filter(i=>i.critico && !i.feita);
+  return {itens:itens, feitas:feitas, total:itens.length, criticas:criticas,
+          completo: itens.length>0 && feitas===itens.length};
+}
+function onbBadgeHTML(c){
+  const o=onboardingDe(c); if(!o.total) return '';
+  const recente = c.entrada && dias(c.entrada) > -120;
+  if(o.completo && !recente) return '';
+  const pct=Math.round(o.feitas/o.total*100);
+  return '<div class="onb'+(o.completo?" ok":(o.criticas.length?" crit":""))+'">'+
+    '<div class="onb-t">'+(o.completo?"Onboarding completo":"Onboarding")+'<b>'+o.feitas+'/'+o.total+'</b></div>'+
+    '<div class="onb-bar"><i style="width:0" data-larg="'+pct+'"></i></div>'+
+    (o.criticas.length?'<div class="onb-c">Falta: '+o.criticas.map(i=>esc(CURTO[i.id]||i.rot)).join(", ")+'</div>':'')+
+  '</div>';
+}
+function onboardingHTML(c){
+  const o=onboardingDe(c); if(!o.total) return '';
+  return '<section class="onb-box'+(o.completo?" ok":"")+'">'+
+    '<div class="onb-h"><b>Onboarding</b><span>'+o.feitas+' de '+o.total+' etapas</span>'+
+      (o.criticas.length?'<i class="onb-al">'+o.criticas.length+' obrigatória'+(o.criticas.length>1?'s':'')+' em aberto</i>':'')+'</div>'+
+    '<div class="onb-lista">'+o.itens.map(i=>
+      '<div class="onb-i'+(i.feita?" feita":"")+(i.critico?" critico":"")+'">'+
+        '<span class="onb-ck">'+(i.feita?"&#10003;":"")+'</span>'+
+        '<span class="onb-r">'+esc(i.rot)+(i.critico?'<em>obrigatória</em>':'')+'</span>'+
+        '<span class="onb-d">'+(i.data?fmt(i.data):"sem data")+'</span>'+
+      '</div>').join("")+'</div>'+
+    (o.completo?'<div class="onb-fim">Tudo conferido. Cliente pronto para o ciclo normal.</div>':'')+
+  '</section>';
+}
 /* ================= FUNCIONÁRIOS (carga por pessoa) ================= */
 function pessoasVisiveis(){ return (ESTADO.pessoas||[]).slice(); }
 function areasDaPessoa(p){ return p.admin ? ["all"] : ((p.areas||[]).filter(a=>a!=="all")); }
@@ -2156,7 +2247,7 @@ function render(){
       '<a class="'+(VISTA.aba===t[0]?"on":"")+'" href="'+rotaDe({aba:t[0]})+'" data-cliaba="'+t[0]+'">'+t[1]+'</a>').join("")+'</div></div>';
 
   const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), (VISTA.area==="all"||VISTA.area==="mkt")?c.marcos:[], false)
-             : VISTA.aba==="tarefas" ? tarefasHTML(c)
+             : VISTA.aba==="tarefas" ? (onboardingHTML(c)+tarefasHTML(c))
              : (VISTA.aba==="tend" && ehAdmin()) ? tendenciaHTML()
              : histHTML(c);
   $("view").innerHTML = bar + body; animar(); gravarRota();
