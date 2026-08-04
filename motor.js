@@ -562,7 +562,7 @@ function syncIniciar(){
       const dele=JSON.stringify(v);
       if(meu===dele) return;
       SYNC_APLICANDO=true;
-      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},log:[], ...v};
+      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},ficha:{},log:[], ...v};
       try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
       rebuild(); render();
       SYNC_APLICANDO=false;
@@ -625,11 +625,11 @@ function marcar(cid,tid,data,tipo){
   ESTADO.concluidas[cid]=(ESTADO.concluidas[cid]||[]).filter(e=>e.id!==tid);
   if(tipo==="desfazer"){
     if(anc && ESTADO.datas[cid]) delete ESTADO.datas[cid][anc.campo];
-    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:"desfazer",id:tid});
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:"desfazer",id:tid,quem:USUARIO||null});
   } else {
     ESTADO.concluidas[cid].push({id:tid,data:data});
     if(anc){ ESTADO.datas[cid]=ESTADO.datas[cid]||{}; ESTADO.datas[cid][anc.campo]=data; }
-    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:(anc?"registrar":"concluir"),campo:(anc?anc.campo:null),id:tid,data:data});
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:nome,acao:(anc?"registrar":"concluir"),campo:(anc?anc.campo:null),id:tid,data:data,quem:USUARIO||null});
   }
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
@@ -1326,10 +1326,13 @@ function handleModal(D){
       segmento:$("clSeg")&&$("clSeg").value, entrada:$("clEnt")&&$("clEnt").value,
       vencimentoContrato:($("clVen")&&$("clVen").value)||null,
       objetivo:($("clObj")&&$("clObj").value)||"",
-      meta:(($("clMeta")&&$("clMeta").value)||"")===""?null:Number($("clMeta").value)});
+      meta:(($("clMeta")&&$("clMeta").value)||"")===""?null:Number($("clMeta").value),
+      drive:($("clDrive")&&$("clDrive").value.trim())||"", insta:($("clInsta")&&$("clInsta").value.trim())||"",
+      wpp:($("clWpp")&&$("clWpp").value.trim())||""});
     semPular(()=>abrirClientes()); toast("Cliente salvo",true); return;
   }
   if(D.macao==="fecharcli"){ semPular(()=>abrirClientes()); return; }
+  if(D.macao==="salvarficha"){ salvarFicha(D.cliid); return; }
   if(D.macao==="copiarrecado"){
     const el=$("recTxt"); const t=el?el.textContent:"";
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast("Recado copiado",true)).catch(()=>toast("Não consegui copiar, selecione o texto")); }
@@ -1402,7 +1405,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, clientes:{...(a.clientes||{}),...((b&&b.clientes)||{})}, resultados:{...(a.resultados||{}),...((b&&b.resultados)||{})}, novosClientes:(b&&b.novosClientes)?b.novosClientes:(a.novosClientes||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, clientes:{...(a.clientes||{}),...((b&&b.clientes)||{})}, resultados:{...(a.resultados||{}),...((b&&b.resultados)||{})}, ficha:{...(a.ficha||{}),...((b&&b.ficha)||{})}, novosClientes:(b&&b.novosClientes)?b.novosClientes:(a.novosClientes||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -1416,7 +1419,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1471,7 +1474,7 @@ const linha = (t, showCli) => '<div class="row editavel'+(showCli?" rowc":"")+'"
   '<div class="tarefa">'+esc(t.tarefa)+(t.detalhe?'<em>'+esc(t.detalhe)+'</em>':'')+'</div>'+
   (showCli?'<div class="cli">'+esc(t.cliente)+'</div>':'')+
   '<div class="data">'+fmt(t.data)+' <span class="dow">'+dow(t.data)+'</span></div>'+
-  '<div class="resp">'+esc(t.resp)+'</div>'+
+  '<div class="resp">'+esc(t.resp)+carimboHTML(t)+'</div>'+
   (t.st.k==="ok" ? '<span class="row-ok" aria-hidden="true" style="opacity:.5">&#10003;</span>'
     : '<button class="row-ok" data-rowok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" title="Concluir hoje" aria-label="Concluir hoje">&#10003;</button>')+
   '</div>';
@@ -1508,7 +1511,7 @@ function cardsHTML(){
         '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3><span class="badge-ativo">Ativo</span></div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
           '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
-      onbBadgeHTML(c)+'</div></a>';
+      onbBadgeHTML(c)+linksHTML(c,"card")+'</div></a>';
   }).join("");
 }
 
@@ -1602,6 +1605,157 @@ function resultadosPainelHTML(){
 }
 
 
+
+/* ================= FICHA DA MARCA, LINKS E CARIMBO ================= */
+/* quem marcou a tarefa como feita, lido do próprio log */
+function carimboDe(cid,tid){
+  const e=(ESTADO.log||[]).find(x=>x.cliente===cid && x.id===tid && (x.acao==="concluir"||x.acao==="registrar"));
+  if(!e || !e.quem) return null;
+  const d=new Date(e.ts);
+  return {quem:e.quem, quando:d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})+" às "+
+          d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};
+}
+function carimboHTML(t){
+  if(t.st.k!=="ok") return '';
+  const c=carimboDe(t.clienteId,t.id); if(!c) return '';
+  return '<span class="carimbo" data-tt="'+escAttr(c.quem+" marcou em "+c.quando)+'">'+esc(c.quem)+'</span>';
+}
+
+/* links úteis de cada cliente */
+const LINKS_PADRAO = {
+  suelem:   {drive:"https://drive.google.com/drive/folders/1O5eYgdfNYqghQnjc0q84_NpBcW9Cr63m", insta:"suelemmartinsgomes"},
+  leonardo: {drive:"https://drive.google.com/drive/folders/1eadjcdimP-grmxJRpjslvLIHoLZ0fBqp", insta:"leonardodepaulacorretor"},
+  cynthia:  {drive:"https://drive.google.com/drive/folders/1SlPUFY7OOSqso9lhAUfi92dFg2j23Eza", insta:""},
+  oceanus:  {drive:"https://drive.google.com/drive/folders/1FAUG6fIzv3nIB1bqlUdAkHEX2BFSqQN0", insta:"escolaoceanus"},
+  adriana:  {drive:"https://drive.google.com/drive/folders/1Mr_J56Sp8d2wnaTIfjkOT6BlXQlIXaHf", insta:""}
+};
+function linksDe(c){
+  const ed=(ESTADO.clientes&&ESTADO.clientes[c.id])||{}, pad=LINKS_PADRAO[c.id]||{};
+  const v=k=>(ed[k]!==undefined && ed[k]!==null && ed[k]!=="") ? ed[k] : (pad[k]||"");
+  const insta=String(v("insta")).replace(/^@/,"").trim();
+  const wpp=String(v("wpp")).replace(/\D/g,"");
+  return {drive:v("drive"), insta:insta?("https://instagram.com/"+insta):"", instaNome:insta,
+          wpp:wpp?("https://wa.me/"+(wpp.length<=11?"55":"")+wpp):"", wppNum:wpp};
+}
+const IC_LINK = {
+  drive:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5A1.5 1.5 0 0 1 17.5 19h-13A1.5 1.5 0 0 1 3 17.5z"/></svg>',
+  insta:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>',
+  wpp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 0 1-11.9 7L4 20l1.1-3.9A8 8 0 1 1 20 12z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.4-2-1-.8.9c-1-.5-1.8-1.3-2.2-2.3l.9-.8-1-2z" fill="currentColor" stroke="none"/></svg>'
+};
+function linksHTML(c, cls){
+  const L=linksDe(c), b=[];
+  if(L.drive) b.push('<span class="lnk" role="link" tabindex="0" data-abrir="'+escAttr(L.drive)+'" data-tt="Pasta no Drive">'+IC_LINK.drive+'</span>');
+  if(L.insta) b.push('<span class="lnk" role="link" tabindex="0" data-abrir="'+escAttr(L.insta)+'" data-tt="@'+escAttr(L.instaNome)+'">'+IC_LINK.insta+'</span>');
+  if(L.wpp)   b.push('<span class="lnk" role="link" tabindex="0" data-abrir="'+escAttr(L.wpp)+'" data-tt="WhatsApp do cliente">'+IC_LINK.wpp+'</span>');
+  return b.length?'<div class="lnks '+(cls||"")+'">'+b.join("")+'</div>':'';
+}
+
+/* ficha da marca — o que a equipe precisa na hora de escrever */
+const FICHA_PADRAO = {
+  cynthia:{
+    frase:"Venda com propósito: realizar a conquista do cliente, não só fechar negócio.",
+    objetivo:"Visibilidade e público de Vitória. Hoje a base é de Cachoeiro e o engajamento é fraco.",
+    publico:"Médio e alto padrão em Vitória. Muito por indicação. Investidores e quem cuida de saúde e estética.",
+    tom:"Meiga e direta. Fala coisa difícil sem ofender. Nunca omite defeito do imóvel: se é sol da tarde, é sol da tarde.",
+    temas:"Viagens, restaurantes e barzinhos, família, filhos adultos, esportes sem exagero, charuto.",
+    evitar:"Palavrão, agressividade, inventar ou omitir informação do imóvel, cliente especulador.",
+    visual:"Moderna tradicional. Paleta marrom, bege, boho, branco, azul marinho e vinho. Sem estampa.",
+    refs:"Suelem, Larissa Moraes (refugios.lar.lare), Carolina Zarch.",
+    sucesso:"Um cliente chegar pelo Instagram, e ser reconhecida na região onde mora."
+  },
+  leonardo:{
+    frase:"Autenticidade, conhecimento e autoridade no mercado imobiliário. 11 anos no setor, 22 em vendas.",
+    objetivo:"Mais autoridade e mais vendas. Mede por captações e por quanta gente chega até ele.",
+    publico:"Investidores e famílias em evolução, 30 a 50 anos, com filhos e pets, do interior do ES. Pessoas de fé.",
+    tom:"Próximo, humano e técnico na medida. Clareza e objetividade, odeia enrolação.",
+    temas:"Clientes felizes, etapas da compra, dados de mercado, bastidores, família e natureza. Formação em Geoprocessamento é diferencial.",
+    evitar:"Política, futebol e religião de forma polêmica. Mentira, palavrão, tratar cliente como número.",
+    visual:"Ainda sem branding fechado. Deseja estudo de cores e fontes no futuro.",
+    refs:"Jesus, Kleverson.",
+    sucesso:"Comprar a casa, o apartamento e trocar de carro."
+  },
+  adriana:{
+    frase:"Elevando a autoestima da mulher.",
+    objetivo:"Profissionalizar o perfil e trazer gente de fora do bairro para a loja.",
+    publico:"Mulheres maduras que gostam de se vestir bem, confortável e intencional. Cariacica, Jardim América e Vila Velha.",
+    tom:"Amigável, empática, confiante.",
+    temas:"Moda, autoestima, autoconfiança, cores, modelagem, caimento, tecido, versatilidade. Consultoria de imagem (Transforma Dinha).",
+    evitar:"Política, religião de forma forte, polêmica que obriga escolher lado. Atrair quem compra só por preço.",
+    visual:"Mulher madura, segura, estilosa. Nada desleixado ou triste.",
+    refs:"Silva Braz, Tom Braga (formato dos vídeos), Karine Mozer.",
+    sucesso:"Constância no perfil e clientes novos conhecendo a marca pelo conteúdo."
+  },
+  suelem:{
+    frase:"Acolhimento e envolvimento real com a história de cada cliente. Ela não desiste.",
+    objetivo:"Ser a corretora mais lembrada de Cariacica. Ampliar vendas por indicação e consolidar a marca.",
+    publico:"Homens e mulheres a partir de 27 anos em transição: casamento, primeiro imóvel, ampliação de patrimônio, investimento. Do Minha Casa Minha Vida ao alto padrão.",
+    tom:"Empático, próximo, direto e inspirador. Adapta ao cliente, foge do padrão engessado.",
+    temas:"Bastidores reais, jornada do cliente, fé, família. Frases dela: \"Esse imóvel é um espetáculo!\", \"Juntos somos mais fortes.\"",
+    evitar:"Mentir, forçar venda, agir por comissão.",
+    visual:"Simples, elegante, com toque familiar, moderno e espiritual.",
+    refs:"Rosângela Bastos, Tais Nascimento.",
+    sucesso:"Ser referência em Cariacica: respeitada, indicada e admirada."
+  }
+};
+const FICHA_CAMPOS = [
+  ["frase","A marca em uma frase"],
+  ["objetivo","Objetivo do cliente"],
+  ["publico","Quem é o público"],
+  ["tom","Tom de voz"],
+  ["temas","Temas da marca"],
+  ["evitar","O que NÃO abordar"],
+  ["visual","Identidade visual"],
+  ["refs","Referências que admira"],
+  ["sucesso","O que é sucesso pra ele"]
+];
+function fichaDe(c){
+  const salva=(ESTADO.ficha&&ESTADO.ficha[c.id])||{}, pad=FICHA_PADRAO[c.id]||{};
+  const f={}; FICHA_CAMPOS.forEach(k=>{ f[k[0]] = (salva[k[0]]!==undefined && salva[k[0]]!=="") ? salva[k[0]] : (pad[k[0]]||""); });
+  return f;
+}
+function fichaHTML(c){
+  const f=fichaDe(c), tem=FICHA_CAMPOS.some(k=>f[k[0]]);
+  if(!tem) return '<div class="vazio">Sem ficha da marca ainda. '+(ehAdmin()?'Clique em Editar ficha para preencher a partir da imersão.':'Peça para a administração preencher a partir da imersão.')+'</div>'+
+    (ehAdmin()?'<div class="mbtns"><button data-ficha="'+escAttr(c.id)+'">Editar ficha</button></div>':'');
+  return '<section class="ficha">'+
+    '<div class="fh-topo"><b>Ficha da marca</b><span>o que a imersão deixou combinado</span>'+
+      (ehAdmin()?'<button class="ubtn" data-ficha="'+escAttr(c.id)+'">Editar</button>':'')+'</div>'+
+    '<div class="fh-grid">'+FICHA_CAMPOS.filter(k=>f[k[0]]).map(k=>
+      '<div class="fh-c'+(k[0]==="evitar"?" nao":"")+(k[0]==="frase"?" destaque":"")+'">'+
+        '<div class="fh-k">'+esc(k[1])+'</div><div class="fh-v">'+esc(f[k[0]])+'</div></div>').join("")+
+    '</div></section>';
+}
+function abrirFicha(cid){
+  if(!ehAdmin()) return;
+  const c=cliente(cid); if(!c) return;
+  const f=fichaDe(c);
+  $("modal").innerHTML='<div class="mbox fichaform"><h3>Ficha da marca · '+esc(c.nome)+'</h3>'+
+    '<p class="msub">Sai da imersão e serve na hora de escrever. Deixe em branco o que não se aplica.</p>'+
+    FICHA_CAMPOS.map(k=>'<label class="mlab">'+esc(k[1])+
+      '<textarea id="fh_'+k[0]+'" rows="2">'+esc(f[k[0]])+'</textarea></label>').join("")+
+    '<div class="mbtns"><button data-macao="salvarficha" data-cliid="'+escAttr(c.id)+'">Salvar</button>'+
+    '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
+  mostrarModal(true);
+}
+function salvarFicha(cid){
+  if(!ehAdmin()) return;
+  snapshot(); ESTADO.ficha=ESTADO.ficha||{}; const o={};
+  FICHA_CAMPOS.forEach(k=>{ const el=$("fh_"+k[0]); o[k[0]]=el?el.value.trim():""; });
+  ESTADO.ficha[cid]=o; persist(); rebuild(); render(); toast("Ficha salva",true);
+}
+
+/* ---- rotina automática: quando os resultados foram atualizados ---- */
+function statusRotinaHTML(){
+  let ult=null;
+  const R=ESTADO.resultados||{};
+  for(const cid in R) for(const ym in R[cid]){ const a=R[cid][ym].atualizado; if(a && (!ult || a>ult)) ult=a; }
+  if(!ult) return '';
+  const d=dias(ult), n=Math.abs(d);
+  const txt = d===0 ? "atualizados hoje" : (n===1 ? "atualizados ontem" : "atualizados há "+n+" dias");
+  const cls = n<=1 ? "ok" : (n<=3 ? "morno" : "velho");
+  return '<div class="rotina '+cls+'"><span class="rot-pt"></span>Resultados '+txt+
+    (n>3?' · a rotina das 7h não rodou, os números podem estar velhos':'')+'</div>';
+}
 /* ================= ONBOARDING (as 14 etapas obrigatórias) ================= */
 const ONBOARDING = [
   ["pasta","Estrutura de pastas do cliente"],
@@ -1807,6 +1961,7 @@ function dashboardHTML(completo){
     : '<div class="db-vazio">Nada crítico agora. Respira.</div>';
 
   return '<div class="dash'+(completo?" full":"")+'">'+
+    (completo?statusRotinaHTML():'')+
     (completo?'<div class="db-topo">'+anel+'<div class="db-agora"><div class="db-h">O que fazer agora</div>'+agoraHtml+'</div></div>':'')+
     '<div class="kpis">'+cards+'</div>'+
     '<div class="db-linha">'+
@@ -2237,16 +2392,17 @@ function render(){
   }
 
   const cor = coresDe(c);
-  const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["tend","Tendência"],["hist","Histórico"]]
+  const tabs = [["cal","Calendário"],["tarefas","Tarefas"],["marca","Marca"],["tend","Tendência"],["hist","Histórico"]]
     .filter(t=>t[0]!=="tend" || ehAdmin());
   const bar =
     '<div class="cli-bar"><a class="voltar" href="'+rotaDe({escopo:null,modo:"cards"})+'" data-nav="home">&larr; Todos os clientes</a>'+
     '<div class="cli-title">'+avatarHTML(c,"cli-av2")+
-      '<strong>'+esc(c.nome)+'</strong></div>'+
+      '<strong>'+esc(c.nome)+'</strong></div>'+linksHTML(c,"topo")+
     '<div class="cli-tabs">'+tabs.map(t=>
       '<a class="'+(VISTA.aba===t[0]?"on":"")+'" href="'+rotaDe({aba:t[0]})+'" data-cliaba="'+t[0]+'">'+t[1]+'</a>').join("")+'</div></div>';
 
   const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), (VISTA.area==="all"||VISTA.area==="mkt")?c.marcos:[], false)
+             : VISTA.aba==="marca" ? fichaHTML(c)
              : VISTA.aba==="tarefas" ? (onboardingHTML(c)+tarefasHTML(c))
              : (VISTA.aba==="tend" && ehAdmin()) ? tendenciaHTML()
              : histHTML(c);
@@ -2289,7 +2445,7 @@ function aplicarRota(){
   const p=h.split("/").filter(Boolean).map(decodeURIComponent);
   const areas=["all","mkt","fin","com"];
   const modos=["cards","prio","equipe","lista","cal","tend"];
-  const abas=["cal","tarefas","tend","hist"];
+  const abas=["cal","tarefas","marca","tend","hist"];
   let mudou=false;
   if(p[0]==="cliente" && p[1]){
     if(cliente(p[1])){ VISTA.escopo=p[1]; mudou=true;
@@ -2313,7 +2469,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -2358,6 +2514,8 @@ document.addEventListener("click", function(ev){
   }
   if(D.portais){ abrirPortais(); return; }
   if(D.recado){ abrirRecado(); return; }
+  if(D.abrir){ ev.preventDefault(); ev.stopPropagation(); window.open(D.abrir,"_blank","noopener"); return; }
+  if(D.ficha){ abrirFicha(D.ficha); return; }
   if(D.novolink){ trocarLink(D.novolink); return; }
   if(D.copiar){
     const txt=D.copiar;

@@ -1045,6 +1045,45 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
 .onb-d{flex:none;font-size:11px;color:var(--dim)}
 .onb-fim{margin-top:12px;font-size:12.5px;color:var(--ok)}
 @media (prefers-reduced-motion:reduce){.onb-bar i{transition:none}}
+
+/* ===== links do cliente ===== */
+.lnks{display:flex;gap:6px}
+.lnks.topo{margin-left:10px}
+.lnks.card{margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
+.lnk{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel2);color:var(--mut);transition:all .18s}
+.lnk svg{width:15px;height:15px}
+.lnk:hover{color:#fff;border-color:var(--mk3);background:rgba(139,92,246,.2);transform:translateY(-1px)}
+.lnk:focus-visible{outline:2px solid var(--mk3o);outline-offset:2px}
+/* ===== carimbo de quem marcou ===== */
+.carimbo{display:inline-block;margin-left:7px;font-size:10px;font-weight:700;letter-spacing:.3px;
+  color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:1px 7px;cursor:default;vertical-align:middle}
+/* ===== ficha da marca ===== */
+.ficha{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);padding:18px 20px}
+.fh-topo{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.fh-topo b{font-size:16px}
+.fh-topo span{font-size:12px;color:var(--dim)}
+.fh-topo .ubtn{margin-left:auto}
+.fh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.fh-c{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r2);padding:12px 14px}
+.fh-c.destaque{grid-column:1/-1;background:linear-gradient(135deg,rgba(139,92,246,.16),rgba(139,92,246,.05));
+  border-color:rgba(139,92,246,.4)}
+.fh-c.nao{border-color:rgba(242,85,90,.35);background:rgba(242,85,90,.07)}
+.fh-k{font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.fh-c.nao .fh-k{color:var(--atrasado)}
+.fh-v{font-size:13.5px;line-height:1.55;color:var(--txt)}
+.fh-c.destaque .fh-v{font-size:16px;font-weight:600;line-height:1.4}
+.mbox.fichaform{max-width:600px}
+.mbox.fichaform textarea{width:100%;resize:vertical;background:var(--panel2);border:1px solid var(--line);
+  border-radius:var(--r2);color:var(--txt);font:inherit;font-size:13px;padding:9px 11px;line-height:1.5}
+/* ===== status da rotina ===== */
+.rotina{display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px;color:var(--mut);
+  border:1px solid var(--line);border-radius:99px;padding:5px 13px;background:var(--panel)}
+.rot-pt{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.rotina.morno .rot-pt{background:var(--umdia)}
+.rotina.velho{color:var(--hoje);border-color:rgba(249,115,22,.45)}
+.rotina.velho .rot-pt{background:var(--hoje)}
+@media(max-width:600px){.fh-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -1083,7 +1122,7 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608041515"></script>
-<script src="motor.js?v=202608041515"></script>
+<script src="dados.js?v=202608041806"></script>
+<script src="motor.js?v=202608041806"></script>
 </body>
 </html>
