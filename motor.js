@@ -43,7 +43,6 @@ const conclusaoDe = (c, id) => {
   return {feita:false, data:null};
 };
 
-const CORTE_CHECKLIST = "2026-07-01";   /* o checklist de 14 etapas vale para quem entrou daqui em diante */
 function mesesDepois(isoData, n){
   const p=String(isoData).split("-").map(Number);
   const d=new Date(p[0], p[1]-1+n, 1);
@@ -80,7 +79,7 @@ function regras(c){
   add("boasvindas","Entrada","Mensagem de boas-vindas","No grupo, com os próximos passos",D0,"Estagiário");
   add("onboarding","Entrada","Enviar onboarding","Por WhatsApp e por e-mail",D0,"Estagiário");
   add("acessos","Entrada","Coletar acessos","Instagram, Facebook, LinkedIn e demais",D0,"Estagiário");
-  if(D0 && D0>=CORTE_CHECKLIST){
+  {
     add("planilha","Entrada","Planilha de acessos","E-mail, senha, 2FA e códigos de reserva · 01. ACESSOS",D0,"Estagiário");
     add("fotoMarca","Entrada","Salvar a foto da marca","02 → 06. Identidade Visual · vira a foto do grupo",D0,"Estagiário");
   }
@@ -95,8 +94,7 @@ function regras(c){
       c.imersao?uteis(c.imersao,1):null,"Analista");
   add("reuniaoPlan","Entrada","Reunião de planejamento (entrada)","Temas, datas do negócio, tráfego",
       c.reuniaoPlanejamentoEntrada,"Analista");
-  if(D0 && D0>=CORTE_CHECKLIST)
-    add("revisaoOnb","Entrada","Revisão final do onboarding","Conferir as 14 etapas uma a uma antes de encerrar",
+  add("revisaoOnb","Entrada","Revisão final do onboarding","Conferir as 14 etapas uma a uma antes de encerrar",
         c.imersao?uteis(c.imersao,2):uteis(D0,10),"Analista");
 
 
@@ -1650,10 +1648,10 @@ function carimboHTML(t){
 /* links úteis de cada cliente */
 const LINKS_PADRAO = {
   suelem:   {drive:"https://drive.google.com/drive/folders/1O5eYgdfNYqghQnjc0q84_NpBcW9Cr63m", insta:"suelemmartinsgomes"},
-  leonardo: {drive:"https://drive.google.com/drive/folders/1eadjcdimP-grmxJRpjslvLIHoLZ0fBqp", insta:"leonardodepaulacorretor"},
-  cynthia:  {drive:"https://drive.google.com/drive/folders/1SlPUFY7OOSqso9lhAUfi92dFg2j23Eza", insta:""},
-  oceanus:  {drive:"https://drive.google.com/drive/folders/1FAUG6fIzv3nIB1bqlUdAkHEX2BFSqQN0", insta:"escolaoceanus"},
-  adriana:  {drive:"https://drive.google.com/drive/folders/1Mr_J56Sp8d2wnaTIfjkOT6BlXQlIXaHf", insta:""}
+  leonardo: {drive:"https://drive.google.com/drive/folders/1eadjcdimP-grmxJRpjslvLIHoLZ0fBqp", insta:"leonardodepaulacorretor", wpp:"27998871444"},
+  cynthia:  {drive:"https://drive.google.com/drive/folders/1SlPUFY7OOSqso9lhAUfi92dFg2j23Eza", insta:"cynthiadcorretora"},
+  oceanus:  {drive:"https://drive.google.com/drive/folders/1FAUG6fIzv3nIB1bqlUdAkHEX2BFSqQN0", insta:"escolaoceanus", wpp:"27992626014"},
+  adriana:  {drive:"https://drive.google.com/drive/folders/1Mr_J56Sp8d2wnaTIfjkOT6BlXQlIXaHf", insta:"", wpp:"27988537167"}
 };
 function linksDe(c){
   const ed=(ESTADO.clientes&&ESTADO.clientes[c.id])||{}, pad=LINKS_PADRAO[c.id]||{};
@@ -1710,6 +1708,17 @@ const FICHA_PADRAO = {
     visual:"Mulher madura, segura, estilosa. Nada desleixado ou triste.",
     refs:"Silva Braz, Tom Braga (formato dos vídeos), Karine Mozer.",
     sucesso:"Constância no perfil e clientes novos conhecendo a marca pelo conteúdo."
+  },
+  oceanus:{
+    frase:"Escola Oceanu's, particular, fundada em 1994, em Barcelona, Serra. Da Educação Infantil ao Fundamental II.",
+    objetivo:"Gerar visita e matrícula. Instagram atrai, WhatsApp fecha. Pico de matrícula de outubro a fevereiro, com segundo pico em julho.",
+    publico:"Pais de 28 a 45 anos de Serra e Grande Vitória. A mãe faz a triagem e a visita, o pai valida o custo, os avós pesam na confiança. Valorizam segurança, bilinguismo, estrutura, integral e proximidade.",
+    tom:"Acolhedor e afetivo, com humor leve. Linguagem de família: rotina, acolhimento, adaptação, tranquilidade. Nunca culpa os pais.",
+    temas:"Volta às aulas, rotina de sono, tela x livro, descanso como parte do aprendizado, brincadeiras entre gerações, bastidores de professores e equipe, tour pela estrutura, adaptação, alimentação, segurança.",
+    evitar:"Promessa absoluta (\"seu filho vai...\"), expor criança identificada ou com rotina detalhada, lista de alunos, apelo a medo ou culpa, comparação agressiva com concorrente, garantia de resultado, termo técnico sem tradução, trend sem ligação com o local, excesso de CTA na mesma peça.",
+    visual:"Logo em PNG, SVG e PDF no Drive antigo da agência. Tem cartão, folder e manual escolar.",
+    refs:"sem base no Drive",
+    sucesso:"Agenda de visitas cheia na temporada de matrícula."
   },
   suelem:{
     frase:"Acolhimento e envolvimento real com a história de cada cliente. Ela não desiste.",
@@ -1813,8 +1822,7 @@ function onboardingDe(c){
 }
 function onbBadgeHTML(c){
   const o=onboardingDe(c); if(!o.total) return '';
-  const recente = c.entrada && dias(c.entrada) > -120;
-  if(o.completo && !recente) return '';
+
   const pct=Math.round(o.feitas/o.total*100);
   return '<div class="onb'+(o.completo?" ok":(o.criticas.length?" crit":""))+'">'+
     '<div class="onb-t">'+(o.completo?"Onboarding completo":"Onboarding")+'<b>'+o.feitas+'/'+o.total+'</b></div>'+

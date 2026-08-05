@@ -104,7 +104,7 @@ const CLIENTES = [
 
     justificados: [],
 
-    concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
+    concluidas: ["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
                  "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_gravacao","c1_artes","c1_lembMid"],
 
@@ -172,7 +172,7 @@ const CLIENTES = [
       {id:"renovacao_atrasada", fase:"Contrato", tarefa:"Renovar contrato (venceu 14/07)", detalhe:"CS00012/2025 encerrou 14/07/2026 · renovação pendente", data:"2026-07-14", resp:"Gestão"}
     ],
 
-    concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
+    concluidas: ["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
                  "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_artes",
                  "c1_lembMid","c1_aprMid","c1_podepostar","c1_calendario","reserva3m","pesq6m"],
@@ -221,7 +221,7 @@ const CLIENTES = [
     justificados: [],
 
     /* c1_aprPlan com data -> painel mostra "Concluído · atrasou N dias úteis" */
-    concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
+    concluidas: ["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
                  "c1_plan","c1_lembPlan",
                  {id:"c1_aprPlan", data:"2026-07-17"}],
@@ -277,7 +277,7 @@ const CLIENTES = [
       {id:"plan_atraso", fase:"1º ciclo", tarefa:"Criar e enviar o planejamento (EM ATRASO)", detalhe:"Planejamento do mês atrasado", data:"2026-06-30", resp:"Analista"}
     ],
 
-    concluidas: ["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva",
+    concluidas: ["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva",
                  "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
                  "reserva3m","pag_2026-02-15","pag_2026-03-15","pag_2026-04-15","pag_2026-05-15","pag_2026-06-15"],
 
