@@ -446,7 +446,9 @@ function areasTopoHTML(){
   return '<div class="abar"><span class="abar-pill" id="abarPill"></span>'+
     areas.map(a=>{
       const on=VISTA.area===a[0];
-      const n=TODAS.filter(t=>(a[0]==="all"||t.area===a[0]) && (t.st.k==="atrasado"||t.st.k==="hoje")).length;
+      /* dentro de um cliente, conta só o que é dele; fora, conta todo mundo */
+      const universo = VISTA.escopo ? TODAS.filter(t=>t.clienteId===VISTA.escopo) : TODAS;
+      const n=universo.filter(t=>(a[0]==="all"||t.area===a[0]) && (t.st.k==="atrasado"||t.st.k==="hoje")).length;
       return '<a class="abar-b'+(on?" on":"")+'" href="'+rotaDe({area:a[0]})+'" data-area="'+a[0]+'" aria-pressed="'+on+'">'+
         '<span class="abar-i">'+a[2]+'</span>'+esc(a[1])+
         (n?'<span class="abar-n">'+n+'</span>':'')+'</a>';
@@ -1549,7 +1551,18 @@ function calendario(tasks, marcos, showCli){
     cells += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
   }
 
-  return '<div class="cal-nav"><button data-mes="-1">&lsaquo;</button>'+
+  let dica="";
+  const doMes = base.filter(t=>{ const r=d(t.data); return r.getFullYear()===ano && r.getMonth()===mes; });
+  const abertas = base.filter(t=>t.st.k!=="ok");
+  if(!doMes.length && !marcos.length && abertas.length){
+    const prox = abertas.slice().sort((a,b)=>Math.abs(dias(a.data))-Math.abs(dias(b.data)))[0];
+    const r=d(prox.data);
+    const salto=(r.getFullYear()-HOJE.getFullYear())*12+(r.getMonth()-HOJE.getMonth());
+    dica='<div class="cal-dica">Nada neste mês. '+abertas.length+(abertas.length>1?' itens em aberto':' item em aberto')+
+      ', o mais próximo em <b>'+r.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})+'</b>'+
+      '<button class="ubtn" data-irmes="'+salto+'">Ir para lá</button></div>';
+  }
+  return dica+'<div class="cal-nav"><button data-mes="-1">&lsaquo;</button>'+
       '<strong>'+ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})+'</strong>'+
       '<button data-mes="1">&rsaquo;</button><button class="hj" data-mes="0">Hoje</button></div>'+
     '<div class="cal"><div class="cal-dow">'+
@@ -2469,7 +2482,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -2565,7 +2578,8 @@ document.addEventListener("click", function(ev){
   if(D.cliente){ VISTA.escopo=D.cliente; VISTA.aba="cal"; VISTA.mes=0; VISTA.dia=null; VISTA.filtro=null; }
   if(D.nav==="home"){ VISTA.escopo=null; VISTA.filtro=null; VISTA.dia=null; }
   if(D.cliaba){ if(D.cliaba==="tend" && !ehAdmin()) return; VISTA.aba=D.cliaba; VISTA.filtro=null; VISTA.dia=null; }
-  if(D.mes!==undefined){ const nn=Number(D.mes); VISTA.mes=(nn===0)?0:VISTA.mes+nn; VISTA.dia=null; topo=false; }
+  if(D.irmes!==undefined){ VISTA.mes=Number(D.irmes); VISTA.dia=null; topo=false; }
+  else if(D.mes!==undefined){ const nn=Number(D.mes); VISTA.mes=(nn===0)?0:VISTA.mes+nn; VISTA.dia=null; topo=false; }
   if(D.bucket){ VISTA.filtro=(VISTA.filtro===D.bucket)?null:D.bucket; topo=false; }
 
   render();
