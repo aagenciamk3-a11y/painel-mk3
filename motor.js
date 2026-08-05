@@ -1647,11 +1647,11 @@ function carimboHTML(t){
 
 /* links úteis de cada cliente */
 const LINKS_PADRAO = {
-  suelem:   {drive:"https://drive.google.com/drive/folders/1O5eYgdfNYqghQnjc0q84_NpBcW9Cr63m", insta:"suelemmartinsgomes"},
+  suelem:   {drive:"https://drive.google.com/drive/folders/1O5eYgdfNYqghQnjc0q84_NpBcW9Cr63m", insta:"suelemmartinsgomes", wpp:"27998887565"},
   leonardo: {drive:"https://drive.google.com/drive/folders/1eadjcdimP-grmxJRpjslvLIHoLZ0fBqp", insta:"leonardodepaulacorretor", wpp:"27998871444"},
-  cynthia:  {drive:"https://drive.google.com/drive/folders/1SlPUFY7OOSqso9lhAUfi92dFg2j23Eza", insta:"cynthiadcorretora"},
+  cynthia:  {drive:"https://drive.google.com/drive/folders/1SlPUFY7OOSqso9lhAUfi92dFg2j23Eza", insta:"cynthiadcorretora", wpp:"27999178909"},
   oceanus:  {drive:"https://drive.google.com/drive/folders/1FAUG6fIzv3nIB1bqlUdAkHEX2BFSqQN0", insta:"escolaoceanus", wpp:"27992626014"},
-  adriana:  {drive:"https://drive.google.com/drive/folders/1Mr_J56Sp8d2wnaTIfjkOT6BlXQlIXaHf", insta:"", wpp:"27988537167"}
+  adriana:  {drive:"https://drive.google.com/drive/folders/1Mr_J56Sp8d2wnaTIfjkOT6BlXQlIXaHf", insta:"adriana.dinhamais", wpp:"27988537167"}
 };
 function linksDe(c){
   const ed=(ESTADO.clientes&&ESTADO.clientes[c.id])||{}, pad=LINKS_PADRAO[c.id]||{};
