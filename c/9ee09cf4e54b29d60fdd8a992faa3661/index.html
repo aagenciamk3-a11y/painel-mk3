@@ -111,11 +111,17 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
 .hero-p{margin-top:12px;font-size:11.5px;color:#8B85A0}
 @media(max-width:560px){.hero-v{font-size:36px}.hero{padding:18px 18px 16px}}
 @media (prefers-reduced-motion:reduce){.hero-bar i{transition:none}}
+
+.hero-r{position:relative;margin-top:16px;padding:13px 16px 13px 44px;border-radius:12px;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);
+  font-size:13.5px;line-height:1.6;color:#E6E1F5}
+.hero-asp{position:absolute;left:14px;top:6px;font-size:34px;line-height:1;color:#8B5CF6;opacity:.85;font-family:Georgia,serif}
+@media(max-width:560px){.hero-r{padding:12px 13px 12px 36px;font-size:13px}.hero-asp{left:10px;font-size:28px}}
 </style></head><body>
 <div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
 <h1 id="titulo"></h1><div id="view"></div>
 <footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer></div>
-<script>const CLIENTES=[{"id":"cynthia","nome":"Cynthia Carvalho","entrada":"2026-06-22","vencimentoContrato":"2026-10-15","escopo":{"agendamento":true,"calendarioEditorial":false,"trafegoPago":false},"imersao":"2026-07-06","reuniaoPlanejamentoEntrada":"2026-07-10","envioPlanejamento":"2026-07-13","aprovacaoPlanejamento":"2026-07-17","envioMidia":null,"aprovacaoMidia":null,"gravacao":"2026-07-23","semFotos":true,"artesDependemDaGravacao":false,"inicioCicloPadrao":"2026-08","concluidas":["pasta","grupo","boasvindas","onboarding","acessos","prints","reserva","pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan","c1_plan","c1_lembPlan",{"id":"c1_aprPlan","data":"2026-07-17"}],"marcos":[{"data":"2026-06-22","titulo":"Entrada do cliente","detalhe":"Grupo criado e onboarding enviado"},{"data":"2026-06-26","titulo":"Imersão remarcada","detalhe":"Cliente não compareceu; pediu desculpas"},{"data":"2026-07-02","titulo":"Imersão remarcada","detalhe":"Cliente não compareceu novamente"},{"data":"2026-07-06","titulo":"Reunião de imersão","detalhe":"Realizada às 11:15, a pedido da cliente"},{"data":"2026-07-13","titulo":"Planejamento enviado","detalhe":"Para aprovação no Pode Postar"},{"data":"2026-07-15","titulo":"Contrato alterado","detalhe":"Data ajustada a pedido da cliente e reenviado"},{"data":"2026-07-17","titulo":"Planejamento aprovado + contrato assinado","detalhe":"Aprovado hoje (com atraso); contrato assinado"},{"data":"2026-07-23","titulo":"Gravação marcada","detalhe":"Diária de gravação agendada pela cliente"}],"tarefasExtras":[]}];const MOSTRA_HISTORICO=false;
+<script>const CLIENTES=[{"id":"cynthia","nome":"Cynthia Carvalho","entrada":"2026-06-22","vencimentoContrato":"2026-10-15","escopo":{"agendamento":true,"calendarioEditorial":false,"trafegoPago":false},"imersao":"2026-07-06","reuniaoPlanejamentoEntrada":"2026-07-10","envioPlanejamento":"2026-07-13","aprovacaoPlanejamento":"2026-07-17","envioMidia":null,"aprovacaoMidia":null,"gravacao":"2026-07-23","semFotos":true,"artesDependemDaGravacao":false,"inicioCicloPadrao":"2026-08","concluidas":["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva","pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan","c1_plan","c1_lembPlan",{"id":"c1_aprPlan","data":"2026-07-17"}],"marcos":[{"data":"2026-06-22","titulo":"Entrada do cliente","detalhe":"Grupo criado e onboarding enviado"},{"data":"2026-06-26","titulo":"Imersão remarcada","detalhe":"Cliente não compareceu; pediu desculpas"},{"data":"2026-07-02","titulo":"Imersão remarcada","detalhe":"Cliente não compareceu novamente"},{"data":"2026-07-06","titulo":"Reunião de imersão","detalhe":"Realizada às 11:15, a pedido da cliente"},{"data":"2026-07-13","titulo":"Planejamento enviado","detalhe":"Para aprovação no Pode Postar"},{"data":"2026-07-15","titulo":"Contrato alterado","detalhe":"Data ajustada a pedido da cliente e reenviado"},{"data":"2026-07-17","titulo":"Planejamento aprovado + contrato assinado","detalhe":"Aprovado hoje (com atraso); contrato assinado"},{"data":"2026-07-23","titulo":"Gravação marcada","detalhe":"Diária de gravação agendada pela cliente"}],"tarefasExtras":[]}];const MOSTRA_HISTORICO=false;
 const CLIENTE_ID="cynthia";const MEU_TOKEN="9ee09cf4e54b29d60fdd8a992faa3661";const MK3_DB="https://painel-mk3-default-rtdb.firebaseio.com";</script>
 <script>/* ═══════════════════════════════════════════════════════════════
    MOTOR — regras do Manual de Processos MK3 v1.0 + render.
@@ -162,6 +168,27 @@ const conclusaoDe = (c, id) => {
   return {feita:false, data:null};
 };
 
+function mesesDepois(isoData, n){
+  const p=String(isoData).split("-").map(Number);
+  const d=new Date(p[0], p[1]-1+n, 1);
+  const ultimo=new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  d.setDate(Math.min(p[2], ultimo));
+  return iso(d);
+}
+/* devolve só a ocorrência corrente de um ciclo: a primeira ainda não concluída */
+function ocorrenciaAtual(cli, inicio, meses, prefixo, idPrimeira){
+  if(!inicio) return null;
+  const limite = addD(iso(HOJE), 45);
+  let base = inicio;
+  for(let i=0;i<80;i++){
+    const prox = mesesDepois(base, meses);
+    const id = (i===0 && idPrimeira) ? idPrimeira : prefixo+"_"+prox;
+    if(!conclusaoDe(cli, id).feita) return {id:id, data:prox};
+    base = prox;
+    if(prox > limite) return null;
+  }
+  return null;
+}
 function regras(c){
   const T=[];
   const add=(id,fase,tarefa,detalhe,data,resp)=>{
@@ -177,6 +204,10 @@ function regras(c){
   add("boasvindas","Entrada","Mensagem de boas-vindas","No grupo, com os próximos passos",D0,"Estagiário");
   add("onboarding","Entrada","Enviar onboarding","Por WhatsApp e por e-mail",D0,"Estagiário");
   add("acessos","Entrada","Coletar acessos","Instagram, Facebook, LinkedIn e demais",D0,"Estagiário");
+  {
+    add("planilha","Entrada","Planilha de acessos","E-mail, senha, 2FA e códigos de reserva · 01. ACESSOS",D0,"Estagiário");
+    add("fotoMarca","Entrada","Salvar a foto da marca","02 → 06. Identidade Visual · vira a foto do grupo",D0,"Estagiário");
+  }
   add("prints","Entrada","Print das redes na chegada","Antes de qualquer ação · 02 → 04 Registro visual",D0,"Estagiário");
   add("reserva","Entrada","Código de reserva 2FA","Print salvo em 01. Acessos",D0,"Estagiário");
 
@@ -188,6 +219,10 @@ function regras(c){
       c.imersao?uteis(c.imersao,1):null,"Analista");
   add("reuniaoPlan","Entrada","Reunião de planejamento (entrada)","Temas, datas do negócio, tráfego",
       c.reuniaoPlanejamentoEntrada,"Analista");
+  add("revisaoOnb","Entrada","Revisão final do onboarding","Conferir as 14 etapas uma a uma antes de encerrar",
+        c.imersao?uteis(c.imersao,2):uteis(D0,10),"Analista");
+
+
 
   /* 1º CICLO — cadeia de 2 dias úteis. Cada etapa re-ancora na data
      REAL quando ela existe; sem data real, usa o limite do prazo. */
@@ -244,8 +279,13 @@ function regras(c){
   }
 
   /* GATILHOS RECORRENTES */
-  add("reserva3m","Recorrente","Atualizar código de reserva","A cada 3 meses",addM(D0,3),"Estagiário");
-  add("pesq6m","Recorrente","Atualizar as duas pesquisas","A cada 6 meses",addM(D0,6),"Analista");
+  /* ciclos que voltam sozinhos: ao concluir um, o painel já marca o próximo */
+  const r2fa = ocorrenciaAtual(c, D0, 3, "rec_2fa", "reserva3m");
+  if(r2fa) add(r2fa.id,"Recorrente","Atualizar código de reserva (2FA)",
+      "A cada 3 meses · pegar no Instagram e salvar em 01. ACESSOS", r2fa.data, "Estagiário");
+  const rpq = ocorrenciaAtual(c, D0, 6, "rec_pesq", "pesq6m");
+  if(rpq) add(rpq.id,"Recorrente","Atualizar as duas pesquisas",
+      "A cada 6 meses · mercado e comportamento, cada uma na pasta do ano e do mês", rpq.data, "Analista");
   add("renov","Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
       c.vencimentoContrato?addD(c.vencimentoContrato,-20):null,"Gestão");
   if(c.vencimentoContrato)
@@ -424,7 +464,7 @@ const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","a
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
-let RESULTADOS=null, OBJETIVO="", META=null;
+let RESULTADOS=null, OBJETIVO="", META=null, RECADO="";
 
 /* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
 function aplicarEstado(E){
@@ -559,6 +599,7 @@ function heroHTML(){
     '</div>'+
     (pct!=null?'<div class="hero-meta"><div class="hero-bar"><i style="width:'+pct+'%"></i></div>'+
       '<span>'+numBR(h.v)+' de '+numBR(META)+' · '+pct+'% da meta</span></div>':'')+
+    (RECADO?'<div class="hero-r"><span class="hero-asp">&#8220;</span>'+esc(RECADO)+'</div>':'')+
     (h.periodo?'<div class="hero-p">'+esc(h.periodo)+'</div>':'')+
   '</section>';
 }
@@ -625,7 +666,7 @@ function aplicarEspelho(v){
   const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
-  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null;
+  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || "";
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};

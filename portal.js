@@ -5,7 +5,7 @@ const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","a
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
-let RESULTADOS=null, OBJETIVO="", META=null;
+let RESULTADOS=null, OBJETIVO="", META=null, RECADO="";
 
 /* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
 function aplicarEstado(E){
@@ -140,6 +140,7 @@ function heroHTML(){
     '</div>'+
     (pct!=null?'<div class="hero-meta"><div class="hero-bar"><i style="width:'+pct+'%"></i></div>'+
       '<span>'+numBR(h.v)+' de '+numBR(META)+' · '+pct+'% da meta</span></div>':'')+
+    (RECADO?'<div class="hero-r"><span class="hero-asp">&#8220;</span>'+esc(RECADO)+'</div>':'')+
     (h.periodo?'<div class="hero-p">'+esc(h.periodo)+'</div>':'')+
   '</section>';
 }
@@ -206,7 +207,7 @@ function aplicarEspelho(v){
   const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
-  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null;
+  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || "";
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};

@@ -592,6 +592,7 @@ function espelhoDe(cid){
   return { ts:Date.now(),
            ativo:(p&&p.ativo)||null,
            objetivo:cli?objetivoDe(cli):"",
+           recado:cli?((fichaDe(cli)||{}).recado||""):"",
            meta:cli?metaDe(cli):null,
            resultados:((ESTADO.resultados&&ESTADO.resultados[cid])||null),
            concluidas:((ESTADO.concluidas&&ESTADO.concluidas[cid])||[]),
@@ -1685,7 +1686,8 @@ const FICHA_PADRAO = {
     evitar:"Palavrão, agressividade, inventar ou omitir informação do imóvel, cliente especulador.",
     visual:"Moderna tradicional. Paleta marrom, bege, boho, branco, azul marinho e vinho. Sem estampa.",
     refs:"Suelem, Larissa Moraes (refugios.lar.lare), Carolina Zarch.",
-    sucesso:"Um cliente chegar pelo Instagram, e ser reconhecida na região onde mora."
+    sucesso:"Um cliente chegar pelo Instagram, e ser reconhecida na região onde mora.",
+    recado:"Na imersão você foi clara: não quer seguidor por seguidor, quer gente de Vitória. Hoje boa parte da sua base ainda é de Cachoeiro, e é isso que estamos virando. Cada seguidor novo daqui é alguém que pode visitar um imóvel com você."
   },
   leonardo:{
     frase:"Autenticidade, conhecimento e autoridade no mercado imobiliário. 11 anos no setor, 22 em vendas.",
@@ -1696,7 +1698,8 @@ const FICHA_PADRAO = {
     evitar:"Política, futebol e religião de forma polêmica. Mentira, palavrão, tratar cliente como número.",
     visual:"Ainda sem branding fechado. Deseja estudo de cores e fontes no futuro.",
     refs:"Jesus, Kleverson.",
-    sucesso:"Comprar a casa, o apartamento e trocar de carro."
+    sucesso:"Comprar a casa, o apartamento e trocar de carro.",
+    recado:"Você mede o resultado pelo tanto de gente que chega até você. É por isso que acompanhamos as visitas ao perfil e não o número de seguidores: cada visita aqui é alguém que viu seu conteúdo e parou para te conhecer antes de falar com você."
   },
   adriana:{
     frase:"Elevando a autoestima da mulher.",
@@ -1707,7 +1710,8 @@ const FICHA_PADRAO = {
     evitar:"Política, religião de forma forte, polêmica que obriga escolher lado. Atrair quem compra só por preço.",
     visual:"Mulher madura, segura, estilosa. Nada desleixado ou triste.",
     refs:"Silva Braz, Tom Braga (formato dos vídeos), Karine Mozer.",
-    sucesso:"Constância no perfil e clientes novos conhecendo a marca pelo conteúdo."
+    sucesso:"Constância no perfil e clientes novos conhecendo a marca pelo conteúdo.",
+    recado:"Seu objetivo é que gente de fora do bairro conheça a loja. Alcance é exatamente essa conta: quantas pessoas diferentes viram a Dinha Mais no mês. Quanto mais gente nova alcançada, mais gente com chance de atravessar Cariacica para comprar com você."
   },
   oceanus:{
     frase:"Escola Oceanu's, particular, fundada em 1994, em Barcelona, Serra. Da Educação Infantil ao Fundamental II.",
@@ -1718,7 +1722,8 @@ const FICHA_PADRAO = {
     evitar:"Promessa absoluta (\"seu filho vai...\"), expor criança identificada ou com rotina detalhada, lista de alunos, apelo a medo ou culpa, comparação agressiva com concorrente, garantia de resultado, termo técnico sem tradução, trend sem ligação com o local, excesso de CTA na mesma peça.",
     visual:"Logo em PNG, SVG e PDF no Drive antigo da agência. Tem cartão, folder e manual escolar.",
     refs:"sem base no Drive",
-    sucesso:"Agenda de visitas cheia na temporada de matrícula."
+    sucesso:"Agenda de visitas cheia na temporada de matrícula.",
+    recado:"O que traz matrícula é visita agendada, e visita começa com um pai vendo a escola no Instagram. É esse caminho que a gente acompanha aqui."
   },
   suelem:{
     frase:"Acolhimento e envolvimento real com a história de cada cliente. Ela não desiste.",
@@ -1729,7 +1734,8 @@ const FICHA_PADRAO = {
     evitar:"Mentir, forçar venda, agir por comissão.",
     visual:"Simples, elegante, com toque familiar, moderno e espiritual.",
     refs:"Rosângela Bastos, Tais Nascimento.",
-    sucesso:"Ser referência em Cariacica: respeitada, indicada e admirada."
+    sucesso:"Ser referência em Cariacica: respeitada, indicada e admirada.",
+    recado:"Sua meta é ser a corretora mais lembrada de Cariacica. Ser lembrada é aparecer muitas vezes para as mesmas pessoas certas, e é isso que este número conta: quantas vezes seu conteúdo apareceu na tela de alguém no mês."
   }
 };
 const FICHA_CAMPOS = [
@@ -1741,7 +1747,8 @@ const FICHA_CAMPOS = [
   ["evitar","O que NÃO abordar"],
   ["visual","Identidade visual"],
   ["refs","Referências que admira"],
-  ["sucesso","O que é sucesso pra ele"]
+  ["sucesso","O que é sucesso pra ele"],
+  ["recado","Recado do objetivo (o cliente lê isso no portal)"]
 ];
 function fichaDe(c){
   const salva=(ESTADO.ficha&&ESTADO.ficha[c.id])||{}, pad=FICHA_PADRAO[c.id]||{};
