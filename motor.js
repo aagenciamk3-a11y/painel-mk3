@@ -1151,8 +1151,7 @@ function abrirDia(dayIso){
   const showCli=!c;
   const base=(c?TODAS.filter(t=>t.clienteId===c.id):tarefasArea()).filter(t=>t.data===dayIso)
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
-  const mostraMarco=(VISTA.area==="all"||VISTA.area==="mkt");
-  const mks=mostraMarco?((c?c.marcos:CLIENTES.flatMap(x=>x.marcos)).filter(m=>m.data===dayIso)):[];
+  const mks=marcosDaArea((c?c.marcos:CLIENTES.flatMap(x=>x.marcos)).filter(m=>m.data===dayIso));
   const titulo=d(dayIso).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
   const mm=$("modal");
   mm.innerHTML='<div class="mbox diamodal"><h3>'+esc(titulo)+'</h3>'+
@@ -1517,6 +1516,20 @@ function cardsHTML(){
   }).join("");
 }
 
+
+/* marco também tem área: pagamento e contrato são financeiro, o resto é marketing */
+function areaMarco(mk){
+  const t=((mk.titulo||"")+" "+(mk.detalhe||"")).toLowerCase();
+  if(/parcela|pagamento|pagar|mensalidade|r\$|pacote de fotos|fornecedor|nota fiscal|boleto|pix/.test(t)) return "fin";
+  if(/renova(ç|c)[ãa]o de contrato/.test(t)) return "fin";
+  return "mkt";   /* assinatura, imersão, planejamento e gravação continuam sendo marketing */
+}
+function marcosDaArea(lista){
+  if(!lista || !lista.length) return [];
+  if(VISTA.area==="all") return lista;
+  if(VISTA.area==="com") return [];
+  return lista.filter(mk=>areaMarco(mk)===VISTA.area);
+}
 /* ---------------- CALENDÁRIO (reutilizável) ---------------- */
 function calendario(tasks, marcos, showCli){
   const base = tasks.filter(t=>t.data);
@@ -2398,7 +2411,7 @@ function render(){
     else if(VISTA.modo==="tend")  body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
-    else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), (VISTA.area==="all"||VISTA.area==="mkt")?CLIENTES.flatMap(x=>x.marcos):[], true);
+    else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
     else                          body = listaGlobalHTML();
     $("view").innerHTML = body; animar(); gravarRota();
     return;
@@ -2414,7 +2427,7 @@ function render(){
     '<div class="cli-tabs">'+tabs.map(t=>
       '<a class="'+(VISTA.aba===t[0]?"on":"")+'" href="'+rotaDe({aba:t[0]})+'" data-cliaba="'+t[0]+'">'+t[1]+'</a>').join("")+'</div></div>';
 
-  const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), (VISTA.area==="all"||VISTA.area==="mkt")?c.marcos:[], false)
+  const body = VISTA.aba==="cal" ? calendario(tarefasCli(c), marcosDaArea(c.marcos), false)
              : VISTA.aba==="marca" ? fichaHTML(c)
              : VISTA.aba==="tarefas" ? (onboardingHTML(c)+tarefasHTML(c))
              : (VISTA.aba==="tend" && ehAdmin()) ? tendenciaHTML()
