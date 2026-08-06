@@ -478,6 +478,7 @@ function sidebarHTML(){
     h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
     h+='<button class="snav" data-clientes="1" title="Clientes"><span class="snav-i">'+IC.cards+'</span><span class="snav-t">Clientes</span></button>';
     h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
+    h+='<button class="snav" data-agenda="1" title="Agenda ao vivo"><span class="snav-i">'+IC.cal+'</span><span class="snav-t">Agenda ao vivo</span></button>';
     h+='<button class="snav" data-portais="1" title="Links dos clientes"><span class="snav-i">'+IC.link+'</span><span class="snav-t">Links dos clientes</span></button>';
   }
   const pu=eu();
@@ -1336,6 +1337,7 @@ function handleModal(D){
   }
   if(D.macao==="fecharcli"){ semPular(()=>abrirClientes()); return; }
   if(D.macao==="salvarficha"){ salvarFicha(D.cliid); return; }
+  if(D.macao==="salvaragenda"){ salvarAgendaUrl(); return; }
   if(D.macao==="copiarrecado"){
     const el=$("recTxt"); const t=el?el.textContent:"";
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast("Recado copiado",true)).catch(()=>toast("Não consegui copiar, selecione o texto")); }
@@ -1434,7 +1436,7 @@ async function init(){
   USUARIO=null;
   try{ localStorage.removeItem("mk3_user"); }catch(e){}
   if(USUARIO && !eu()) USUARIO=null;
-  rebuild(); render(); montarTooltip(); syncIniciar();
+  rebuild(); render(); montarTooltip(); syncIniciar(); ligarAgendaAoVivo();
   fetch("portais.json?ts="+Date.now()).then(r=>r.ok?r.json():null)
     .then(j=>{ if(j){ PORTAIS=j; agendarEspelho(); } }).catch(()=>{});
 }
@@ -1627,6 +1629,52 @@ function proximosAgendaHTML(){
         (e.meet?'<span class="ag-m" role="link" tabindex="0" data-abrir="'+escAttr(e.meet)+'" data-tt="Entrar no Meet">Meet</span>':'')+
       '</div>';
     }).join("")+'</div>';
+}
+
+/* ---- agenda ao vivo: o painel lê o Google Agenda direto, sem intermediário ---- */
+let AGENDA_T=null;
+function agendaUrl(){ return (ESTADO.agendaUrl||"").trim(); }
+function puxarAgendaAoVivo(){
+  const u=agendaUrl(); if(!u) return;
+  fetch(u+(u.indexOf("?")<0?"?":"&")+"ts="+Date.now())
+    .then(r=>r.ok?r.json():null)
+    .then(j=>{
+      if(!j || !Array.isArray(j.eventos)) return;
+      const antes=JSON.stringify(ESTADO.agenda||[]);
+      ESTADO.agenda=j.eventos;                     /* só na memória: não grava nem sincroniza */
+      if(JSON.stringify(ESTADO.agenda)!==antes){ marcarAgendaViva(j.lido); semPular(render); }
+      else marcarAgendaViva(j.lido);
+    })
+    .catch(()=>{ marcarAgendaViva(null,true); });
+}
+function marcarAgendaViva(quando,erro){
+  const el=document.getElementById("agviva"); if(!el) return;
+  if(erro){ el.className="agviva erro"; el.textContent="agenda fora do ar"; return; }
+  el.className="agviva"; el.textContent="agenda ao vivo";
+  el.title = quando ? ("última leitura "+quando) : "";
+}
+function ligarAgendaAoVivo(){
+  clearInterval(AGENDA_T);
+  if(!agendaUrl()) return;
+  puxarAgendaAoVivo();
+  AGENDA_T=setInterval(puxarAgendaAoVivo, 60000);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) puxarAgendaAoVivo(); });
+}
+function abrirAgendaConfig(){
+  if(!ehAdmin()) return;
+  $("modal").innerHTML='<div class="mbox demform"><h3>Agenda ao vivo</h3>'+
+    '<p class="msub">Cole aqui o endereço do aplicativo da web publicado no Apps Script. Com ele preenchido, o painel lê o Google Agenda direto, a cada minuto e sempre que alguém abre a tela.</p>'+
+    '<label class="mlab">Endereço do aplicativo<input type="text" id="agUrl" placeholder="https://script.google.com/macros/s/…/exec" value="'+escAttr(agendaUrl())+'"></label>'+
+    '<div class="mbtns"><button data-macao="salvaragenda">Salvar e testar</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
+}
+function salvarAgendaUrl(){
+  if(!ehAdmin()) return;
+  const v=(($("agUrl")&&$("agUrl").value)||"").trim();
+  snapshot(); ESTADO.agendaUrl=v; persist();
+  fecharModal(); ligarAgendaAoVivo();
+  toast(v?"Agenda ao vivo ligada":"Agenda ao vivo desligada", true);
 }
 /* ================= RESULTADOS (Reportei) ================= */
 const REPORTEI_PROJ = { leonardo:1100216, suelem:1265569, oceanus:1180490 };   /* cliente do painel -> projeto no Reportei */
@@ -2447,6 +2495,7 @@ function render(){
     ((ehAdmin()&&nExcluidas())?'<button class="ubtn" data-lixeira="1" title="Ver tarefas excluídas">&#128465; '+nExcluidas()+' excluída'+(nExcluidas()>1?'s':'')+'</button>':'')+
     '<span class="salvo" id="salvo" aria-live="polite"></span>'+
     '<span class="syncst" id="syncst" title="Sincronização entre a equipe"></span>'+
+    (agendaUrl()?'<span class="agviva" id="agviva">agenda ao vivo</span>':'')+
     (nMud()?'<span class="umud">'+nMud()+' '+(nMud()>1?"tarefas marcadas":"tarefa marcada")+' por você · salvo neste navegador</span>'
            :'<span class="umud dim">Clique numa tarefa para marcar. Atalhos: <span class="kbd">?</span></span>');
   $("side").innerHTML = sidebarHTML();
@@ -2546,7 +2595,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -2591,6 +2640,7 @@ document.addEventListener("click", function(ev){
   }
   if(D.portais){ abrirPortais(); return; }
   if(D.recado){ abrirRecado(); return; }
+  if(D.agenda){ abrirAgendaConfig(); return; }
   if(D.abrir){ ev.preventDefault(); ev.stopPropagation(); window.open(D.abrir,"_blank","noopener"); return; }
   if(D.ficha){ abrirFicha(D.ficha); return; }
   if(D.novolink){ trocarLink(D.novolink); return; }
