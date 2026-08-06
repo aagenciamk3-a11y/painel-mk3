@@ -391,8 +391,8 @@ function semPular(fn){
   if(py) window.scrollTo(0,py);
 }
 
-const ORDEM   = {atrasado:0,hoje:1,umdia:2,semana:3,sem:4,futuro:5,ok:6};
-const ROTULO  = {atrasado:"Atrasado",hoje:"Vence hoje",umdia:"Falta 1 dia",
+const ORDEM   = {atrasado:0,parcial:0.5,hoje:1,umdia:2,semana:3,sem:4,futuro:5,ok:6};
+const ROTULO  = {atrasado:"Atrasado",parcial:"Parcial",hoje:"Vence hoje",umdia:"Falta 1 dia",
                  semana:"Esta semana",sem:"Sem data",futuro:"Programado",ok:"Concluído"};
 const BUCKETS = ["atrasado","hoje","umdia","semana","sem","ok"];
 
@@ -508,6 +508,33 @@ const ANCORA = {
 };
 const escAttr = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
+
+/* uma tarefa entregue pela metade e com o resto remarcado não é simplesmente "atrasada" */
+function temParcial(cid,tid){
+  const b=ESTADO.obsT||{};
+  for(const wk in b){
+    const s=b[wk]||{};
+    for(const k in s){
+      if(s[k] && s[k].parcial && k.indexOf(cid+"|"+tid+"|")===0) return true;
+    }
+  }
+  return false;
+}
+function remarcadaPara(cid,tid){
+  const hoje=iso(HOJE);
+  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid && e.dia>=hoje)
+    .sort((a,b)=>a.dia.localeCompare(b.dia));
+  return l.length?l[0].dia:null;
+}
+function ajustarParcial(t){
+  if(t.feita || t.st.k==="ok") return t;
+  if(!temParcial(t.clienteId,t.id)) return t;
+  const q=remarcadaPara(t.clienteId,t.id);
+  if(!q) return t;                                   /* parcial sem remarcar continua atrasada */
+  t.st={k:"parcial", atraso:0, quando:null, resto:q,
+        txt:"Parcial · resto em "+fmt(q)};
+  return t;
+}
 function rebuild(){
   const base = ORIG.concat((ESTADO.novosClientes||[]).map(c=>JSON.parse(JSON.stringify(c))));
   const ed = ESTADO.clientes||{};
@@ -528,7 +555,7 @@ function rebuild(){
     }
     CLIENTES.push(c);
   });
-  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>({...t, st:status(t), area:areaBase(t.id)})))
+  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>ajustarParcial({...t, st:status(t), area:areaBase(t.id)})))
     .filter(t=>((ESTADO.excluidas||{})[t.clienteId]||[]).indexOf(t.id)<0)
     .map(t=>{ const nv=((ESTADO.titulos||{})[t.clienteId]||{})[t.id];
               return nv ? {...t, tarefa:nv, tituloOriginal:t.tarefa} : t; });
@@ -806,12 +833,12 @@ function duplicarTarefa(cid,tid,dia){
   snapshot();
   ESTADO.dup.push({cid:cid,tid:tid,dia:dia,orig:t.data});
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t.tarefa,acao:"replanejar",id:tid,data:dia});
-  persist(); render();
+  persist(); rebuild(); render();
 }
 function removeDup(cid,tid,dia){
   snapshot();
   ESTADO.dup=(ESTADO.dup||[]).filter(e=>!(e.cid===cid&&e.tid===tid&&e.dia===dia));
-  persist(); render();
+  persist(); rebuild(); render();
 }
 function bcardHTML(t, dayIso, dupOrig){
   const feita=t.st.k==="ok";
