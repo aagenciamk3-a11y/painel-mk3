@@ -562,7 +562,7 @@ function syncIniciar(){
       const dele=JSON.stringify(v);
       if(meu===dele) return;
       SYNC_APLICANDO=true;
-      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},ficha:{},log:[], ...v};
+      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},ficha:{},agenda:[],log:[], ...v};
       try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
       rebuild(); render();
       SYNC_APLICANDO=false;
@@ -1151,9 +1151,12 @@ function abrirDia(dayIso){
   const base=(c?TODAS.filter(t=>t.clienteId===c.id):tarefasArea()).filter(t=>t.data===dayIso)
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
   const mks=marcosDaArea((c?c.marcos:CLIENTES.flatMap(x=>x.marcos)).filter(m=>m.data===dayIso));
+  const ags=(VISTA.area==="all"||VISTA.area==="mkt") ? (c?agendaCli(c.id):(ESTADO.agenda||[])).filter(e=>e.dia===dayIso) : [];
   const titulo=d(dayIso).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
   const mm=$("modal");
   mm.innerHTML='<div class="mbox diamodal"><h3>'+esc(titulo)+'</h3>'+
+    (ags.length?'<div class="diaag">'+ags.map(e=>'&#9679; '+esc(e.titulo)+(e.diaInteiro?'':' · '+esc(e.hora||''))+
+      (e.meet?' <span class="ag-m" role="link" tabindex="0" data-abrir="'+escAttr(e.meet)+'">Meet</span>':'')).join("<br>")+'</div>':'')+
     (mks.length?'<div class="diamarco">'+mks.map(m=>"&#9670; "+esc(m.titulo)).join("<br>")+'</div>':'')+
     (base.length?'<div class="dia-lista">'+base.map(t=>diaItem(t,showCli)).join("")+'</div>':'<div class="vazio">Nenhuma tarefa neste dia.</div>')+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
@@ -1405,7 +1408,7 @@ function montarTooltip(){
 }
 function mergeEstado(a,b){
   if(!b) return a;
-  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, clientes:{...(a.clientes||{}),...((b&&b.clientes)||{})}, resultados:{...(a.resultados||{}),...((b&&b.resultados)||{})}, ficha:{...(a.ficha||{}),...((b&&b.ficha)||{})}, novosClientes:(b&&b.novosClientes)?b.novosClientes:(a.novosClientes||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
+  const r={concluidas:{...a.concluidas}, datas:{...a.datas}, semanal:{...(a.semanal||{})}, notas:{...(a.notas||{})}, dup:(b&&b.dup)?b.dup:(a.dup||[]), demandas:(b&&b.demandas)?b.demandas:(a.demandas||[]), portais:{...(a.portais||{}),...((b&&b.portais)||{})}, obsT:{...(a.obsT||{}),...((b&&b.obsT)||{})}, excluidas:{...(a.excluidas||{}),...((b&&b.excluidas)||{})}, titulos:{...(a.titulos||{}),...((b&&b.titulos)||{})}, clientes:{...(a.clientes||{}),...((b&&b.clientes)||{})}, resultados:{...(a.resultados||{}),...((b&&b.resultados)||{})}, ficha:{...(a.ficha||{}),...((b&&b.ficha)||{})}, agenda:(b&&b.agenda)?b.agenda:(a.agenda||[]), novosClientes:(b&&b.novosClientes)?b.novosClientes:(a.novosClientes||[]), pessoas:(b&&b.pessoas&&b.pessoas.length)?b.pessoas:(a.pessoas||[]), log:(b.log&&b.log.length?b.log:a.log)||[]};
   for(const k in (b.concluidas||{})) r.concluidas[k]=b.concluidas[k];
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
@@ -1419,7 +1422,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.agenda)ESTADO.agenda=[]; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1548,16 +1551,17 @@ function calendario(tasks, marcos, showCli){
     const fds  = dt.getDay()===0 || dt.getDay()===6;
     const evs  = base.filter(t=>t.data===s);
     const mk   = marcos.filter(m=>m.data===s);
+    const ags  = (VISTA.area==="all"||VISTA.area==="mkt") ? agendaVisivel().filter(e=>e.dia===s) : [];
     const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":""].filter(Boolean).join(" ");
     const maxEv = 2;
     /* dentro do dia: o que está atrasado vem primeiro, o que já foi aprovado/concluído vem por último */
-    const peso = it => it.marco ? 3.5 : (ORDEM[it.o.st.k]!=null ? ORDEM[it.o.st.k] : 9);
-    const items = mk.map(m=>({o:m,marco:true})).concat(evs.map(t=>({o:t,marco:false})))
+    const peso = it => it.ag ? 1.5 : (it.marco ? 3.5 : (ORDEM[it.o.st.k]!=null ? ORDEM[it.o.st.k] : 9));
+    const items = ags.map(a=>({o:a,ag:true})).concat(mk.map(m=>({o:m,marco:true}))).concat(evs.map(t=>({o:t,marco:false})))
       .sort((a,b)=> peso(a)-peso(b)
-        || String(a.marco?a.o.titulo:a.o.cliente||"").localeCompare(String(b.marco?b.o.titulo:b.o.cliente||""))
-        || String(a.marco?a.o.titulo:a.o.tarefa||"").localeCompare(String(b.marco?b.o.titulo:b.o.tarefa||"")));
+        || String((a.ag||a.marco)?(a.o.titulo||""):(a.o.cliente||"")).localeCompare(String((b.ag||b.marco)?(b.o.titulo||""):(b.o.cliente||"")))
+        || String((a.ag||a.marco)?(a.o.titulo||""):(a.o.tarefa||"")).localeCompare(String((b.ag||b.marco)?(b.o.titulo||""):(b.o.tarefa||""))));
     const cap = Math.min(items.length, maxEv);
-    const evsHtml = items.slice(0,cap).map(it=> it.marco ? evCard(it.o,false,true) : evCard(it.o,showCli,false)).join("");
+    const evsHtml = items.slice(0,cap).map(it=> it.ag ? evAgenda(it.o) : (it.marco ? evCard(it.o,false,true) : evCard(it.o,showCli,false))).join("");
     const resto = items.length - cap;
     const extra = resto>0 ? '<div class="mais" data-dia="'+s+'">+'+resto+' '+(resto===1?"item":"itens")+'</div>' : "";
     cells += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
@@ -1593,6 +1597,37 @@ function vazioHTML(filtro){
     '<button data-demanda="1">+ Nova demanda</button></div>';
 }
 
+
+/* ================= AGENDA (espelho do Google Agenda) ================= */
+/* ESTADO.agenda = [{id, titulo, dia, hora, fim, diaInteiro, meet, cliente, quando}] */
+function agendaDe(dia){ return (ESTADO.agenda||[]).filter(e=>e.dia===dia); }
+function agendaCli(cid){ return (ESTADO.agenda||[]).filter(e=>e.cliente===cid); }
+function agendaVisivel(){
+  const todos=(ESTADO.agenda||[]);
+  if(VISTA.escopo) return todos.filter(e=>e.cliente===VISTA.escopo);
+  return todos;
+}
+function evAgenda(e){
+  const h = e.diaInteiro ? "dia inteiro" : (e.hora||"");
+  return '<div class="ev ev-ag'+(e.meet?" tem-meet":"")+'" data-tt="'+escAttr(e.titulo+(h?" · "+h:""))+'">'+
+    '<div class="ev-tt">&#9679; '+esc(e.titulo)+'</div>'+
+    '<div class="ev-meta"><span class="ev-dot"></span>'+esc(h||"agenda")+'</div></div>';
+}
+function proximosAgendaHTML(){
+  const hoje=iso(HOJE);
+  const l=(ESTADO.agenda||[]).filter(e=>e.dia>=hoje).sort((a,b)=>(a.dia+(a.hora||"")).localeCompare(b.dia+(b.hora||""))).slice(0,5);
+  if(!l.length) return '';
+  return '<div class="db-cx"><div class="db-h">Próximos na agenda</div>'+
+    l.map(e=>{
+      const n=dias(e.dia);
+      const quando = n===0?"hoje":(n===1?"amanhã":fmt(e.dia));
+      return '<div class="ag-i'+(n===0?" hj":"")+'">'+
+        '<span class="ag-d">'+esc(quando)+(e.diaInteiro?'':' <i>'+esc(e.hora||"")+'</i>')+'</span>'+
+        '<span class="ag-t">'+esc(e.titulo)+'</span>'+
+        (e.meet?'<span class="ag-m" role="link" tabindex="0" data-abrir="'+escAttr(e.meet)+'" data-tt="Entrar no Meet">Meet</span>':'')+
+      '</div>';
+    }).join("")+'</div>';
+}
 /* ================= RESULTADOS (Reportei) ================= */
 const REPORTEI_PROJ = { leonardo:1100216, suelem:1265569, oceanus:1180490 };   /* cliente do painel -> projeto no Reportei */
 const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
@@ -2013,6 +2048,7 @@ function dashboardHTML(completo){
         '<span class="db-pn cli"><b>'+cli+'</b>Cliente</span></div>'+
         '<div class="db-obs">dias úteis já consumados</div></div>'+
     '</div>'+
+    (completo?proximosAgendaHTML():'')+
     (completo?resultadosPainelHTML():'')+
     (completo?(function(){
       const porCli={};

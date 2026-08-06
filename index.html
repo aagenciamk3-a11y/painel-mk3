@@ -1089,6 +1089,25 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r2);font-size:13px;color:var(--mut)}
 .cal-dica b{color:var(--txt);text-transform:capitalize}
 .cal-dica .ubtn{margin-left:auto}
+
+/* ===== agenda ===== */
+.ev-ag{background:linear-gradient(135deg,rgba(90,163,255,.22),rgba(90,163,255,.10));
+  border-left:3px solid var(--semana)!important}
+.ev-ag .ev-tt{color:#cfe2ff}
+.ev-ag .ev-dot{background:var(--semana)}
+.ev-ag.tem-meet .ev-tt::after{content:" ▸";opacity:.7}
+.ag-i{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13px;border-bottom:1px solid rgba(64,50,95,.45)}
+.ag-i:last-child{border-bottom:0}
+.ag-d{flex:none;min-width:82px;font-size:11.5px;font-weight:700;color:var(--semana);text-transform:capitalize}
+.ag-d i{font-style:normal;font-weight:500;color:var(--dim)}
+.ag-i.hj .ag-d{color:var(--mk3o)}
+.ag-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+.ag-m{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.4px;cursor:pointer;color:#fff;
+  background:var(--semana);border-radius:99px;padding:2px 9px}
+.ag-m:hover{background:#7fb8ff}
+.ag-m:focus-visible{outline:2px solid var(--mk3o);outline-offset:2px}
+.diaag{background:rgba(90,163,255,.12);border:1px solid rgba(90,163,255,.35);border-radius:var(--r2);
+  padding:10px 13px;margin-bottom:10px;font-size:13px;color:#cfe2ff;line-height:1.7}
 </style>
 </head>
 <body>
@@ -1127,7 +1146,7 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608051543"></script>
-<script src="motor.js?v=202608051543"></script>
+<script src="dados.js?v=202608061442"></script>
+<script src="motor.js?v=202608061442"></script>
 </body>
 </html>
