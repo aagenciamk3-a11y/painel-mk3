@@ -1498,10 +1498,16 @@ const CORCLI = {
 const coresDe = c => CORCLI[c.id] || coresSeg(c.segmento);
 const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
-const FOTO = {
+const FOTO_FIXA = {
   cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg", leonardo:"fotos/leonardo.jpg",
-  oceanus:"fotos/oceanus.jpg", adriana:"fotos/dinha.jpg"
+  oceanus:"fotos/oceanus.jpg", adriana:"fotos/dinha.jpg",
+  cli_1786128681070:"fotos/tyconnex.jpg"
 };
+/* clientes novos podem ter foto própria salva no estado */
+const FOTO = new Proxy({}, { get:(_,k)=>{
+  const ov=((typeof ESTADO!=="undefined" && ESTADO.clientes)||{})[k];
+  return (ov&&ov.foto) || FOTO_FIXA[k] || undefined;
+}});
 function avatarHTML(c, cls){
   const cor=coresDe(c), f=FOTO[c.id];
   return '<div class="'+cls+'" style="background:'+cor[1]+'">'+esc(iniciais(c.nome))+
