@@ -1669,24 +1669,28 @@ function abrirCompromisso(diaPre){
   const hoje=iso(HOJE);
   const cls=CLIENTES.map(c=>'<option value="'+escAttr(c.id)+'">'+esc(c.nome)+'</option>').join("");
   const pes=(ESTADO.pessoas||[]).map(p=>'<option value="'+escAttr(p.nome)+'">'+esc(p.nome)+'</option>').join("");
-  $("modal").innerHTML='<div class="mbox demform"><h3>Novo compromisso na agenda</h3>'+
+  $("modal").innerHTML='<div class="mbox compform"><h3>Novo compromisso na agenda</h3>'+
     '<p class="msub">Cria direto no Google Agenda da MK3. O cliente e o responsável ficam gravados no evento, então o painel já sabe de quem é.</p>'+
     '<label class="mlab">O que é<input type="text" id="cpTit" placeholder="Gravação, reunião, visita..." autocomplete="off"></label>'+
-    '<div class="cp-linha">'+
+    '<div class="cp-linha tres">'+
       '<label class="mlab">Dia<input type="date" id="cpDia" value="'+escAttr(diaPre||hoje)+'"></label>'+
-      '<label class="mlab">Hora<input type="time" id="cpHora" placeholder="deixe vazio para dia inteiro"></label>'+
-      '<label class="mlab">Dura<select id="cpDur">'+
-        '<option value="30">30 min</option><option value="60" selected>1 hora</option>'+
-        '<option value="120">2 horas</option><option value="240">4 horas</option><option value="480">o dia todo</option>'+
+      '<label class="mlab">Hora<input type="time" id="cpHora"></label>'+
+      '<label class="mlab">Duração<select id="cpDur">'+
+        '<option value="30">30 minutos</option><option value="60" selected>1 hora</option>'+
+        '<option value="120">2 horas</option><option value="240">4 horas</option><option value="480">O dia todo</option>'+
       '</select></label>'+
     '</div>'+
-    '<div class="cp-linha">'+
-      '<label class="mlab">Cliente<select id="cpCli"><option value="">nenhum</option>'+cls+'</select></label>'+
-      '<label class="mlab">Responsável<select id="cpResp"><option value="">deixar o painel adivinhar</option>'+pes+'</select></label>'+
+    '<div class="cp-dica">Sem hora, o compromisso entra como dia inteiro.</div>'+
+    '<div class="cp-linha dois">'+
+      '<label class="mlab">Cliente<select id="cpCli"><option value="">Nenhum</option>'+cls+'</select></label>'+
+      '<label class="mlab">Responsável<select id="cpResp"><option value="">O painel adivinha</option>'+pes+'</select></label>'+
     '</div>'+
-    '<label class="mlab">Convidar (e-mails separados por vírgula)<input type="text" id="cpConv" placeholder="opcional" autocomplete="off"></label>'+
-    '<label class="mlab chk"><span class="chkp" id="cpAvisar" data-avisar="1" role="checkbox" aria-checked="false"><i></i>Avisar os convidados por e-mail</span>'+
-      '<i class="mdica">Desmarcado, eles entram no evento mas não recebem nada.</i></label>'+
+    '<label class="mlab">Convidar<input type="text" id="cpConv" placeholder="e-mails separados por vírgula" autocomplete="off"></label>'+
+    '<div class="cp-aviso">'+
+      '<button type="button" class="cp-sw" id="cpAvisar" data-avisar="1" role="switch" aria-checked="false"><i></i></button>'+
+      '<div class="cp-aviso-t"><b>Avisar os convidados por e-mail</b>'+
+        '<span>Desligado, eles entram no evento sem receber nada.</span></div>'+
+    '</div>'+
     '<label class="mlab">Observação<input type="text" id="cpObs" placeholder="opcional" autocomplete="off"></label>'+
     '<div class="mbtns"><button data-macao="criarcomp">Criar na agenda</button>'+
     '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
@@ -2067,7 +2071,7 @@ function funcionariosHTML(){
   const cartoes=pes.map((p,i)=>{
     const ts=tarefasDe(p.nome);
     const n=k=>ts.filter(t=>t.st.k===k).length;
-    const atras=n("atrasado"), hoje=n("hoje");
+    const atras=n("atrasado"), hoje=n("hoje"), parciais=n("parcial");
     const semana=ts.filter(t=>["umdia","semana"].indexOf(t.st.k)>=0).length;
     const ym=iso(HOJE).slice(0,7);
     const feitas=ts.filter(t=>t.st.k==="ok" && t.dataConclusao && String(t.dataConclusao).slice(0,7)===ym).length;
@@ -2080,6 +2084,7 @@ function funcionariosHTML(){
         '<div class="fc-id"><b>'+esc(p.nome)+'</b><i>'+esc(areasDaPessoa(p).map(a=>ROT[a]||a).join(" · ")||"sem área")+
         (p.admin?' · administração':'')+'</i></div>'+
         (atras>0?'<span class="fc-tag">'+atras+' atrasada'+(atras>1?'s':'')+'</span>':'')+
+        (parciais>0?'<span class="fc-tag parc">'+parciais+' parcial'+(parciais>1?'is':'')+'</span>':'')+
       '</div>'+
       '<div class="fc-nums">'+
         '<div class="fc-n atrasado"><span data-num="'+atras+'">0</span><i>atrasado</i></div>'+
@@ -2118,16 +2123,18 @@ function recadoTexto(){
     const cabe=arr.slice(0,LIM), resto=arr.length-cabe.length;
     return "\n"+tit+" ("+arr.length+")\n"+cabe.map(fn).join("\n")+(resto>0?"\n- e mais "+resto:"")+"\n"; };
   const atras=ts.filter(t=>t.st.k==="atrasado").sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  const parc=ts.filter(t=>t.st.k==="parcial").sort((a,b)=>String(a.st.resto||"").localeCompare(String(b.st.resto||"")));
   const hoje=ts.filter(t=>t.st.k==="hoje");
   const amanha=ts.filter(t=>t.st.k==="umdia");
-  const cobrar=ts.filter(t=>t.resp==="Cliente" && (t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia"));
+  const cobrar=ts.filter(t=>t.resp==="Cliente" && ["atrasado","parcial","hoje","umdia"].indexOf(t.st.k)>=0);
   const dia=HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"2-digit"});
   let s="MK3 - "+dia.charAt(0).toUpperCase()+dia.slice(1)+"\n";
   s+=bloco("ATRASADO", atras, t=>linha(t)+" - venceu "+fmt(t.data));
+  s+=bloco("FEITO PELA METADE", parc, t=>linha(t)+" - resto em "+fmt(t.st.resto));
   s+=bloco("VENCE HOJE", hoje, linha);
   s+=bloco("AMANHA", amanha, linha);
   s+=bloco("COBRAR O CLIENTE", cobrar, t=>"- "+cli(t)+": "+t.tarefa+" - prazo "+fmt(t.data));
-  if(!atras.length && !hoje.length && !amanha.length){ s+="\nNada vencendo hoje nem amanha. Dia livre para adiantar o que vem.\n"; }
+  if(!atras.length && !parc.length && !hoje.length && !amanha.length){ s+="\nNada vencendo hoje nem amanha. Dia livre para adiantar o que vem.\n"; }
   return s.trim();
 }
 function abrirRecado(){
@@ -2753,8 +2760,10 @@ document.addEventListener("click", function(ev){
   if(D.recado){ abrirRecado(); return; }
   if(D.agenda){ abrirAgendaConfig(); return; }
   if(D.compromisso){ abrirCompromisso(VISTA.dia||null); return; }
-  if(D.avisar){ const el=$("cpAvisar"); if(el){ const on=el.classList.contains("on");
-    el.classList.toggle("on",!on); el.setAttribute("aria-checked", String(!on)); } return; }
+  if(D.avisar){ ev.preventDefault(); const el=$("cpAvisar");
+    if(el){ const on=el.classList.contains("on");
+      if(on) el.classList.remove("on"); else el.classList.add("on");
+      el.setAttribute("aria-checked", String(!on)); } return; }
   if(D.atribuir){ return; }   /* o select responde no change, não no clique */
   if(D.abrir){ ev.preventDefault(); ev.stopPropagation(); window.open(D.abrir,"_blank","noopener"); return; }
   if(D.ficha){ abrirFicha(D.ficha); return; }
