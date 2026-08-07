@@ -1668,23 +1668,22 @@ function abrirCompromisso(diaPre){
   if(!agendaUrl()){ toast("Ligue a agenda ao vivo primeiro",false); abrirAgendaConfig(); return; }
   const hoje=iso(HOJE);
   const cls=CLIENTES.map(c=>'<option value="'+escAttr(c.id)+'">'+esc(c.nome)+'</option>').join("");
-  const pes=(ESTADO.pessoas||[]).map(p=>'<option value="'+escAttr(p.nome)+'">'+esc(p.nome)+'</option>').join("");
   $("modal").innerHTML='<div class="mbox compform"><h3>Novo compromisso na agenda</h3>'+
     '<p class="msub">Cria direto no Google Agenda da MK3. O cliente e o responsável ficam gravados no evento, então o painel já sabe de quem é.</p>'+
     '<label class="mlab">O que é<input type="text" id="cpTit" placeholder="Gravação, reunião, visita..." autocomplete="off"></label>'+
     '<div class="cp-linha tres">'+
       '<label class="mlab">Dia<input type="date" id="cpDia" value="'+escAttr(diaPre||hoje)+'"></label>'+
-      '<label class="mlab">Hora<input type="time" id="cpHora"></label>'+
-      '<label class="mlab">Duração<select id="cpDur">'+
-        '<option value="30">30 minutos</option><option value="60" selected>1 hora</option>'+
-        '<option value="120">2 horas</option><option value="240">4 horas</option><option value="480">O dia todo</option>'+
-      '</select></label>'+
+      '<label class="mlab">Começa<input type="time" id="cpHora"></label>'+
+      '<label class="mlab">Termina<input type="time" id="cpFim"></label>'+
     '</div>'+
-    '<div class="cp-dica">Sem hora, o compromisso entra como dia inteiro.</div>'+
+    '<div class="cp-dica">Sem hora, entra como dia inteiro. Sem hora de término, dura 1 hora.</div>'+
     '<div class="cp-linha dois">'+
       '<label class="mlab">Cliente<select id="cpCli"><option value="">Nenhum</option>'+cls+'</select></label>'+
-      '<label class="mlab">Responsável<select id="cpResp"><option value="">O painel adivinha</option>'+pes+'</select></label>'+
     '</div>'+
+    '<div class="mlab">Responsáveis<div class="cp-eq" id="cpResp">'+
+      (ESTADO.pessoas||[]).map(p=>'<button type="button" class="cp-p" data-resp="'+escAttr(p.nome)+'">'+
+        faceDe(p.nome)+esc(p.nome)+'</button>').join("")+
+      '</div><i class="mdica">Nenhum marcado, o painel adivinha pelo assunto e pelos convidados.</i></div>'+
     '<label class="mlab">Convidar<input type="text" id="cpConv" placeholder="e-mails separados por vírgula" autocomplete="off"></label>'+
     '<div class="cp-aviso">'+
       '<button type="button" class="cp-sw" id="cpAvisar" data-avisar="1" role="switch" aria-checked="false"><i></i></button>'+
@@ -1703,8 +1702,9 @@ function criarCompromisso(){
   if(!titulo){ toast("Falta dizer o que é",false); return; }
   if(!dia){ toast("Falta o dia",false); return; }
   const av=$("cpAvisar");
+  const resp=[...document.querySelectorAll("#cpResp .cp-p.on")].map(b=>b.dataset.resp).join(", ");
   const corpo={ chave:(ESTADO.agendaChave||""), titulo:titulo, dia:dia, hora:v("cpHora"),
-    duracao:v("cpDur")||60, cliente:v("cpCli"), responsavel:v("cpResp"),
+    fim:v("cpFim"), cliente:v("cpCli"), responsavel:resp,
     convidados:v("cpConv"), avisar:!!(av && av.classList.contains("on")), obs:v("cpObs") };
   const bt=document.querySelector('[data-macao="criarcomp"]');
   if(bt){ bt.disabled=true; bt.textContent="Criando..."; }
@@ -1723,7 +1723,10 @@ function pessoasDaArea(a){ return (ESTADO.pessoas||[]).filter(p=>!p.admin && (p.
 function pessoaDoEvento(e){
   const manual=(ESTADO.agendaResp||{})[e.id];
   if(manual) return {nome:manual, como:"manual"};
-  if(e.pessoa && pessoaPorNome(e.pessoa)) return {nome:e.pessoa, como:"convidado"};
+  if(e.pessoa){
+    const val=String(e.pessoa).split(/\s*,\s*/).filter(n=>pessoaPorNome(n));
+    if(val.length) return {nome:val.join(", "), como:"convidado"};
+  }
   if(e.area){ const p=pessoasDaArea(e.area)[0]; if(p) return {nome:p.nome, como:"área"}; }
   if(e.cliente){ const p=pessoasDaArea("mkt")[0]; if(p) return {nome:p.nome, como:"cliente"}; }
   return null;
@@ -1737,8 +1740,11 @@ function atribuirEvento(id, nome){
 }
 function donoHTML(e){
   const d=pessoaDoEvento(e);
-  if(d) return '<span class="ag-p'+(d.como==="manual"?" fix":"")+'" data-tt="'+
-    escAttr(d.como==="manual"?"atribuído à mão":("identificado pelo "+d.como))+'">'+faceDe(d.nome)+esc(d.nome)+'</span>';
+  if(d){
+    const nomes=String(d.nome).split(/\s*,\s*/).filter(Boolean);
+    return nomes.map(n=>'<span class="ag-p'+(d.como==="manual"?" fix":"")+'" data-tt="'+
+      escAttr(d.como==="manual"?"atribuído à mão":("identificado pelo "+d.como))+'">'+faceDe(n)+esc(n)+'</span>').join("");
+  }
   if(!ehAdmin()) return '<span class="ag-p sem">sem responsável</span>';
   const opts=(ESTADO.pessoas||[]).map(p=>'<option value="'+escAttr(p.nome)+'">'+esc(p.nome)+'</option>').join("");
   return '<span class="ag-atrib"><label>Atribuir tarefa para:'+
@@ -2713,7 +2719,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -2760,6 +2766,8 @@ document.addEventListener("click", function(ev){
   if(D.recado){ abrirRecado(); return; }
   if(D.agenda){ abrirAgendaConfig(); return; }
   if(D.compromisso){ abrirCompromisso(VISTA.dia||null); return; }
+  if(D.resp!==undefined && alvo.classList.contains("cp-p")){ ev.preventDefault();
+    if(alvo.classList.contains("on")) alvo.classList.remove("on"); else alvo.classList.add("on"); return; }
   if(D.avisar){ ev.preventDefault(); const el=$("cpAvisar");
     if(el){ const on=el.classList.contains("on");
       if(on) el.classList.remove("on"); else el.classList.add("on");
