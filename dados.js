@@ -274,7 +274,8 @@ const CLIENTES = [
 
     /* PLANEJAMENTO EM ATRASO (17 dias) */
     tarefasExtras: [
-      {id:"plan_atraso", fase:"1º ciclo", tarefa:"Criar e enviar o planejamento (EM ATRASO)", detalhe:"Planejamento do mês atrasado", data:"2026-06-30", resp:"Analista"}
+      {id:"plan_atraso", fase:"1º ciclo", tarefa:"Criar e enviar o planejamento (EM ATRASO)", detalhe:"Planejamento do mês atrasado", data:"2026-06-30", resp:"Analista"},
+      {id:"envPlanej_2026-08", fase:"Ciclo padrão", tarefa:"Enviar planejamento ao cliente", detalhe:"Ciclo agosto de 2026 · entregue em duas partes", data:"2026-08-03", resp:"Analista"}
     ],
 
     concluidas: ["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva",

@@ -200,6 +200,7 @@ function regras(c){
     : new Date(e.getFullYear(), e.getMonth()+1, 1);
   const fimCiclos = c.vencimentoContrato ? d(c.vencimentoContrato)
                                          : new Date(ini.getFullYear(), ini.getMonth()+1, 1);
+  const dtFeita = id => { const x=(c.concluidas||[]).find(e=>((e&&e.id)?e.id:e)===id); return (x&&x.data)||null; };
   let _gi=0;
   for(let mref=new Date(ini); mref<=fimCiclos && _gi<24; mref.setMonth(mref.getMonth()+1), _gi++){
     const ano=mref.getFullYear(), mes=mref.getMonth()+1;
@@ -212,7 +213,12 @@ function regras(c){
     add("envRelat"+sfx,"Ciclo padrão","Enviar relatório ao cliente","E-mail, no dia da reunião ou no útil seguinte · "+cic,dd(21),"Analista");
     add("planej"+sfx,"Ciclo padrão","Criar o planejamento","Após a reunião · aprovação interna da gestão · "+cic,dd(23),"Analista");
     add("envPlanej"+sfx,"Ciclo padrão","Enviar planejamento ao cliente","Abre o prazo de 48h úteis · "+cic,dd(24),"Analista");
+    const _dEnvP=dtFeita("envPlanej"+sfx);
+    add("aprPlanej"+sfx,"Ciclo padrão","Aprovação do planejamento","Limite: 2 dias úteis · sem retorno = aprovado automaticamente · "+cic,uteis(_dEnvP||dd(24),2),"Cliente");
     add("midia"+sfx,"Ciclo padrão","Produzir a mídia","Semana 4 · "+cic,dd(28),"Analista");
+    add("envMidia"+sfx,"Ciclo padrão","Entregar as artes e vídeos ao cliente","Abre o prazo de 48h úteis · "+cic,dd(28),"Analista");
+    const _dEnvM=dtFeita("envMidia"+sfx);
+    add("aprMidia"+sfx,"Ciclo padrão","Aprovação das artes","Limite: 2 dias úteis · sem retorno = aprovado automaticamente · "+cic,uteis(_dEnvM||dd(28),2),"Cliente");
     add("agendado"+sfx,"Ciclo padrão","Conteúdo agendado","Pronto para publicar no dia 1 · "+cic,dd(ult),"Analista");
   }
   /* o contrato encerra: nada de tarefa de ciclo depois da data final */
@@ -2250,6 +2256,7 @@ function listaGlobalHTML(){
 /* ---------------- PRIORIDADES DIÁRIAS (quadro semanal) ---------------- */
 const EXEC = {
   c1_plan:"Planejamento", planej:"Planejamento", envPlanej:"Enviar planejamento",
+  aprPlanej:"Aprovação do planejamento", envMidia:"Entregar artes", aprMidia:"Aprovação das artes",
   c1_artes:"Artes", midia:"Artes",
   c1_gravacao:"Dia de gravação", c1_gravacaoMarcar:"Marcar gravação", c1_roteiro:"Roteiro",
   c1_aprPlan:"Aprovação do planejamento", c1_aprMid:"Aprovação das artes",
