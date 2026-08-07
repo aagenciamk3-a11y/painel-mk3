@@ -475,6 +475,7 @@ function sidebarHTML(){
   h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
   if(ehAdmin()){
     h+='<div class="side-sec">Demandas</div>';
+    h+='<button class="snav snav-add" data-compromisso="1" title="Novo compromisso na agenda"><span class="snav-i">'+IC.cal+'</span><span class="snav-t">Novo compromisso</span></button>';
     h+='<button class="snav snav-add" data-demanda="1" title="Nova demanda"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
     h+='<button class="snav" data-clientes="1" title="Clientes"><span class="snav-i">'+IC.cards+'</span><span class="snav-t">Clientes</span></button>';
     h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
@@ -590,7 +591,7 @@ function syncIniciar(){
       const dele=JSON.stringify(v);
       if(meu===dele) return;
       SYNC_APLICANDO=true;
-      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},ficha:{},agenda:[],agendaResp:{},log:[], ...v};
+      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},ficha:{},agenda:[],agendaResp:{},agendaChave:"",log:[], ...v};
       try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
       rebuild(); render();
       SYNC_APLICANDO=false;
@@ -1365,6 +1366,7 @@ function handleModal(D){
   if(D.macao==="fecharcli"){ semPular(()=>abrirClientes()); return; }
   if(D.macao==="salvarficha"){ salvarFicha(D.cliid); return; }
   if(D.macao==="salvaragenda"){ salvarAgendaUrl(); return; }
+  if(D.macao==="criarcomp"){ criarCompromisso(); return; }
   if(D.macao==="copiarrecado"){
     const el=$("recTxt"); const t=el?el.textContent:"";
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast("Recado copiado",true)).catch(()=>toast("Não consegui copiar, selecione o texto")); }
@@ -1659,6 +1661,59 @@ function proximosAgendaHTML(){
 }
 
 
+
+/* ---- criar compromisso na agenda pelo painel ---- */
+function abrirCompromisso(diaPre){
+  if(!ehAdmin()) return;
+  if(!agendaUrl()){ toast("Ligue a agenda ao vivo primeiro",false); abrirAgendaConfig(); return; }
+  const hoje=iso(HOJE);
+  const cls=CLIENTES.map(c=>'<option value="'+escAttr(c.id)+'">'+esc(c.nome)+'</option>').join("");
+  const pes=(ESTADO.pessoas||[]).map(p=>'<option value="'+escAttr(p.nome)+'">'+esc(p.nome)+'</option>').join("");
+  $("modal").innerHTML='<div class="mbox demform"><h3>Novo compromisso na agenda</h3>'+
+    '<p class="msub">Cria direto no Google Agenda da MK3. O cliente e o responsável ficam gravados no evento, então o painel já sabe de quem é.</p>'+
+    '<label class="mlab">O que é<input type="text" id="cpTit" placeholder="Gravação, reunião, visita..." autocomplete="off"></label>'+
+    '<div class="cp-linha">'+
+      '<label class="mlab">Dia<input type="date" id="cpDia" value="'+escAttr(diaPre||hoje)+'"></label>'+
+      '<label class="mlab">Hora<input type="time" id="cpHora" placeholder="deixe vazio para dia inteiro"></label>'+
+      '<label class="mlab">Dura<select id="cpDur">'+
+        '<option value="30">30 min</option><option value="60" selected>1 hora</option>'+
+        '<option value="120">2 horas</option><option value="240">4 horas</option><option value="480">o dia todo</option>'+
+      '</select></label>'+
+    '</div>'+
+    '<div class="cp-linha">'+
+      '<label class="mlab">Cliente<select id="cpCli"><option value="">nenhum</option>'+cls+'</select></label>'+
+      '<label class="mlab">Responsável<select id="cpResp"><option value="">deixar o painel adivinhar</option>'+pes+'</select></label>'+
+    '</div>'+
+    '<label class="mlab">Convidar (e-mails separados por vírgula)<input type="text" id="cpConv" placeholder="opcional" autocomplete="off"></label>'+
+    '<label class="mlab chk"><span class="chkp" id="cpAvisar" data-avisar="1" role="checkbox" aria-checked="false"><i></i>Avisar os convidados por e-mail</span>'+
+      '<i class="mdica">Desmarcado, eles entram no evento mas não recebem nada.</i></label>'+
+    '<label class="mlab">Observação<input type="text" id="cpObs" placeholder="opcional" autocomplete="off"></label>'+
+    '<div class="mbtns"><button data-macao="criarcomp">Criar na agenda</button>'+
+    '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
+  mostrarModal(true);
+}
+function criarCompromisso(){
+  if(!ehAdmin()) return;
+  const v=id=>{ const el=$(id); return el?String(el.value||"").trim():""; };
+  const titulo=v("cpTit"), dia=v("cpDia");
+  if(!titulo){ toast("Falta dizer o que é",false); return; }
+  if(!dia){ toast("Falta o dia",false); return; }
+  const av=$("cpAvisar");
+  const corpo={ chave:(ESTADO.agendaChave||""), titulo:titulo, dia:dia, hora:v("cpHora"),
+    duracao:v("cpDur")||60, cliente:v("cpCli"), responsavel:v("cpResp"),
+    convidados:v("cpConv"), avisar:!!(av && av.classList.contains("on")), obs:v("cpObs") };
+  const bt=document.querySelector('[data-macao="criarcomp"]');
+  if(bt){ bt.disabled=true; bt.textContent="Criando..."; }
+  fetch(agendaUrl(), {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify(corpo)})
+    .then(r=>r.json())
+    .then(j=>{
+      if(j && j.ok){ fecharModal(); toast("Compromisso criado na agenda",true); setTimeout(puxarAgendaAoVivo,1200); }
+      else { toast("Não deu: "+((j&&j.erro)||"resposta inesperada"),false);
+             if(bt){ bt.disabled=false; bt.textContent="Criar na agenda"; } }
+    })
+    .catch(()=>{ toast("Não consegui falar com a agenda",false);
+      if(bt){ bt.disabled=false; bt.textContent="Criar na agenda"; } });
+}
 /* ---- de quem é o evento: adivinha e, se não der, deixa a administração atribuir ---- */
 function pessoasDaArea(a){ return (ESTADO.pessoas||[]).filter(p=>!p.admin && (p.areas||[]).indexOf(a)>=0); }
 function pessoaDoEvento(e){
@@ -1719,6 +1774,7 @@ function abrirAgendaConfig(){
   $("modal").innerHTML='<div class="mbox demform"><h3>Agenda ao vivo</h3>'+
     '<p class="msub">Cole aqui o endereço do aplicativo da web publicado no Apps Script. Com ele preenchido, o painel lê o Google Agenda direto, a cada minuto e sempre que alguém abre a tela.</p>'+
     '<label class="mlab">Endereço do aplicativo<input type="text" id="agUrl" placeholder="https://script.google.com/macros/s/…/exec" value="'+escAttr(agendaUrl())+'"></label>'+
+    '<label class="mlab">Chave para criar eventos<input type="text" id="agChave" placeholder="a mesma que está no script" value="'+escAttr(ESTADO.agendaChave||"")+'"></label>'+
     '<div class="mbtns"><button data-macao="salvaragenda">Salvar e testar</button>'+
     '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal(true);
@@ -1726,7 +1782,8 @@ function abrirAgendaConfig(){
 function salvarAgendaUrl(){
   if(!ehAdmin()) return;
   const v=(($("agUrl")&&$("agUrl").value)||"").trim();
-  snapshot(); ESTADO.agendaUrl=v; persist();
+  const k=(($("agChave")&&$("agChave").value)||"").trim();
+  snapshot(); ESTADO.agendaUrl=v; ESTADO.agendaChave=k; persist();
   fecharModal(); ligarAgendaAoVivo();
   toast(v?"Agenda ao vivo ligada":"Agenda ao vivo desligada", true);
 }
@@ -2649,7 +2706,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -2695,6 +2752,9 @@ document.addEventListener("click", function(ev){
   if(D.portais){ abrirPortais(); return; }
   if(D.recado){ abrirRecado(); return; }
   if(D.agenda){ abrirAgendaConfig(); return; }
+  if(D.compromisso){ abrirCompromisso(VISTA.dia||null); return; }
+  if(D.avisar){ const el=$("cpAvisar"); if(el){ const on=el.classList.contains("on");
+    el.classList.toggle("on",!on); el.setAttribute("aria-checked", String(!on)); } return; }
   if(D.atribuir){ return; }   /* o select responde no change, não no clique */
   if(D.abrir){ ev.preventDefault(); ev.stopPropagation(); window.open(D.abrir,"_blank","noopener"); return; }
   if(D.ficha){ abrirFicha(D.ficha); return; }
