@@ -343,7 +343,7 @@ const esc = s => String(s==null?"":s)
   .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
 /* ---- ícone de status: não depender só de cor (2.3) ---- */
-const SIC = {atrasado:"&#9650;",hoje:"&#9679;",umdia:"&#9686;",semana:"&#9675;",futuro:"&#9675;",sem:"?",ok:"&#10003;"};
+const SIC = {atrasado:"&#9650;",parcial:"&#9681;",hoje:"&#9679;",umdia:"&#9686;",semana:"&#9675;",futuro:"&#9675;",sem:"?",ok:"&#10003;"};
 const tagHTML = t => '<span class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+
   '<i class="si" aria-hidden="true">'+(SIC[t.st.k]||"")+'</i>'+esc(t.st.txt)+'</span>';
 
@@ -400,7 +400,7 @@ function semPular(fn){
 const ORDEM   = {atrasado:0,parcial:0.5,hoje:1,umdia:2,semana:3,sem:4,futuro:5,ok:6};
 const ROTULO  = {atrasado:"Atrasado",parcial:"Parcial",hoje:"Vence hoje",umdia:"Falta 1 dia",
                  semana:"Esta semana",sem:"Sem data",futuro:"Programado",ok:"Concluído"};
-const BUCKETS = ["atrasado","hoje","umdia","semana","sem","ok"];
+const BUCKETS = ["atrasado","parcial","hoje","umdia","semana","sem","ok"];
 
 /* ---- áreas (Visão Geral = tudo) ---- */
 const AREAS = [{k:"all",rot:"Visão Geral"},{k:"mkt",rot:"Marketing Digital"},
@@ -529,17 +529,26 @@ function temParcial(cid,tid){
 }
 function remarcadaPara(cid,tid){
   const hoje=iso(HOJE);
-  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid && e.dia>=hoje)
+  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid)
     .sort((a,b)=>a.dia.localeCompare(b.dia));
-  return l.length?l[0].dia:null;
+  if(!l.length) return null;
+  const futura=l.find(e=>e.dia>=hoje);
+  return futura ? futura.dia : l[l.length-1].dia;   /* se ja passou, devolve a ultima mesmo assim */
 }
 function ajustarParcial(t){
   if(t.feita || t.st.k==="ok") return t;
   if(!temParcial(t.clienteId,t.id)) return t;
   const q=remarcadaPara(t.clienteId,t.id);
   if(!q) return t;                                   /* parcial sem remarcar continua atrasada */
-  t.st={k:"parcial", atraso:0, quando:null, resto:q,
-        txt:"Parcial · resto em "+fmt(q)};
+  const hoje=iso(HOJE);
+  if(q<hoje){
+    const atr=uteisEntre(q,hoje);
+    t.st={k:"atrasado", atraso:atr, quando:null, resto:q,
+          txt:"Parcial · resto venceu "+fmt(q)};
+  } else {
+    t.st={k:"parcial", atraso:0, quando:null, resto:q,
+          txt:"Parcial · resto em "+fmt(q)};
+  }
   return t;
 }
 function rebuild(){
