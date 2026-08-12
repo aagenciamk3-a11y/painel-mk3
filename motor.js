@@ -1502,7 +1502,8 @@ const CORCLI = {
   suelem:   ["#8a3b5e","#4b1930"],   // Suelem — roxo vinho
   leonardo: ["#2bb7c0","#116169"],   // Leonardo — azul-turquesa
   cynthia:  ["#cbb693","#9a8461"],   // Cynthia — bege
-  oceanus:  ["#2a30df","#1414a2"]    // Oceanus — azul da logo
+  oceanus:  ["#2a30df","#1414a2"],   // Oceanus — azul da logo
+  cli_1786128011208: ["#501e93","#30105c"]   // MK3 — roxo da marca
 };
 const coresDe = c => CORCLI[c.id] || coresSeg(c.segmento);
 const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
