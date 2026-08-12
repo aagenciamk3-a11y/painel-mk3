@@ -1510,7 +1510,8 @@ const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).ma
 const FOTO_FIXA = {
   cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg", leonardo:"fotos/leonardo.jpg",
   oceanus:"fotos/oceanus.jpg", adriana:"fotos/dinha.jpg",
-  cli_1786128681070:"fotos/tyconnex.jpg"
+  cli_1786128681070:"fotos/tyconnex.jpg",
+  cli_1786128011208:"fotos/mk3.jpg"
 };
 /* clientes novos podem ter foto própria salva no estado */
 const FOTO = new Proxy({}, { get:(_,k)=>{
