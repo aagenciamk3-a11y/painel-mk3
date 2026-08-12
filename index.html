@@ -1151,24 +1151,45 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
 .kpi.replan b,.fc-n.replan span{color:var(--replan)}
 .db-ag.replan{border-left-color:var(--replan)}
 
-/* ===== o que mudou nas últimas 48h ===== */
-.mud48{margin:0 0 22px}
-.mud48 h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;opacity:.62;margin:0 0 10px}
-.mud-lista{display:flex;flex-direction:column;gap:1px;background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.09);border-radius:12px;overflow:hidden}
-.mud-row{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--card,#16151c);
-  font-size:13px;line-height:1.35}
-.mud-p{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:#8b8b96}
-.mud-p.ok{background:#34D399}.mud-p.x{background:#F87171}
-.mud-p.mv{background:#FB7185}.mud-p.nova{background:#60A5FA}.mud-p.obs{background:#C084FC}
-.mud-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mud-t b{font-weight:650}
-.mud-t em{font-style:normal;opacity:.9}
-.mud-c{opacity:.55;font-size:12px}
-.mud-c::before{content:"· "}
-.mud-d{opacity:.5;font-size:12px}
-.mud-q{flex:0 0 auto;opacity:.45;font-size:11px;white-space:nowrap}
-@media(max-width:640px){.mud-t{white-space:normal}}
+/* ===== Feed da equipe ===== */
+.feed{max-width:880px}
+.fd-topo{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 16px}
+.fd-topo h2{font-size:19px;font-weight:700;letter-spacing:-.01em;margin:0}
+.fd-chips{display:flex;gap:6px}
+.fd-chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:inherit;
+  font:inherit;font-size:12.5px;padding:5px 12px;border-radius:99px;cursor:pointer;opacity:.7;
+  transition:background .15s,opacity .15s}
+.fd-chip:hover{opacity:1;background:rgba(255,255,255,.11)}
+.fd-chip.on{opacity:1;background:var(--mk3,#8B5CF6);border-color:transparent;font-weight:600}
+.fd-dia{margin-bottom:22px}
+.fd-dia-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-size:12px;text-transform:uppercase;letter-spacing:.09em;opacity:.55;
+  padding:0 2px 8px;border-bottom:1px solid rgba(255,255,255,.09);margin-bottom:2px}
+.fd-dia-h span{text-transform:none;letter-spacing:0;font-size:11.5px;opacity:.75}
+.fd-row{display:flex;align-items:center;gap:11px;padding:11px 4px;
+  border-bottom:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.4}
+.fd-row:last-child{border-bottom:0}
+.fd-face{flex:0 0 auto;width:28px;height:28px;border-radius:50%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.fd-face img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.fd-p{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:#8b8b96}
+.fd-p.ok{background:#34D399}.fd-p.x{background:#F87171}
+.fd-p.mv{background:#FB7185}.fd-p.nova{background:#60A5FA}.fd-p.obs{background:#C084FC}
+.fd-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fd-t b{font-weight:650}
+.fd-t em{font-style:normal;opacity:.88}
+.fd-obs{font-size:12px;opacity:.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fd-c{flex:0 0 auto;font-size:12.5px;opacity:.6;text-decoration:none;color:inherit;
+  max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+a.fd-c:hover{opacity:1;text-decoration:underline}
+.fd-q{flex:0 0 auto;font-size:11.5px;opacity:.4;white-space:nowrap;min-width:64px;text-align:right}
+.fd-vazio{background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.14);
+  border-radius:12px;padding:26px 22px;font-size:13.5px;opacity:.6;line-height:1.6}
+@media(max-width:640px){
+  .fd-row{flex-wrap:wrap;gap:8px}
+  .fd-t{flex:1 0 100%;order:3;padding-left:39px}
+  .fd-q{margin-left:auto}
+}
 
 /* ===== formulário de compromisso ===== */
 .mbox.compform{max-width:560px}
@@ -1241,7 +1262,7 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608121720"></script>
-<script src="motor.js?v=202608121720"></script>
+<script src="dados.js?v=202608121810"></script>
+<script src="motor.js?v=202608121810"></script>
 </body>
 </html>

@@ -432,6 +432,7 @@ const IC = {
   dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="9" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>',
   todas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
   tend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="1"/><rect x="13" y="7" width="3" height="10" rx="1"/></svg>',
+  feed:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="19.5" cy="19" r="1.6"/></svg>',
   add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
   link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12 19"/></svg>',
   equipe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 20a5.5 5.5 0 0 0-3-4.9"/></svg>'
@@ -472,13 +473,15 @@ function posicionarPill(){
 function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
-  const views=[["cards","Clientes",IC.cards],["prio","Tarefas",IC.prio],["equipe","Funcionários",IC.pessoas],
+  const nov=mudancasRecentes(2).length;
+  const views=[["cards","Clientes",IC.cards],["feed","Feed",IC.feed],["prio","Tarefas",IC.prio],
+               ["equipe","Funcionários",IC.pessoas],
                ["lista","Dashboard",IC.dash],["cal","Agenda",IC.cal],["tend","Tendência",IC.tend]]
     .filter(v=>(v[0]!=="tend" && v[0]!=="equipe") || ehAdmin());
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
   h+='<button class="snav inicio" data-sair="1" title="Voltar para a escolha de perfil"><span class="snav-i">'+IC.inicio+'</span><span class="snav-t">Início</span></button>';
   h+='<div class="side-sec">Ver</div>';
-  h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
+  h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:(v[0]==="feed"?nov:0)))).join("");
   if(ehAdmin()){
     h+='<div class="side-sec">Demandas</div>';
     h+='<button class="snav snav-add" data-compromisso="1" title="Novo compromisso na agenda"><span class="snav-i">'+IC.cal+'</span><span class="snav-t">Novo compromisso</span></button>';
@@ -495,7 +498,7 @@ function sidebarHTML(){
   return h;
 }
 
-const VISTA  = { pinPara:null, area:"all", escopo:null, aba:"cal", modo:"cards", mes:0, dia:null, filtro:null, verTudo:false, edit:false, pano:null, pmes:0, psem:null, side:false };
+const VISTA  = { pinPara:null, area:"all", escopo:null, aba:"cal", modo:"cards", feedDias:7, mes:0, dia:null, filtro:null, verTudo:false, edit:false, pano:null, pmes:0, psem:null, side:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
@@ -1571,54 +1574,78 @@ function evCard(t, showCli, isMarco){
 }
 
 /* ---------------- CARDS DE CLIENTE ---------------- */
-/* ---- o que mudou nas ultimas 48h: quem marcou o que, para ninguem se perder ---- */
+/* ---- Feed: tudo que a equipe marcou, em ordem, para ninguem se perder ---- */
 const ACAOROT = {
   concluir:["concluiu","ok"], registrar:["registrou","ok"], desfazer:["desfez","x"],
   naofeito:["marcou como nao feito","x"], replanejar:["replanejou","mv"],
   observacao:["deixou observacao em","obs"], demanda:["criou a demanda","nova"],
   renomear:["renomeou","obs"], novolink:["trocou o link do portal de","obs"],
-  excluir:["excluiu","x"], restaurar:["restaurou","ok"]
+  excluir:["excluiu","x"], restaurar:["restaurou","ok"], cobranca:["agendou cobranca de","nova"]
 };
 function nomeCli(cid){
   if(cid==="_dem") return "Demanda";
   const c=CLIENTES.find(x=>x.id===cid); return c?c.nome:"";
 }
-function mudancas48h(){
-  const limite=Date.now()-48*3600*1000;
+/* entradas dos ultimos N dias, sem repetir a mesma tarefa+acao */
+function mudancasRecentes(nd){
+  const limite=Date.now()-(nd||2)*24*3600*1000;
   const vistos={};
   return (ESTADO.log||[]).filter(x=>{
     if(!x || !x.ts) return false;
     if(new Date(x.ts).getTime()<limite) return false;
     if(x.acao==="observacao" && !x.motivo && !x.parcial) return false;
-    const k=(x.cliente||"")+"|"+(x.id||"")+"|"+x.acao;   /* uma linha por tarefa/acao */
+    const k=(x.cliente||"")+"|"+(x.id||"")+"|"+x.acao;
     if(vistos[k]) return false;
     vistos[k]=1; return true;
-  }).slice(0,12);
+  });
 }
+function mudancas48h(){ return mudancasRecentes(2).slice(0,12); }
 function quandoRel(ts){
   const m=Math.round((Date.now()-new Date(ts).getTime())/60000);
   if(m<1) return "agora";
   if(m<60) return "ha "+m+" min";
   const h=Math.round(m/60);
   if(h<24) return "ha "+h+"h";
-  return "ontem";
+  const d0=Math.round(h/24);
+  return "ha "+d0+(d0>1?" dias":" dia");
 }
-function mudancasHTML(){
-  const l=mudancas48h();
-  if(!l.length) return "";
-  return '<section class="mud48"><h2>O que mudou nas ultimas 48h</h2><div class="mud-lista">'+
-    l.map(x=>{
-      const a=ACAOROT[x.acao]||[x.acao,"obs"];
-      const quem=x.quem||"alguem";
-      const cli=nomeCli(x.cliente);
-      return '<div class="mud-row">'+
-        '<span class="mud-p '+a[1]+'"></span>'+
-        '<span class="mud-t"><b>'+esc(quem)+'</b> '+esc(a[0])+' '+
-          '<em>'+esc(x.nome||x.id||"")+'</em>'+(cli?' <span class="mud-c">'+esc(cli)+'</span>':'')+
-          (x.data?' <span class="mud-d">'+fmt(x.data)+'</span>':'')+'</span>'+
-        '<span class="mud-q">'+quandoRel(x.ts)+'</span>'+
-      '</div>';
-    }).join("")+'</div></section>';
+function diaRot(iso0){
+  const hoje=iso(HOJE);
+  if(iso0===hoje) return "Hoje";
+  if(iso0===addD(hoje,-1)) return "Ontem";
+  return fmt(iso0)+" · "+dow(iso0);
+}
+function feedLinha(x){
+  const a=ACAOROT[x.acao]||[x.acao,"obs"];
+  const quem=x.quem||"alguem";
+  const cli=nomeCli(x.cliente);
+  const c=cli?CLIENTES.find(y=>y.nome===cli):null;
+  return '<div class="fd-row">'+
+    '<span class="fd-face">'+faceDe(quem)+'</span>'+
+    '<span class="fd-p '+a[1]+'"></span>'+
+    '<span class="fd-t"><b>'+esc(quem)+'</b> '+esc(a[0])+' <em>'+esc(x.nome||x.id||"")+'</em>'+
+      (x.motivo?'<span class="fd-obs">'+esc(x.motivo)+'</span>':'')+'</span>'+
+    (c?'<a class="fd-c" href="'+rotaDe({escopo:c.id,aba:"tarefas"})+'" data-cliente="'+c.id+'">'+esc(cli)+'</a>'
+       :(cli?'<span class="fd-c">'+esc(cli)+'</span>':'<span class="fd-c"></span>'))+
+    '<span class="fd-q">'+quandoRel(x.ts)+'</span>'+
+  '</div>';
+}
+function feedHTML(){
+  const nd=VISTA.feedDias||7;
+  const ops=[[2,"48 horas"],[7,"7 dias"],[30,"30 dias"]];
+  const chips='<div class="fd-chips">'+ops.map(o=>
+    '<button class="fd-chip'+(nd===o[0]?" on":"")+'" data-feed="'+o[0]+'">'+o[1]+'</button>').join("")+'</div>';
+  const l=mudancasRecentes(nd);
+  if(!l.length) return '<section class="feed"><div class="fd-topo"><h2>Feed da equipe</h2>'+chips+'</div>'+
+    '<div class="fd-vazio">Ninguem marcou nada nesse periodo. Quando alguem concluir, replanejar ou deixar '+
+    'observacao numa tarefa, aparece aqui com o nome e a hora.</div></section>';
+  const dias0={};
+  l.forEach(x=>{ const d0=String(x.ts).slice(0,10); (dias0[d0]=dias0[d0]||[]).push(x); });
+  const corpo=Object.keys(dias0).sort().reverse().map(d0=>
+    '<div class="fd-dia"><div class="fd-dia-h">'+esc(diaRot(d0))+
+      '<span>'+dias0[d0].length+(dias0[d0].length>1?" marcacoes":" marcacao")+'</span></div>'+
+      dias0[d0].map(feedLinha).join("")+'</div>').join("");
+  return '<section class="feed"><div class="fd-topo"><h2>Feed da equipe</h2>'+chips+'</div>'+corpo+'</section>';
 }
 function cardsHTML(){
   const crit=c=>{ const ts=tarefasCli(c);
@@ -2781,7 +2808,8 @@ function render(){
     if(VISTA.modo==="equipe")     body = funcionariosHTML();
     else if(VISTA.modo==="tend")  body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
-    else if(VISTA.modo==="cards") body = mudancasHTML()+'<div class="cards">'+cardsHTML()+'</div>';
+    else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
+    else if(VISTA.modo==="feed")  body = feedHTML();
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
     else                          body = listaGlobalHTML();
     $("view").innerHTML = body; animar(); gravarRota();
@@ -2841,7 +2869,7 @@ function aplicarRota(){
   if(!h) return false;
   const p=h.split("/").filter(Boolean).map(decodeURIComponent);
   const areas=["all","mkt","fin","com"];
-  const modos=["cards","prio","equipe","lista","cal","tend"];
+  const modos=["cards","feed","prio","equipe","lista","cal","tend"];
   const abas=["cal","tarefas","marca","tend","hist"];
   let mudou=false;
   if(p[0]==="cliente" && p[1]){
@@ -2866,7 +2894,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -2962,6 +2990,7 @@ document.addEventListener("click", function(ev){
     VISTA.area=D.area; VISTA.filtro=null; VISTA.dia=null; VISTA.verTudo=false;
     /* a área é só um filtro: mantém a seção e o cliente abertos */
     semPular(render); return; }
+  if(D.feed){ VISTA.feedDias=Number(D.feed)||7; semPular(render); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
