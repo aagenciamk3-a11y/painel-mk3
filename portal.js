@@ -5,7 +5,8 @@ const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","a
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
-let RESULTADOS=null, OBJETIVO="", META=null, RECADO="";
+let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null;
+let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
 
 /* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
 function aplicarEstado(E){
@@ -35,23 +36,48 @@ $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-d
 $("titulo").textContent = C.nome;
 
 /* ---- 1) o que está esperando o cliente ---- */
+function pendentes(){
+  /* o painel manda a lista pronta; sem espelho, calcula pelas mesmas regras */
+  if(PENDENCIAS) return PENDENCIAS.slice();
+  return contadores(C).map(x=>({tipo:x.tipo, enviado:x.enviado, vencimento:x.vencimento, dias:dias(x.vencimento)}));
+}
+function faltaVoce(){
+  const p=pendentes();
+  if(!p.length) return '';
+  return '<section class="bloco falta"><h2>O que falta de voc\u00ea</h2>'+
+    p.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).map(x=>{
+      const n=(x.dias==null?dias(x.vencimento):x.dias);
+      const urg = n<0?"atrasado":n===0?"hoje":n===1?"umdia":"ok";
+      const quanto = n<0 ? "o prazo venceu, seguimos com a aprova\u00e7\u00e3o autom\u00e1tica"
+                   : n===0 ? "vence hoje"
+                   : n===1 ? "falta 1 dia \u00fatil"
+                   : "faltam "+n+" dias \u00fateis";
+      return '<div class="falta-row f-'+urg+'">'+
+        '<div class="falta-n">'+(n<0?"!":Math.max(n,0))+'</div>'+
+        '<div class="falta-t"><b>Aprovar '+esc(x.tipo)+'</b>'+
+          '<span>Enviamos em '+fmt(x.enviado)+' \u00b7 '+quanto+'</span></div>'+
+        '<div class="falta-d">at\u00e9 '+fmt(x.vencimento)+'</div></div>';
+    }).join("")+
+    '<p class="nota">Sem retorno at\u00e9 o prazo, seguimos com a aprova\u00e7\u00e3o autom\u00e1tica para n\u00e3o travar a produ\u00e7\u00e3o.</p></section>';
+}
 function esperando(){
-  const meus = TAREFAS.filter(t=>t.resp==="Cliente" && t.st.k!=="ok" && t.data)
-    .sort((a,b)=>String(a.data).localeCompare(String(b.data)));
   const ct = contadores(C);
-  if(!meus.length) return '<section class="bloco ok"><h2>Nada esperando você</h2>'+
-    '<p>Está tudo com a gente no momento. Assim que houver algo para aprovar, aparece aqui.</p></section>';
-  return '<section class="bloco"><h2>Esperando você</h2>'+
+  const tiposAprov = ct.map(x=>("aprova\u00e7\u00e3o de "+x.tipo).toLowerCase());
+  const meus = TAREFAS.filter(t=>t.resp==="Cliente" && t.st.k!=="ok" && t.data &&
+      tiposAprov.indexOf(String(t.tarefa).toLowerCase())<0)      /* aprova\u00e7\u00e3o j\u00e1 aparece no bloco de cima */
+    .sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  if(!meus.length && !pendentes().length)
+    return '<section class="bloco ok"><h2>Nada esperando voc\u00ea</h2>'+
+      '<p>Est\u00e1 tudo com a gente no momento. Assim que houver algo para aprovar, aparece aqui.</p></section>';
+  if(!meus.length) return '';
+  return '<section class="bloco"><h2>Tamb\u00e9m com voc\u00ea</h2>'+
     meus.map(t=>{
-      const c48 = ct.find(x=>("Aprovação de "+x.tipo).toLowerCase()===t.tarefa.toLowerCase());
       const n = dias(t.data);
       const urg = n<0?"atrasado":n===0?"hoje":n===1?"umdia":"ok";
-      const txt = n<0?("prazo venceu há "+Math.abs(n)+" dia"+(Math.abs(n)>1?"s":"")) : n===0?"vence hoje" : "faltam "+n+" dias";
+      const txt = n<0?("prazo venceu h\u00e1 "+Math.abs(n)+" dia"+(Math.abs(n)>1?"s":"")) : n===0?"vence hoje" : "faltam "+n+" dias";
       return '<div class="item i-'+urg+'"><div class="i-t">'+esc(t.tarefa)+'</div>'+
-        '<div class="i-m">Prazo '+fmt(t.data)+' · '+txt+
-        (c48?' · enviado em '+fmt(c48.enviado):'')+'</div></div>';
-    }).join("")+
-    '<p class="nota">Sem retorno até o prazo, seguimos com a aprovação automática para não travar a produção.</p></section>';
+        '<div class="i-m">Prazo '+fmt(t.data)+' \u00b7 '+txt+'</div></div>';
+    }).join("")+'</section>';
 }
 
 /* ---- 2) próximos passos (o que vem) ---- */
@@ -187,12 +213,12 @@ function ligarDash(){
     DASH_ABERTO=true; cx.innerHTML=dashFrameHTML(r.dash); armarFrame(cx);
   };
 }
-function desenhar(){ $("view").innerHTML = heroHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
+function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
 const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
-let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
+
 
 function marcarAtualizado(){
   let el=document.getElementById("atualiz");
@@ -204,10 +230,10 @@ function marcarAtualizado(){
 function aplicarEspelho(v){
   if(!v || typeof v!=="object") return false;
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
-  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo});
+  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
-  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || "";
+  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || ""; PENDENCIAS = v.pendencias || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};

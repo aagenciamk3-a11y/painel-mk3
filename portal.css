@@ -112,3 +112,24 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
   font-size:13.5px;line-height:1.6;color:#E6E1F5}
 .hero-asp{position:absolute;left:14px;top:6px;font-size:34px;line-height:1;color:#8B5CF6;opacity:.85;font-family:Georgia,serif}
 @media(max-width:560px){.hero-r{padding:12px 13px 12px 36px;font-size:13px}.hero-asp{left:10px;font-size:28px}}
+
+/* ===== o que falta de você ===== */
+.bloco.falta{border-color:rgba(251,146,60,.35)}
+.falta-row{display:flex;align-items:center;gap:14px;padding:13px 0;
+  border-bottom:1px solid rgba(255,255,255,.07)}
+.falta-row:last-of-type{border-bottom:0}
+.falta-n{flex:0 0 auto;width:42px;height:42px;border-radius:12px;display:flex;
+  align-items:center;justify-content:center;font-size:18px;font-weight:750;
+  background:rgba(255,255,255,.07)}
+.falta-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.falta-t b{font-size:15px;font-weight:650}
+.falta-t span{font-size:13px;opacity:.62}
+.falta-d{flex:0 0 auto;font-size:13px;opacity:.7;white-space:nowrap}
+.f-atrasado .falta-n{background:rgba(248,113,113,.18);color:#F87171}
+.f-hoje .falta-n{background:rgba(251,146,60,.18);color:#FB923C}
+.f-umdia .falta-n{background:rgba(250,204,21,.18);color:#FACC15}
+.f-ok .falta-n{background:rgba(52,211,153,.15);color:#34D399}
+@media(max-width:560px){
+  .falta-row{flex-wrap:wrap}
+  .falta-d{width:100%;padding-left:56px}
+}

@@ -343,7 +343,7 @@ const esc = s => String(s==null?"":s)
   .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
 /* ---- ícone de status: não depender só de cor (2.3) ---- */
-const SIC = {atrasado:"&#9650;",parcial:"&#9681;",hoje:"&#9679;",umdia:"&#9686;",semana:"&#9675;",futuro:"&#9675;",sem:"?",ok:"&#10003;"};
+const SIC = {atrasado:"&#9650;",replan:"&#8618;",parcial:"&#9681;",hoje:"&#9679;",umdia:"&#9686;",semana:"&#9675;",futuro:"&#9675;",sem:"?",ok:"&#10003;"};
 const tagHTML = t => '<span class="tag t-'+t.st.k+(t.st.atraso?' okatraso':'')+'">'+
   '<i class="si" aria-hidden="true">'+(SIC[t.st.k]||"")+'</i>'+esc(t.st.txt)+'</span>';
 
@@ -397,10 +397,10 @@ function semPular(fn){
   if(py) window.scrollTo(0,py);
 }
 
-const ORDEM   = {atrasado:0,parcial:0.5,hoje:1,umdia:2,semana:3,sem:4,futuro:5,ok:6};
-const ROTULO  = {atrasado:"Atrasado",parcial:"Parcial",hoje:"Vence hoje",umdia:"Falta 1 dia",
+const ORDEM   = {atrasado:0,replan:0.2,parcial:0.5,hoje:1,umdia:2,semana:3,sem:4,futuro:5,ok:6};
+const ROTULO  = {atrasado:"Atrasado",replan:"Replanejada e vencida",parcial:"Parcial",hoje:"Vence hoje",umdia:"Falta 1 dia",
                  semana:"Esta semana",sem:"Sem data",futuro:"Programado",ok:"Concluído"};
-const BUCKETS = ["atrasado","parcial","hoje","umdia","semana","sem","ok"];
+const BUCKETS = ["atrasado","replan","parcial","hoje","umdia","semana","sem","ok"];
 
 /* ---- áreas (Visão Geral = tudo) ---- */
 const AREAS = [{k:"all",rot:"Visão Geral"},{k:"mkt",rot:"Marketing Digital"},
@@ -535,6 +535,22 @@ function remarcadaPara(cid,tid){
   const futura=l.find(e=>e.dia>=hoje);
   return futura ? futura.dia : l[l.length-1].dia;   /* se ja passou, devolve a ultima mesmo assim */
 }
+/* replanejada cuja data nova ja passou: nao pode voltar a ser "futuro" nem sumir */
+function replanVencido(cid,tid){
+  const hoje=iso(HOJE);
+  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid).sort((a,b)=>a.dia.localeCompare(b.dia));
+  if(!l.length) return null;
+  if(l.some(e=>e.dia>=hoje)) return null;          /* ainda tem remarcacao no futuro */
+  return l[l.length-1].dia;
+}
+function ajustarReplan(t){
+  if(t.feita || t.st.k==="ok" || t.st.k==="parcial") return t;
+  const q=replanVencido(t.clienteId,t.id);
+  if(!q) return t;
+  t.st={k:"replan", atraso:uteisEntre(q,iso(HOJE)), quando:null, resto:q,
+        txt:"Replanejada para "+fmt(q)+" e venceu de novo"};
+  return t;
+}
 function ajustarParcial(t){
   if(t.feita || t.st.k==="ok") return t;
   if(!temParcial(t.clienteId,t.id)) return t;
@@ -571,7 +587,7 @@ function rebuild(){
     }
     CLIENTES.push(c);
   });
-  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>ajustarParcial({...t, st:status(t), area:areaBase(t.id)})))
+  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>ajustarParcial(ajustarReplan({...t, st:status(t), area:areaBase(t.id)}))))
     .filter(t=>((ESTADO.excluidas||{})[t.clienteId]||[]).indexOf(t.id)<0)
     .map(t=>{ const nv=((ESTADO.titulos||{})[t.clienteId]||{})[t.id];
               return nv ? {...t, tarefa:nv, tituloOriginal:t.tarefa} : t; });
@@ -633,7 +649,12 @@ let ESPELHO_T=null;
 function espelhoDe(cid){
   const p=(ESTADO.portais&&ESTADO.portais[cid])||null;
   const cli=CLIENTES.find(x=>x.id===cid)||null;
+  /* o que esta parado na mao do cliente, para ele ver o proprio gargalo */
+  const pend = cli ? contadores(cli).map(x=>({
+        tipo:x.tipo, enviado:x.enviado, vencimento:x.vencimento,
+        dias:dias(x.vencimento) })) : [];
   return { ts:Date.now(),
+           pendencias:pend,
            ativo:(p&&p.ativo)||null,
            objetivo:cli?objetivoDe(cli):"",
            recado:cli?((fichaDe(cli)||{}).recado||""):"",
@@ -1468,7 +1489,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.agenda)ESTADO.agenda=[]; if(!ESTADO.agendaResp)ESTADO.agendaResp={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.agenda)ESTADO.agenda=[]; if(!ESTADO.agendaResp)ESTADO.agendaResp={}; if(!ESTADO.cobrancas)ESTADO.cobrancas={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -1481,6 +1502,7 @@ async function init(){
   try{ localStorage.removeItem("mk3_user"); }catch(e){}
   if(USUARIO && !eu()) USUARIO=null;
   rebuild(); render(); montarTooltip(); syncIniciar(); ligarAgendaAoVivo();
+  setTimeout(rodarCobrancas, 4000);
   fetch("portais.json?ts="+Date.now()).then(r=>r.ok?r.json():null)
     .then(j=>{ if(j){ PORTAIS=j; agendarEspelho(); } }).catch(()=>{});
 }
@@ -1549,6 +1571,55 @@ function evCard(t, showCli, isMarco){
 }
 
 /* ---------------- CARDS DE CLIENTE ---------------- */
+/* ---- o que mudou nas ultimas 48h: quem marcou o que, para ninguem se perder ---- */
+const ACAOROT = {
+  concluir:["concluiu","ok"], registrar:["registrou","ok"], desfazer:["desfez","x"],
+  naofeito:["marcou como nao feito","x"], replanejar:["replanejou","mv"],
+  observacao:["deixou observacao em","obs"], demanda:["criou a demanda","nova"],
+  renomear:["renomeou","obs"], novolink:["trocou o link do portal de","obs"],
+  excluir:["excluiu","x"], restaurar:["restaurou","ok"]
+};
+function nomeCli(cid){
+  if(cid==="_dem") return "Demanda";
+  const c=CLIENTES.find(x=>x.id===cid); return c?c.nome:"";
+}
+function mudancas48h(){
+  const limite=Date.now()-48*3600*1000;
+  const vistos={};
+  return (ESTADO.log||[]).filter(x=>{
+    if(!x || !x.ts) return false;
+    if(new Date(x.ts).getTime()<limite) return false;
+    if(x.acao==="observacao" && !x.motivo && !x.parcial) return false;
+    const k=(x.cliente||"")+"|"+(x.id||"")+"|"+x.acao;   /* uma linha por tarefa/acao */
+    if(vistos[k]) return false;
+    vistos[k]=1; return true;
+  }).slice(0,12);
+}
+function quandoRel(ts){
+  const m=Math.round((Date.now()-new Date(ts).getTime())/60000);
+  if(m<1) return "agora";
+  if(m<60) return "ha "+m+" min";
+  const h=Math.round(m/60);
+  if(h<24) return "ha "+h+"h";
+  return "ontem";
+}
+function mudancasHTML(){
+  const l=mudancas48h();
+  if(!l.length) return "";
+  return '<section class="mud48"><h2>O que mudou nas ultimas 48h</h2><div class="mud-lista">'+
+    l.map(x=>{
+      const a=ACAOROT[x.acao]||[x.acao,"obs"];
+      const quem=x.quem||"alguem";
+      const cli=nomeCli(x.cliente);
+      return '<div class="mud-row">'+
+        '<span class="mud-p '+a[1]+'"></span>'+
+        '<span class="mud-t"><b>'+esc(quem)+'</b> '+esc(a[0])+' '+
+          '<em>'+esc(x.nome||x.id||"")+'</em>'+(cli?' <span class="mud-c">'+esc(cli)+'</span>':'')+
+          (x.data?' <span class="mud-d">'+fmt(x.data)+'</span>':'')+'</span>'+
+        '<span class="mud-q">'+quandoRel(x.ts)+'</span>'+
+      '</div>';
+    }).join("")+'</div></section>';
+}
 function cardsHTML(){
   const crit=c=>{ const ts=tarefasCli(c);
     return ts.filter(t=>t.st.k==="atrasado").length*100 + ts.filter(t=>t.st.k==="hoje").length*10 + ts.filter(t=>t.st.k==="umdia").length; };
@@ -1742,6 +1813,56 @@ function criarCompromisso(){
     .catch(()=>{ toast("Não consegui falar com a agenda",false);
       if(bt){ bt.disabled=false; bt.textContent="Criar na agenda"; } });
 }
+/* ---- cobranca de aprovacao: o painel cria o lembrete na agenda sozinho ----
+   Regra do manual: 1 dia util depois do envio, um evento avisa a equipe de
+   cobrar o cliente. So a administracao dispara, so uma vez por etapa, e a
+   marca fica no estado para nao duplicar nem em outro navegador. */
+function chaveCobranca(c,x){ return c.id+"|"+x.tipo+"|"+x.enviado; }
+function cobrancasPendentes(){
+  const hoje=iso(HOJE), out=[];
+  CLIENTES.forEach(c=>contadores(c).forEach(x=>{
+    if(x.lembrete>hoje) return;                 /* ainda nao chegou o dia */
+    if(x.vencimento<hoje) return;               /* ja passou, aprovacao automatica */
+    const k=chaveCobranca(c,x);
+    if((ESTADO.cobrancas||{})[k]) return;
+    out.push({cli:c, x:x, chave:k});
+  }));
+  return out;
+}
+function criarCobranca(item){
+  const c=item.cli, x=item.x;
+  const corpo={ chave:(ESTADO.agendaChave||""),
+    titulo:"Cobrar aprovacao de "+x.tipo+" - "+c.nome,
+    dia:(x.lembrete<iso(HOJE)?iso(HOJE):x.lembrete), hora:"09:00", fim:"09:15",
+    cliente:c.nome, responsavel:"", convidados:"", avisar:false,
+    obs:"Enviado em "+fmt(x.enviado)+". Sem retorno do cliente, aprova sozinho em "+fmt(x.vencimento)+"." };
+  return fetch(agendaUrl(), {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify(corpo)})
+    .then(r=>r.json())
+    .then(j=>{
+      if(!(j&&j.ok)) return false;
+      ESTADO.cobrancas=ESTADO.cobrancas||{};
+      ESTADO.cobrancas[item.chave]={dia:corpo.dia, criado:new Date().toISOString()};
+      return true;
+    })
+    .catch(()=>false);
+}
+let COBR_RODOU=false;
+function rodarCobrancas(){
+  if(COBR_RODOU || !ehAdmin() || !agendaUrl()) return;
+  COBR_RODOU=true;
+  const l=cobrancasPendentes();
+  if(!l.length) return;
+  Promise.all(l.map(criarCobranca)).then(res=>{
+    const n=res.filter(Boolean).length;
+    if(!n) return;
+    persist();
+    toast(n===1 ? "Criei 1 cobranca de aprovacao na agenda"
+                : "Criei "+n+" cobrancas de aprovacao na agenda", false);
+    setTimeout(puxarAgendaAoVivo,1200);
+  });
+}
+
 /* ---- de quem é o evento: adivinha e, se não der, deixa a administração atribuir ---- */
 function pessoasDaArea(a){ return (ESTADO.pessoas||[]).filter(p=>!p.admin && (p.areas||[]).indexOf(a)>=0); }
 function pessoaDoEvento(e){
@@ -2312,6 +2433,7 @@ function entrar(nome){
   aplicarRota();                                  /* abriu com endereço de uma tela? vai direto para ela */
   const as2=areasDe(); if(as2.indexOf(VISTA.area)<0) VISTA.area=as2[0]||"mkt";
   render();
+  setTimeout(rodarCobrancas, 2500);               /* so quem e da administracao dispara */
 }
 function tentarEntrar(nome){
   const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome);
@@ -2659,7 +2781,7 @@ function render(){
     if(VISTA.modo==="equipe")     body = funcionariosHTML();
     else if(VISTA.modo==="tend")  body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
-    else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
+    else if(VISTA.modo==="cards") body = mudancasHTML()+'<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
     else                          body = listaGlobalHTML();
     $("view").innerHTML = body; animar(); gravarRota();

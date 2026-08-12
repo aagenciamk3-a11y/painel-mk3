@@ -117,11 +117,32 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
   font-size:13.5px;line-height:1.6;color:#E6E1F5}
 .hero-asp{position:absolute;left:14px;top:6px;font-size:34px;line-height:1;color:#8B5CF6;opacity:.85;font-family:Georgia,serif}
 @media(max-width:560px){.hero-r{padding:12px 13px 12px 36px;font-size:13px}.hero-asp{left:10px;font-size:28px}}
+
+/* ===== o que falta de você ===== */
+.bloco.falta{border-color:rgba(251,146,60,.35)}
+.falta-row{display:flex;align-items:center;gap:14px;padding:13px 0;
+  border-bottom:1px solid rgba(255,255,255,.07)}
+.falta-row:last-of-type{border-bottom:0}
+.falta-n{flex:0 0 auto;width:42px;height:42px;border-radius:12px;display:flex;
+  align-items:center;justify-content:center;font-size:18px;font-weight:750;
+  background:rgba(255,255,255,.07)}
+.falta-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.falta-t b{font-size:15px;font-weight:650}
+.falta-t span{font-size:13px;opacity:.62}
+.falta-d{flex:0 0 auto;font-size:13px;opacity:.7;white-space:nowrap}
+.f-atrasado .falta-n{background:rgba(248,113,113,.18);color:#F87171}
+.f-hoje .falta-n{background:rgba(251,146,60,.18);color:#FB923C}
+.f-umdia .falta-n{background:rgba(250,204,21,.18);color:#FACC15}
+.f-ok .falta-n{background:rgba(52,211,153,.15);color:#34D399}
+@media(max-width:560px){
+  .falta-row{flex-wrap:wrap}
+  .falta-d{width:100%;padding-left:56px}
+}
 </style></head><body>
 <div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
 <h1 id="titulo"></h1><div id="view"></div>
 <footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer></div>
-<script>const CLIENTES=[{"id":"oceanus","nome":"Oceanus","entrada":"2026-02-12","vencimentoContrato":"2026-08-12","escopo":{"agendamento":true,"calendarioEditorial":false,"trafegoPago":false},"imersao":null,"reuniaoPlanejamentoEntrada":null,"envioPlanejamento":null,"aprovacaoPlanejamento":null,"envioMidia":null,"aprovacaoMidia":null,"gravacao":null,"artesDependemDaGravacao":false,"inicioCicloPadrao":"2026-09","tarefasExtras":[{"id":"plan_atraso","fase":"1º ciclo","tarefa":"Criar e enviar o planejamento (EM ATRASO)","detalhe":"Planejamento do mês atrasado","data":"2026-06-30","resp":"Analista"}],"concluidas":["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva","pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan","reserva3m","pag_2026-02-15","pag_2026-03-15","pag_2026-04-15","pag_2026-05-15","pag_2026-06-15"],"marcos":[{"data":"2026-02-12","titulo":"Entrada do cliente","detalhe":"Contrato · Escola Oceanus (Serra/ES)"}]}];const MOSTRA_HISTORICO=false;
+<script>const CLIENTES=[{"id":"oceanus","nome":"Oceanus","entrada":"2026-02-12","vencimentoContrato":"2026-08-12","escopo":{"agendamento":true,"calendarioEditorial":false,"trafegoPago":false},"imersao":null,"reuniaoPlanejamentoEntrada":null,"envioPlanejamento":null,"aprovacaoPlanejamento":null,"envioMidia":null,"aprovacaoMidia":null,"gravacao":null,"artesDependemDaGravacao":false,"inicioCicloPadrao":"2026-09","tarefasExtras":[{"id":"plan_atraso","fase":"1º ciclo","tarefa":"Criar e enviar o planejamento (EM ATRASO)","detalhe":"Planejamento do mês atrasado","data":"2026-06-30","resp":"Analista"},{"id":"envPlanej_2026-08","fase":"Ciclo padrão","tarefa":"Enviar planejamento ao cliente","detalhe":"Ciclo agosto de 2026 · entregue em duas partes","data":"2026-08-03","resp":"Analista"}],"concluidas":["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva","pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan","reserva3m","pag_2026-02-15","pag_2026-03-15","pag_2026-04-15","pag_2026-05-15","pag_2026-06-15"],"marcos":[{"data":"2026-02-12","titulo":"Entrada do cliente","detalhe":"Contrato · Escola Oceanus (Serra/ES)"}]}];const MOSTRA_HISTORICO=false;
 const CLIENTE_ID="oceanus";const MEU_TOKEN="b9f537f88d07326dff811d6bf3926ee9";const MK3_DB="https://painel-mk3-default-rtdb.firebaseio.com";</script>
 <script>/* ═══════════════════════════════════════════════════════════════
    MOTOR — regras do Manual de Processos MK3 v1.0 + render.
@@ -325,6 +346,7 @@ function regras(c){
     : new Date(e.getFullYear(), e.getMonth()+1, 1);
   const fimCiclos = c.vencimentoContrato ? d(c.vencimentoContrato)
                                          : new Date(ini.getFullYear(), ini.getMonth()+1, 1);
+  const dtFeita = id => { const x=(c.concluidas||[]).find(e=>((e&&e.id)?e.id:e)===id); return (x&&x.data)||null; };
   let _gi=0;
   for(let mref=new Date(ini); mref<=fimCiclos && _gi<24; mref.setMonth(mref.getMonth()+1), _gi++){
     const ano=mref.getFullYear(), mes=mref.getMonth()+1;
@@ -337,7 +359,12 @@ function regras(c){
     add("envRelat"+sfx,"Ciclo padrão","Enviar relatório ao cliente","E-mail, no dia da reunião ou no útil seguinte · "+cic,dd(21),"Analista");
     add("planej"+sfx,"Ciclo padrão","Criar o planejamento","Após a reunião · aprovação interna da gestão · "+cic,dd(23),"Analista");
     add("envPlanej"+sfx,"Ciclo padrão","Enviar planejamento ao cliente","Abre o prazo de 48h úteis · "+cic,dd(24),"Analista");
+    const _dEnvP=dtFeita("envPlanej"+sfx);
+    add("aprPlanej"+sfx,"Ciclo padrão","Aprovação do planejamento","Limite: 2 dias úteis · sem retorno = aprovado automaticamente · "+cic,uteis(_dEnvP||dd(24),2),"Cliente");
     add("midia"+sfx,"Ciclo padrão","Produzir a mídia","Semana 4 · "+cic,dd(28),"Analista");
+    add("envMidia"+sfx,"Ciclo padrão","Entregar as artes e vídeos ao cliente","Abre o prazo de 48h úteis · "+cic,dd(28),"Analista");
+    const _dEnvM=dtFeita("envMidia"+sfx);
+    add("aprMidia"+sfx,"Ciclo padrão","Aprovação das artes","Limite: 2 dias úteis · sem retorno = aprovado automaticamente · "+cic,uteis(_dEnvM||dd(28),2),"Cliente");
     add("agendado"+sfx,"Ciclo padrão","Conteúdo agendado","Pronto para publicar no dia 1 · "+cic,dd(ult),"Analista");
   }
   /* o contrato encerra: nada de tarefa de ciclo depois da data final */
@@ -464,7 +491,8 @@ const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","a
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
-let RESULTADOS=null, OBJETIVO="", META=null, RECADO="";
+let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null;
+let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
 
 /* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
 function aplicarEstado(E){
@@ -494,23 +522,48 @@ $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-d
 $("titulo").textContent = C.nome;
 
 /* ---- 1) o que está esperando o cliente ---- */
+function pendentes(){
+  /* o painel manda a lista pronta; sem espelho, calcula pelas mesmas regras */
+  if(PENDENCIAS) return PENDENCIAS.slice();
+  return contadores(C).map(x=>({tipo:x.tipo, enviado:x.enviado, vencimento:x.vencimento, dias:dias(x.vencimento)}));
+}
+function faltaVoce(){
+  const p=pendentes();
+  if(!p.length) return '';
+  return '<section class="bloco falta"><h2>O que falta de voc\u00ea</h2>'+
+    p.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).map(x=>{
+      const n=(x.dias==null?dias(x.vencimento):x.dias);
+      const urg = n<0?"atrasado":n===0?"hoje":n===1?"umdia":"ok";
+      const quanto = n<0 ? "o prazo venceu, seguimos com a aprova\u00e7\u00e3o autom\u00e1tica"
+                   : n===0 ? "vence hoje"
+                   : n===1 ? "falta 1 dia \u00fatil"
+                   : "faltam "+n+" dias \u00fateis";
+      return '<div class="falta-row f-'+urg+'">'+
+        '<div class="falta-n">'+(n<0?"!":Math.max(n,0))+'</div>'+
+        '<div class="falta-t"><b>Aprovar '+esc(x.tipo)+'</b>'+
+          '<span>Enviamos em '+fmt(x.enviado)+' \u00b7 '+quanto+'</span></div>'+
+        '<div class="falta-d">at\u00e9 '+fmt(x.vencimento)+'</div></div>';
+    }).join("")+
+    '<p class="nota">Sem retorno at\u00e9 o prazo, seguimos com a aprova\u00e7\u00e3o autom\u00e1tica para n\u00e3o travar a produ\u00e7\u00e3o.</p></section>';
+}
 function esperando(){
-  const meus = TAREFAS.filter(t=>t.resp==="Cliente" && t.st.k!=="ok" && t.data)
-    .sort((a,b)=>String(a.data).localeCompare(String(b.data)));
   const ct = contadores(C);
-  if(!meus.length) return '<section class="bloco ok"><h2>Nada esperando você</h2>'+
-    '<p>Está tudo com a gente no momento. Assim que houver algo para aprovar, aparece aqui.</p></section>';
-  return '<section class="bloco"><h2>Esperando você</h2>'+
+  const tiposAprov = ct.map(x=>("aprova\u00e7\u00e3o de "+x.tipo).toLowerCase());
+  const meus = TAREFAS.filter(t=>t.resp==="Cliente" && t.st.k!=="ok" && t.data &&
+      tiposAprov.indexOf(String(t.tarefa).toLowerCase())<0)      /* aprova\u00e7\u00e3o j\u00e1 aparece no bloco de cima */
+    .sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  if(!meus.length && !pendentes().length)
+    return '<section class="bloco ok"><h2>Nada esperando voc\u00ea</h2>'+
+      '<p>Est\u00e1 tudo com a gente no momento. Assim que houver algo para aprovar, aparece aqui.</p></section>';
+  if(!meus.length) return '';
+  return '<section class="bloco"><h2>Tamb\u00e9m com voc\u00ea</h2>'+
     meus.map(t=>{
-      const c48 = ct.find(x=>("Aprovação de "+x.tipo).toLowerCase()===t.tarefa.toLowerCase());
       const n = dias(t.data);
       const urg = n<0?"atrasado":n===0?"hoje":n===1?"umdia":"ok";
-      const txt = n<0?("prazo venceu há "+Math.abs(n)+" dia"+(Math.abs(n)>1?"s":"")) : n===0?"vence hoje" : "faltam "+n+" dias";
+      const txt = n<0?("prazo venceu h\u00e1 "+Math.abs(n)+" dia"+(Math.abs(n)>1?"s":"")) : n===0?"vence hoje" : "faltam "+n+" dias";
       return '<div class="item i-'+urg+'"><div class="i-t">'+esc(t.tarefa)+'</div>'+
-        '<div class="i-m">Prazo '+fmt(t.data)+' · '+txt+
-        (c48?' · enviado em '+fmt(c48.enviado):'')+'</div></div>';
-    }).join("")+
-    '<p class="nota">Sem retorno até o prazo, seguimos com a aprovação automática para não travar a produção.</p></section>';
+        '<div class="i-m">Prazo '+fmt(t.data)+' \u00b7 '+txt+'</div></div>';
+    }).join("")+'</section>';
 }
 
 /* ---- 2) próximos passos (o que vem) ---- */
@@ -646,12 +699,12 @@ function ligarDash(){
     DASH_ABERTO=true; cx.innerHTML=dashFrameHTML(r.dash); armarFrame(cx);
   };
 }
-function desenhar(){ $("view").innerHTML = heroHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
+function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
 const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
-let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
+
 
 function marcarAtualizado(){
   let el=document.getElementById("atualiz");
@@ -663,10 +716,10 @@ function marcarAtualizado(){
 function aplicarEspelho(v){
   if(!v || typeof v!=="object") return false;
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
-  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo});
+  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
-  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || "";
+  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || ""; PENDENCIAS = v.pendencias || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};

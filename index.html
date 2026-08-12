@@ -1141,6 +1141,35 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
 .kpi.parcial b,.fc-n.parcial span{color:var(--parcial)}
 .db-ag.parcial{border-left-color:var(--parcial)}
 
+/* status replan: remarcada e a data nova tambem estourou */
+:root{--replan:#FB7185}
+.tag.t-replan,.sf.replan b{color:var(--replan)}
+.ev-replan{background:linear-gradient(135deg,rgba(251,113,133,.26),rgba(251,113,133,.10));
+  border-left:3px solid var(--replan)!important}
+.ev-replan .ev-dot{background:var(--replan)}
+.tag.t-replan{background:rgba(251,113,133,.16);border-color:rgba(251,113,133,.5)}
+.kpi.replan b,.fc-n.replan span{color:var(--replan)}
+.db-ag.replan{border-left-color:var(--replan)}
+
+/* ===== o que mudou nas últimas 48h ===== */
+.mud48{margin:0 0 22px}
+.mud48 h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;opacity:.62;margin:0 0 10px}
+.mud-lista{display:flex;flex-direction:column;gap:1px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.09);border-radius:12px;overflow:hidden}
+.mud-row{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--card,#16151c);
+  font-size:13px;line-height:1.35}
+.mud-p{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:#8b8b96}
+.mud-p.ok{background:#34D399}.mud-p.x{background:#F87171}
+.mud-p.mv{background:#FB7185}.mud-p.nova{background:#60A5FA}.mud-p.obs{background:#C084FC}
+.mud-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mud-t b{font-weight:650}
+.mud-t em{font-style:normal;opacity:.9}
+.mud-c{opacity:.55;font-size:12px}
+.mud-c::before{content:"· "}
+.mud-d{opacity:.5;font-size:12px}
+.mud-q{flex:0 0 auto;opacity:.45;font-size:11px;white-space:nowrap}
+@media(max-width:640px){.mud-t{white-space:normal}}
+
 /* ===== formulário de compromisso ===== */
 .mbox.compform{max-width:560px}
 .mbox.compform .mlab{margin-bottom:12px}
@@ -1212,7 +1241,7 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608121600"></script>
-<script src="motor.js?v=202608121600"></script>
+<script src="dados.js?v=202608121720"></script>
+<script src="motor.js?v=202608121720"></script>
 </body>
 </html>
