@@ -546,8 +546,23 @@ function replanVencido(cid,tid){
   if(l.some(e=>e.dia>=hoje)) return null;          /* ainda tem remarcacao no futuro */
   return l[l.length-1].dia;
 }
+/* remarcacao para antes da data original: o prazo que vale passa a ser o novo */
+function antecipacao(cid,tid,dataOrig){
+  const hoje=iso(HOJE);
+  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid && e.dia>=hoje && (!dataOrig || e.dia<dataOrig))
+    .sort((a,b)=>a.dia.localeCompare(b.dia));
+  return l.length?l[0].dia:null;
+}
 function ajustarReplan(t){
   if(t.feita || t.st.k==="ok" || t.st.k==="parcial") return t;
+  const ant=antecipacao(t.clienteId,t.id,t.data);
+  if(ant){
+    const st2=status({...t, data:ant});
+    st2.txt=st2.txt+" · antecipada de "+fmt(t.data);
+    st2.antecipada=t.data;
+    t.st=st2;
+    return t;
+  }
   const q=replanVencido(t.clienteId,t.id);
   if(!q) return t;
   t.st={k:"replan", atraso:uteisEntre(q,iso(HOJE)), quando:null, resto:q,
@@ -858,16 +873,13 @@ function neutralizar(cid,tid,day){
   marcar(cid,tid,null,"desfazer");
   toast("Marcação removida",true);
 }
-function minimoReplan(t){
-  const hoje=iso(HOJE);
-  const base=t&&t.data ? (t.data>hoje?t.data:hoje) : hoje;
-  return base;
-}
+/* da para antecipar ou adiar; so nao da para jogar no passado */
+function minimoReplan(t){ return iso(HOJE); }
 function podeReplanejar(t,dia){ return !!t && dia>=minimoReplan(t); }
 function duplicarTarefa(cid,tid,dia){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   if(t.data===dia) return;
-  if(!podeReplanejar(t,dia)){ toast("Só dá para replanejar para hoje ou para frente",false); return; }
+  if(!podeReplanejar(t,dia)){ toast("Não dá para replanejar para um dia que já passou",false); return; }
   ESTADO.dup=ESTADO.dup||[];
   if(ESTADO.dup.some(e=>e.cid===cid&&e.tid===tid&&e.dia===dia)) return;
   snapshot();
@@ -1329,14 +1341,20 @@ function abrirMover(cid,tid,diaAtual,mesRef){
     const s=iso(new Date(ano,mes,dia));
     const fds=[0,6].indexOf(new Date(ano,mes,dia).getDay())>=0;
     const invalido=!podeReplanejar(t,s);
-    const cls=["mv-d",fds?"fds":"",s===hojeIso?"hj":"",s===diaAtual?"atual":"",s===t.data?"orig":"",invalido?"nao":""].filter(Boolean).join(" ");
-    cels+='<button class="'+cls+'" data-macao="mover" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+s+'"'+
-      (s===diaAtual?' disabled title="Já está neste dia"':(invalido?' disabled title="Não dá para replanejar para trás"':''))+'>'+dia+'</button>';
+    const antes=!invalido && t && t.data && s<t.data;
+    const cls=["mv-d",fds?"fds":"",s===hojeIso?"hj":"",s===diaAtual?"atual":"",s===t.data?"orig":"",
+               invalido?"nao":"",antes?"antes":""].filter(Boolean).join(" ");
+    const tit = s===diaAtual ? ' disabled title="Já está neste dia"'
+              : invalido ? ' disabled title="Dia que já passou"'
+              : antes ? ' title="Antecipa: passa a vencer neste dia"'
+              : ' title="Adia para este dia"';
+    cels+='<button class="'+cls+'" data-macao="mover" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+s+'"'+tit+'>'+dia+'</button>';
   }
   const mm=$("modal");
   mm.innerHTML='<div class="mbox mover-box"><h3>Replanejar para outro dia</h3>'+
     '<p class="msub">'+esc(t?t.tarefa:"")+(t?" · "+esc(t.cliente):"")+'</p>'+
-    '<p class="msub">Cria uma cópia no dia escolhido. A tarefa original continua na data dela'+(t&&t.data?" ("+fmt(t.data)+")":"")+'.</p>'+
+    '<p class="msub">Escolha qualquer dia de hoje em diante. Para <b>frente</b>, cria uma cópia e o prazo original'+
+      (t&&t.data?" ("+fmt(t.data)+")":"")+' continua valendo. Para <b>trás</b>, antecipa: a tarefa passa a vencer no dia escolhido.</p>'+
     '<div class="mv-nav"><button class="mv-set" data-mesmover="'+prev+'" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+(diaAtual||"")+'" aria-label="Mês anterior">&lsaquo;</button>'+
       '<strong>'+ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})+'</strong>'+
       '<button class="mv-set" data-mesmover="'+next+'" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+(diaAtual||"")+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
