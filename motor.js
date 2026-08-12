@@ -1370,6 +1370,110 @@ function abrirMover(cid,tid,diaAtual,mesRef){
     '<div class="mbtns"><button class="sec" data-macao="fechar">Cancelar</button></div></div>';
   mostrarModal(true);
 }
+/* ---- rascunho do relatorio mensal: o painel ja sabe quase tudo ----
+   Junta os numeros do Reportei com o que foi entregue, o que atrasou e o que
+   ficou pendente. Sai texto para revisar, nao relatorio pronto: numero que o
+   painel nao tem, ele diz que nao tem, em vez de inventar. */
+function mesExtenso(ym){
+  const d0=new Date(+ym.slice(0,4), +ym.slice(5,7)-1, 1);
+  return d0.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+}
+function rascunhoRelatorio(c, ym){
+  const L=[];
+  const R=resultadoDe(c.id, ym);
+  L.push("RELATORIO "+mesExtenso(ym).toUpperCase()+" - "+c.nome);
+  L.push("");
+
+  /* 1. o objetivo */
+  const obj=objetivoDe(c), meta=metaDe(c);
+  if(obj){
+    const rot=(OBJETIVOS.find(o=>o[0]===obj)||["",""])[1];
+    L.push("OBJETIVO: "+rot+(meta?" (meta "+numBR(meta)+")":""));
+    const dq=R&&R.destaque;
+    if(dq) L.push("Hoje: "+numBR(dq.v)+(dq.novos!=null?" ("+(dq.novos>=0?"+":"")+numBR(dq.novos)+" no mes)":""));
+    L.push("");
+  }
+
+  /* 2. os numeros */
+  if(R && R.metricas && R.metricas.length){
+    L.push("NUMEROS - "+(R.periodo||mesExtenso(ym))+(R.compara?" (vs "+R.compara+")":""));
+    R.metricas.forEach(m=>{
+      const d0=(m.d==null)?"":"  "+(m.d>=0?"+":"")+m.d+"%";
+      L.push("- "+m.k+": "+numBR(m.v)+d0);
+    });
+    if(R.resumo){ L.push(""); L.push(R.resumo); }
+  } else {
+    L.push("NUMEROS: nao ha dados do Reportei para este mes neste painel.");
+  }
+  L.push("");
+
+  /* 3. o que foi entregue */
+  const ts=TODAS.filter(t=>t.clienteId===c.id);
+  const feitas=ts.filter(t=>t.st.k==="ok" && t.dataConclusao && String(t.dataConclusao).slice(0,7)===ym)
+    .sort((a,b)=>String(a.dataConclusao).localeCompare(String(b.dataConclusao)));
+  L.push("ENTREGUE NO MES ("+feitas.length+")");
+  if(feitas.length) feitas.forEach(t=>L.push("- "+fmt(t.dataConclusao)+"  "+t.tarefa));
+  else L.push("- nada marcado como concluido neste mes");
+  L.push("");
+
+  /* 4. marcos */
+  const mk=(c.marcos||[]).filter(m=>String(m.data).slice(0,7)===ym);
+  if(mk.length){
+    L.push("MARCOS");
+    mk.forEach(m=>L.push("- "+fmt(m.data)+"  "+m.titulo+(m.detalhe?" ("+m.detalhe+")":"")));
+    L.push("");
+  }
+
+  /* 5. o que atrasou, com honestidade sobre de quem foi */
+  const atr=feitas.filter(t=>t.st.atraso>0);
+  if(atr.length){
+    L.push("SAIU FORA DO PRAZO ("+atr.length+")");
+    atr.forEach(t=>L.push("- "+t.tarefa+": "+t.st.atraso+" dia"+(t.st.atraso>1?"s uteis":" util")+
+      " depois do previsto ("+(t.resp==="Cliente"?"aguardando o cliente":"MK3")+")"));
+    L.push("");
+  }
+
+  /* 6. o que ficou em aberto */
+  const abertas=ts.filter(t=>t.st.k!=="ok" && t.data && String(t.data).slice(0,7)===ym)
+    .sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  if(abertas.length){
+    L.push("AINDA EM ABERTO ("+abertas.length+")");
+    abertas.forEach(t=>L.push("- "+fmt(t.data)+"  "+t.tarefa+" ["+(ROTULO[t.st.k]||t.st.k)+"]"));
+    L.push("");
+  }
+
+  /* 7. o que esta na mao do cliente */
+  const ct=contadores(c);
+  if(ct.length){
+    L.push("ESPERANDO O CLIENTE");
+    ct.forEach(x=>L.push("- aprovacao de "+x.tipo+": enviado em "+fmt(x.enviado)+
+      ", aprova sozinho em "+fmt(x.vencimento)));
+    L.push("");
+  }
+
+  L.push("---");
+  L.push("Rascunho gerado pelo painel em "+fmt(iso(HOJE))+". Revise antes de enviar.");
+  return L.join("\n");
+}
+function abrirRelatorio(cid, ym){
+  const c=cliente(cid); if(!c) return;
+  ym = ym || mesAtualYM();
+  const txt=rascunhoRelatorio(c, ym);
+  const meses=[0,1,2].map(k=>{
+    const d0=new Date(HOJE.getFullYear(), HOJE.getMonth()-k, 1);
+    return d0.getFullYear()+"-"+String(d0.getMonth()+1).padStart(2,"0");
+  });
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox recado"><h3>Rascunho do relat\u00f3rio</h3>'+
+    '<p class="msub">'+esc(c.nome)+' \u00b7 '+esc(mesExtenso(ym))+
+    '. Montado com o que est\u00e1 no painel e no Reportei. Revise antes de enviar.</p>'+
+    '<div class="fd-chips rel-meses">'+meses.map(m=>
+      '<button class="fd-chip'+(m===ym?" on":"")+'" data-relmes="'+cid+'|'+m+'">'+esc(mesExtenso(m))+'</button>').join("")+'</div>'+
+    '<pre class="rec-txt" id="recTxt">'+esc(txt)+'</pre>'+
+    '<div class="mbtns"><button data-macao="copiarrecado">Copiar texto</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
+}
 function abrirEditor(cid,tid){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   const feita=t.st.k==="ok"; const cli=cliente(cid); const anc=ANCORA[tid];
@@ -1378,6 +1482,9 @@ function abrirEditor(cid,tid){
   mm.innerHTML='<div class="mbox">'+
     '<h3>'+esc(t.tarefa)+'</h3>'+
     '<p class="msub">'+esc(cli.nome)+(t.detalhe?" · "+esc(t.detalhe):"")+'</p>'+
+    (/^(relatorio|envRelat)/.test(tid)
+      ? '<div class="mbtns wrap"><button class="sec" data-relatorio="'+cid+'|'+tid.slice(-7)+'">Montar rascunho do relat\u00f3rio</button></div>'
+      : '')+
     (feita
       ? '<p class="mok">Já marcada como concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
         '<div class="mbtns"><button class="danger" data-macao="desfazer" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Desfazer</button>'+
@@ -1773,6 +1880,64 @@ function vazioHTML(filtro){
 }
 
 
+/* ---- gravacao: a agenda manda, o painel obedece ----
+   Le os eventos de gravacao da agenda ao vivo, preenche a data quando o painel
+   esta vazio e denuncia quando as duas fontes discordam. Nunca sobrescreve
+   sozinho uma data que ja existe: quem decide isso e a administracao. */
+function ehGravacao(e){ return /grava(c|\u00e7)(a|\u00e3)o|gravar/i.test(String(e.titulo||"")); }
+function gravacoesDaAgenda(){
+  const mapa={};
+  (ESTADO.agenda||[]).filter(e=>ehGravacao(e) && e.cliente && e.dia).forEach(e=>{
+    const a=mapa[e.cliente];
+    if(!a || e.dia>a.dia) mapa[e.cliente]={dia:e.dia, titulo:e.titulo, hora:e.hora||""};
+  });
+  return mapa;
+}
+function divergenciasGravacao(){
+  const mapa=gravacoesDaAgenda(), out=[];
+  CLIENTES.forEach(c=>{
+    const g=mapa[c.id]; if(!g) return;
+    if(c.gravacao && c.gravacao!==g.dia) out.push({cid:c.id, nome:c.nome, painel:c.gravacao, agenda:g.dia, hora:g.hora});
+  });
+  return out;
+}
+/* preenche so o que esta vazio; data futura nao marca a tarefa como feita */
+function sincronizarGravacoes(){
+  const mapa=gravacoesDaAgenda();
+  let n=0;
+  CLIENTES.forEach(c=>{
+    const g=mapa[c.id]; if(!g || c.gravacao) return;
+    ESTADO.datas[c.id]=ESTADO.datas[c.id]||{};
+    ESTADO.datas[c.id].gravacao=g.dia;
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:c.id,nome:"Gravacao",
+      acao:"registrar",campo:"gravacao",id:"c1_gravacao",data:g.dia,quem:"Agenda"});
+    n++;
+  });
+  if(n){ ESTADO.log=ESTADO.log.slice(0,300); persist(); rebuild(); }
+  return n;
+}
+function usarDataDaAgenda(cid,dia){
+  snapshot();
+  ESTADO.datas[cid]=ESTADO.datas[cid]||{};
+  ESTADO.datas[cid].gravacao=dia;
+  const c=cliente(cid);
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:"Gravacao",
+    acao:"registrar",campo:"gravacao",id:"c1_gravacao",data:dia,quem:USUARIO||null});
+  persist(); rebuild(); render();
+  toast("Gravacao de "+(c?c.nome:cid)+" agora e "+fmt(dia),true);
+}
+function avisoGravacaoHTML(){
+  if(!ehAdmin()) return "";
+  const d0=divergenciasGravacao();
+  if(!d0.length) return "";
+  return '<div class="avgrav"><span class="avgrav-i">&#9888;</span>'+
+    '<div class="avgrav-c"><b>Grava\u00e7\u00e3o com duas datas diferentes</b>'+
+    d0.map(x=>'<div class="avgrav-l">'+esc(x.nome)+': painel diz <s>'+fmt(x.painel)+'</s>, '+
+      'agenda diz <b>'+fmt(x.agenda)+'</b>'+(x.hora?' \u00e0s '+esc(x.hora):'')+
+      ' <button data-usaragenda="'+x.cid+'|'+x.agenda+'">usar a da agenda</button></div>').join("")+
+    '</div></div>';
+}
+
 /* ================= AGENDA (espelho do Google Agenda) ================= */
 /* ESTADO.agenda = [{id, titulo, dia, hora, fim, diaInteiro, meet, cliente, quando}] */
 function agendaDe(dia){ return (ESTADO.agenda||[]).filter(e=>e.dia===dia); }
@@ -1955,7 +2120,7 @@ function puxarAgendaAoVivo(){
       if(!j || !Array.isArray(j.eventos)) return;
       const antes=JSON.stringify(ESTADO.agenda||[]);
       ESTADO.agenda=j.eventos;                     /* só na memória: não grava nem sincroniza */
-      if(JSON.stringify(ESTADO.agenda)!==antes){ marcarAgendaViva(j.lido); semPular(render); }
+      if(JSON.stringify(ESTADO.agenda)!==antes){ if(ehAdmin()) sincronizarGravacoes(); marcarAgendaViva(j.lido); semPular(render); }
       else marcarAgendaViva(j.lido);
     })
     .catch(()=>{ marcarAgendaViva(null,true); });
@@ -2681,6 +2846,8 @@ function tarefasHTML(c){
   const lista = (VISTA.filtro ? ts.filter(t=>t.st.k===VISTA.filtro) : ts.filter(t=>t.st.k!=="ok"))
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
   let html = semaf +
+    (ehAdmin()?'<div class="rel-atalho"><button data-relatorio="'+c.id+'|'+mesAtualYM()+'">'+
+      '&#128203; Rascunho do relat\u00f3rio de '+esc(mesExtenso(mesAtualYM()))+'</button></div>':'')+
     '<h2>'+(VISTA.filtro?ROTULO[VISTA.filtro]:"Fila de execução")+'</h2>'+
     (lista.length ? '<div class="fila">'+lista.slice(0,VISTA.verTudo?999:7).map(t=>linha(t,false)).join("")+'</div>'+
         (!VISTA.verTudo && lista.length>7 ? '<button class="vermais" data-vertudo="1">Ver todas as '+lista.length+'</button>' : '')
@@ -2834,7 +3001,7 @@ function render(){
     else if(VISTA.modo==="feed")  body = feedHTML();
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
     else                          body = listaGlobalHTML();
-    $("view").innerHTML = body; animar(); gravarRota();
+    $("view").innerHTML = avisoGravacaoHTML()+body; animar(); gravarRota();
     return;
   }
 
@@ -2916,7 +3083,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-usaragenda],[data-relatorio],[data-relmes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3013,6 +3180,9 @@ document.addEventListener("click", function(ev){
     /* a área é só um filtro: mantém a seção e o cliente abertos */
     semPular(render); return; }
   if(D.feed){ VISTA.feedDias=Number(D.feed)||7; semPular(render); return; }
+  if(D.usaragenda){ const p=D.usaragenda.split("|"); usarDataDaAgenda(p[0],p[1]); return; }
+  if(D.relatorio){ const p=D.relatorio.split("|"); abrirRelatorio(p[0],p[1]); return; }
+  if(D.relmes){ const p=D.relmes.split("|"); semPular(()=>abrirRelatorio(p[0],p[1])); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
