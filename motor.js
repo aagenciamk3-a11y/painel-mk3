@@ -473,7 +473,6 @@ function posicionarPill(){
 function sidebarHTML(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const urg=tarefasArea().filter(t=>t.st.k==="atrasado"||t.st.k==="hoje"||t.st.k==="umdia").length;
-  const nov=mudancasRecentes(2).length;
   const views=[["cards","Clientes",IC.cards],["feed","Feed",IC.feed],["prio","Tarefas",IC.prio],
                ["equipe","Funcionários",IC.pessoas],
                ["lista","Dashboard",IC.dash],["cal","Agenda",IC.cal],["tend","Tendência",IC.tend]]
@@ -481,7 +480,7 @@ function sidebarHTML(){
   let h='<div class="side-brand"><span class="b"><span>MK</span>3</span><button class="side-toggle" data-side="toggle" title="Recolher menu">&#10094;</button></div>';
   h+='<button class="snav inicio" data-sair="1" title="Voltar para a escolha de perfil"><span class="snav-i">'+IC.inicio+'</span><span class="snav-t">Início</span></button>';
   h+='<div class="side-sec">Ver</div>';
-  h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:(v[0]==="feed"?nov:0)))).join("");
+  h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
   if(ehAdmin()){
     h+='<div class="side-sec">Demandas</div>';
     h+='<button class="snav snav-add" data-compromisso="1" title="Novo compromisso na agenda"><span class="snav-i">'+IC.cal+'</span><span class="snav-t">Novo compromisso</span></button>';
@@ -1713,6 +1712,20 @@ function nomeCli(cid){
   if(cid==="_dem") return "Demanda";
   const c=CLIENTES.find(x=>x.id===cid); return c?c.nome:"";
 }
+/* de que area e a linha do log: demanda ja traz a area, tarefa vem do id.
+   O que nao e nem uma coisa nem outra (cadastro, link de portal) e geral. */
+function areaDoLog(x){
+  if(x.area) return x.area;
+  if(x.id && x.acao!=="demanda") return areaBase(String(x.id));
+  return null;
+}
+function logVisivel(x){
+  const a0=areaDoLog(x);
+  const permitidas = USUARIO ? areasDe() : ["all","mkt","fin","com"];
+  if(a0 && permitidas.indexOf("all")<0 && permitidas.indexOf(a0)<0) return false;  /* fora da area da pessoa */
+  if(VISTA.area==="all") return true;
+  return a0===VISTA.area;               /* linha geral so aparece na Visao Geral */
+}
 /* entradas dos ultimos N dias, sem repetir a mesma tarefa+acao */
 function mudancasRecentes(nd){
   const limite=Date.now()-(nd||2)*24*3600*1000;
@@ -1721,6 +1734,7 @@ function mudancasRecentes(nd){
     if(!x || !x.ts) return false;
     if(new Date(x.ts).getTime()<limite) return false;
     if(x.acao==="observacao" && !x.motivo && !x.parcial) return false;
+    if(!logVisivel(x)) return false;
     const k=(x.cliente||"")+"|"+(x.id||"")+"|"+x.acao;
     if(vistos[k]) return false;
     vistos[k]=1; return true;
@@ -1765,9 +1779,12 @@ function feedHTML(){
   const chips='<div class="fd-chips">'+ops.map(o=>
     '<button class="fd-chip'+(nd===o[0]?" on":"")+'" data-feed="'+o[0]+'">'+o[1]+'</button>').join("")+'</div>';
   const l=mudancasRecentes(nd);
+  const rotA={all:"",mkt:" em Marketing Digital",fin:" em Financeiro",com:" em Comercial"}[VISTA.area]||"";
   if(!l.length) return '<section class="feed"><div class="fd-topo"><h2>Feed da equipe</h2>'+chips+'</div>'+
-    '<div class="fd-vazio">Ninguem marcou nada nesse periodo. Quando alguem concluir, replanejar ou deixar '+
-    'observacao numa tarefa, aparece aqui com o nome e a hora.</div></section>';
+    '<div class="fd-vazio">Ningu\u00e9m marcou nada nesse per\u00edodo'+esc(rotA)+'.'+
+    (VISTA.area!=="all"?' Em <b>Vis\u00e3o Geral</b> pode haver movimenta\u00e7\u00e3o de outras \u00e1reas.':
+     ' Quando algu\u00e9m concluir, replanejar ou deixar observa\u00e7\u00e3o numa tarefa, aparece aqui com o nome e a hora.')+
+    '</div></section>';
   const dias0={};
   l.forEach(x=>{ const d0=String(x.ts).slice(0,10); (dias0[d0]=dias0[d0]||[]).push(x); });
   const corpo=Object.keys(dias0).sort().reverse().map(d0=>
