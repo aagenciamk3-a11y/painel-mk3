@@ -723,7 +723,7 @@ function setObsTarefa(cid,tid,day,txt,parcial){
   else delete ESTADO.obsT[wk][k];
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,
-    acao:"observacao",id:tid,data:day,parcial:!!parcial,motivo:(txt||"").trim()});
+    acao:"observacao",id:tid,data:day,parcial:!!parcial,motivo:(txt||"").trim(),quem:USUARIO||null});
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
 }
@@ -736,7 +736,7 @@ function renomearTarefa(cid,tid,novo){
   novo=(novo||"").trim();
   if(!novo || novo===orig){ if(ESTADO.titulos[cid]){ delete ESTADO.titulos[cid][tid]; if(!Object.keys(ESTADO.titulos[cid]).length) delete ESTADO.titulos[cid]; } }
   else { ESTADO.titulos[cid]=ESTADO.titulos[cid]||{}; ESTADO.titulos[cid][tid]=novo; }
-  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"renomear",id:tid,nome:novo||orig});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"renomear",id:tid,nome:novo||orig,quem:USUARIO||null});
   persist(); rebuild(); render();
 }
 function abrirRenomear(cid,tid){
@@ -762,7 +762,7 @@ function excluirTarefa(cid,tid){
   if(cid==="_dem"){ ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>x.id!==tid); }
   else { ESTADO.excluidas=ESTADO.excluidas||{}; ESTADO.excluidas[cid]=(ESTADO.excluidas[cid]||[]).concat([tid]); }
   ESTADO.dup=(ESTADO.dup||[]).filter(e=>!(e.cid===cid&&e.tid===tid));
-  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,acao:"excluir",id:tid});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,acao:"excluir",id:tid,quem:USUARIO||null});
   persist(); rebuild(); render();
   toast((t?t.tarefa:"Tarefa")+" · excluída", true);
 }
@@ -834,7 +834,7 @@ function setNaoFeito(cid,tid,day,motivo){
   if(motivo) ESTADO.concluidas[cid].push({id:tid,remove:true});  /* sobrepõe conclusão oficial */
   else { const anc=ANCORA[tid]; if(anc && ESTADO.datas[cid]) delete ESTADO.datas[cid][anc.campo]; }
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid);
-  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,acao:"naofeito",id:tid,data:day,motivo:motivo});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t?t.tarefa:tid,acao:"naofeito",id:tid,data:day,motivo:motivo,quem:USUARIO||null});
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
 }
@@ -872,7 +872,7 @@ function duplicarTarefa(cid,tid,dia){
   if(ESTADO.dup.some(e=>e.cid===cid&&e.tid===tid&&e.dia===dia)) return;
   snapshot();
   ESTADO.dup.push({cid:cid,tid:tid,dia:dia,orig:t.data});
-  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t.tarefa,acao:"replanejar",id:tid,data:dia});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t.tarefa,acao:"replanejar",id:tid,data:dia,quem:USUARIO||null});
   persist(); rebuild(); render();
 }
 function removeDup(cid,tid,dia){
@@ -924,7 +924,7 @@ function addDemanda(texto,area,data,resp,obs,cli){
   ESTADO.demandas=ESTADO.demandas||[];
   const id="dem_"+Date.now()+"_"+Math.floor(Math.random()*1000);
   ESTADO.demandas.push({id:id,texto:texto,area:area,data:data,resp:resp,obs:(obs||"").trim(),cli:cli||null});
-  ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demanda",id:id,nome:texto,area:area,data:data,resp:resp});
+  ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demanda",id:id,nome:texto,area:area,data:data,resp:resp,quem:USUARIO||null});
   persist(); rebuild(); render();
 }
 function removeDemanda(id){ if(!ehAdmin()) return; snapshot(); ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>x.id!==id); persist(); rebuild(); render(); }
@@ -1000,7 +1000,7 @@ function trocarLink(cid){
   snapshot();
   ESTADO.portais=ESTADO.portais||{};
   ESTADO.portais[cid]={ativo:tks[i+1], revogados:((ESTADO.portais[cid]||{}).revogados||[]).concat([at]), quando:iso(HOJE)};
-  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"novolink",nome:"Link do portal trocado"});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"novolink",nome:"Link do portal trocado",quem:USUARIO||null});
   persist(); semPular(()=>abrirPortais());
   toast("Link novo gerado. O antigo para de funcionar na próxima publicação.",false);
 }
@@ -1063,7 +1063,7 @@ function salvarCliente(id,dados){
     ESTADO.clientes[id]={...(ESTADO.clientes[id]||{}), ...dados};
     const n=(ESTADO.novosClientes||[]).find(x=>x.id===id);
     if(n) Object.assign(n,dados);
-    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:id,acao:"cliente-editado",nome:dados.nome||id});
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:id,acao:"cliente-editado",nome:dados.nome||id,quem:USUARIO||null});
   } else {
     const novoId="cli_"+Date.now();
     ESTADO.novosClientes=(ESTADO.novosClientes||[]).concat([{
@@ -1075,7 +1075,7 @@ function salvarCliente(id,dados){
       envioMidia:null, aprovacaoMidia:null, gravacao:null, artesDependemDaGravacao:false,
       inicioCicloPadrao:null, justificados:[], concluidas:[], marcos:[]
     }]);
-    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:novoId,acao:"cliente-novo",nome:dados.nome||""});
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:novoId,acao:"cliente-novo",nome:dados.nome||"",quem:USUARIO||null});
   }
   persist(); rebuild(); render();
 }
@@ -1168,7 +1168,7 @@ function editarDemanda(id,campos){
   if(campos.data) dm.data=campos.data;
   if(campos.resp) dm.resp=campos.resp;
   if(campos.cli!==undefined) dm.cli=campos.cli||null;
-  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:"_dem",acao:"editar",id:id,nome:dm.texto,data:dm.data});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:"_dem",acao:"editar",id:id,nome:dm.texto,data:dm.data,quem:USUARIO||null});
   persist(); rebuild(); render();
 }
 function abrirObsDemanda(id, editar){
@@ -1580,7 +1580,9 @@ const ACAOROT = {
   naofeito:["marcou como nao feito","x"], replanejar:["replanejou","mv"],
   observacao:["deixou observacao em","obs"], demanda:["criou a demanda","nova"],
   renomear:["renomeou","obs"], novolink:["trocou o link do portal de","obs"],
-  excluir:["excluiu","x"], restaurar:["restaurou","ok"], cobranca:["agendou cobranca de","nova"]
+  excluir:["excluiu","x"], restaurar:["restaurou","ok"], cobranca:["agendou cobranca de","nova"],
+  editar:["editou a demanda","obs"], "cliente-editado":["editou o cadastro de","obs"],
+  "cliente-novo":["cadastrou o cliente","nova"]
 };
 function nomeCli(cid){
   if(cid==="_dem") return "Demanda";
@@ -1617,13 +1619,15 @@ function diaRot(iso0){
 }
 function feedLinha(x){
   const a=ACAOROT[x.acao]||[x.acao,"obs"];
-  const quem=x.quem||"alguem";
+  const anon=!x.quem;                      /* marcacao antiga, de antes do painel guardar o autor */
+  const quem=x.quem||"Autor nao registrado";
   const cli=nomeCli(x.cliente);
   const c=cli?CLIENTES.find(y=>y.nome===cli):null;
-  return '<div class="fd-row">'+
-    '<span class="fd-face">'+faceDe(quem)+'</span>'+
+  return '<div class="fd-row'+(anon?" anon":"")+'">'+
+    '<span class="fd-face">'+(anon?'<span class="fd-anon">?</span>':faceDe(quem))+'</span>'+
     '<span class="fd-p '+a[1]+'"></span>'+
-    '<span class="fd-t"><b>'+esc(quem)+'</b> '+esc(a[0])+' <em>'+esc(x.nome||x.id||"")+'</em>'+
+    '<span class="fd-t">'+(anon?'<i class="fd-sem">autor nao registrado</i> ':'<b>'+esc(quem)+'</b> ')+
+      esc(a[0])+' <em>'+esc(x.nome||x.id||"")+'</em>'+
       (x.motivo?'<span class="fd-obs">'+esc(x.motivo)+'</span>':'')+'</span>'+
     (c?'<a class="fd-c" href="'+rotaDe({escopo:c.id,aba:"tarefas"})+'" data-cliente="'+c.id+'">'+esc(cli)+'</a>'
        :(cli?'<span class="fd-c">'+esc(cli)+'</span>':'<span class="fd-c"></span>'))+
