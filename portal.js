@@ -3,6 +3,7 @@ const C = CLIENTES[0];
 const ORIGINAL = JSON.parse(JSON.stringify(C));
 const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","aprovacaoMidia","gravacao","alteracaoPedida"];
 const $ = id => document.getElementById(id);
+const escAttr = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
 let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null, PLANO=null;
@@ -256,7 +257,7 @@ function listaHTML(abas){
 }
 /* ---- o dia aberto: o que acontece nele e de quem e a vez ---- */
 function detalheDia(){
-  if(!PDIA) return '<div class="cd-dica">Clique num dia para ver o que acontece nele.</div>';
+  if(!PDIA) return '';
   const hoje=iso(HOJE);
   const ts=tarefasDoPortal().filter(t=>t.data===PDIA)
     .sort((a,b)=>String(a.resp).localeCompare(String(b.resp)));
@@ -292,8 +293,11 @@ function detalheDia(){
           '<span class="dd-s">'+esc(sit)+'</span></div>';
       }).join("")+'</div>';
   }
-  return '<div class="cd-det"><div class="dd-h"><b>'+esc(titulo)+'</b>'+
-    '<button data-pdia="" aria-label="Fechar">&times;</button></div>'+corpo+'</div>';
+  return '<div class="dd-fundo" data-pdia="">'+
+    '<div class="dd-box" role="dialog" aria-modal="true" aria-label="'+escAttr(titulo)+'">'+
+      '<div class="dd-h"><b>'+esc(titulo)+'</b>'+
+      '<button data-pdia="" aria-label="Fechar">&times;</button></div>'+corpo+
+    '</div></div>';
 }
 function calendarioHTML(abas){
   const hoje=iso(HOJE);
@@ -338,7 +342,8 @@ function calendarioHTML(abas){
       '<strong>'+esc(nomeMes)+'</strong>'+
       '<button data-pmes="'+(PMES+1)+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
     '<div class="cd-dow"><span>dom</span><span>seg</span><span>ter</span><span>qua</span><span>qui</span><span>sex</span><span>sáb</span></div>'+
-    '<div class="cd-grade">'+cels+'</div>'+ detalheDia() + legenda +
+    '<div class="cd-grade">'+cels+'</div>'+
+    '<div class="cd-dica">Clique em qualquer dia para ver o que acontece nele.</div>'+ legenda +
     '<p class="nota">O fundo de cada dia mostra de quem é a vez: roxo com a MK3, amarelo com você. '+
     'Quando a sua parte passa do prazo, o bloco fica vermelho e tudo que vem depois anda junto.</p>'+
     '</section>';
@@ -464,16 +469,29 @@ function ligarDash(){
     DASH_ABERTO=true; cx.innerHTML=dashFrameHTML(r.dash); armarFrame(cx);
   };
 }
-function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
+function caixaDia(){
+  let cx=document.getElementById("diaModal");
+  if(!cx){ cx=document.createElement("div"); cx.id="diaModal"; document.body.appendChild(cx); }
+  cx.innerHTML=detalheDia();
+  document.body.classList.toggle("travado", !!PDIA);
+}
+function desenhar(){
+  $("view").innerHTML = heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico();
+  ligarDash(); caixaDia();
+}
 /* navegacao do calendario e troca de visao, sem recarregar a pagina */
 document.addEventListener("click", ev=>{
   const a=ev.target.closest("[data-pmes],[data-pvisao],[data-pdia]"); if(!a) return;
   ev.preventDefault();
   if(a.dataset.pmes!==undefined){ PMES=Number(a.dataset.pmes)||0; PDIA=null; }
-  if(a.dataset.pdia!==undefined) PDIA = (a.dataset.pdia && a.dataset.pdia!==PDIA) ? a.dataset.pdia : null;
+  if(a.dataset.pdia!==undefined){
+    if(a.classList.contains("dd-fundo") && ev.target!==a) return;   /* clique dentro da janela nao fecha */
+    PDIA = (a.dataset.pdia && a.dataset.pdia!==PDIA) ? a.dataset.pdia : null;
+  }
   if(a.dataset.pvisao){ PVISAO=a.dataset.pvisao; PDIA=null; }
   desenhar();
 });
+document.addEventListener("keydown", ev=>{ if(ev.key==="Escape" && PDIA){ PDIA=null; caixaDia(); } });
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */

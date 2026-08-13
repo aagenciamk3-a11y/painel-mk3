@@ -247,39 +247,49 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
   .cd-n{font-size:10px}
 }
 
-/* ===== dia aberto no calendário ===== */
+/* ===== dia aberto: janela sobre a tela ===== */
 button.cd-d{font:inherit;text-align:left;color:inherit;cursor:default;width:100%}
 button.cd-d.tem{cursor:pointer}
-button.cd-d.tem:hover{filter:brightness(1.25)}
+button.cd-d.tem:hover{filter:brightness(1.3)}
 button.cd-d.sel{border-color:var(--txt);box-shadow:0 0 0 2px rgba(241,238,251,.35)}
 .cd-dica{margin-top:12px;font-size:12.5px;color:var(--mut);opacity:.75}
-.cd-det{margin-top:14px;background:var(--panel2);border:1px solid var(--line);
-  border-radius:11px;padding:13px 15px}
-.dd-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-.dd-h b{font-size:14.5px;text-transform:capitalize}
-.dd-h button{background:transparent;border:0;color:var(--mut);font-size:20px;line-height:1;
+body.travado{overflow:hidden}
+.dd-fundo{position:fixed;inset:0;z-index:60;background:rgba(10,6,20,.72);
+  backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;
+  padding:20px;animation:ddIn .16s ease}
+@keyframes ddIn{from{opacity:0}to{opacity:1}}
+.dd-box{width:100%;max-width:520px;max-height:86vh;overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  padding:20px 22px;box-shadow:0 24px 60px rgba(0,0,0,.55);
+  animation:ddUp .2s cubic-bezier(.2,.8,.2,1)}
+@keyframes ddUp{from{transform:translateY(14px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+.dd-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.dd-h b{font-size:17px;text-transform:capitalize;letter-spacing:-.01em}
+.dd-h button{background:transparent;border:0;color:var(--mut);font-size:24px;line-height:1;
   cursor:pointer;padding:0 4px}
 .dd-h button:hover{color:var(--txt)}
-.dd-faixa{font-size:12.5px;line-height:1.55;border-radius:8px;padding:9px 12px;margin-bottom:11px;
+.dd-faixa{font-size:13px;line-height:1.55;border-radius:9px;padding:11px 13px;margin-bottom:13px;
   background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.3)}
 .dd-faixa.cli{background:rgba(245,197,24,.12);border-color:rgba(245,197,24,.32)}
 .dd-faixa.alerta{background:rgba(242,85,90,.14);border-color:rgba(242,85,90,.42)}
-.dd-vazio{font-size:13px;color:var(--mut);margin:0}
-.dd-lista{display:flex;flex-direction:column;gap:7px}
-.dd-i{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;border-radius:8px;
-  background:var(--panel);border-left:3px solid var(--mut)}
+.dd-vazio{font-size:13.5px;color:var(--mut);margin:0}
+.dd-lista{display:flex;flex-direction:column;gap:8px}
+.dd-i{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:9px;
+  background:var(--panel2);border-left:3px solid var(--mut)}
 .dd-i.mk3{border-left-color:var(--mk3)}
 .dd-i.cli{border-left-color:var(--umdia)}
-.dd-i.atr{border-left-color:var(--atrasado);background:rgba(242,85,90,.1)}
+.dd-i.atr{border-left-color:var(--atrasado);background:rgba(242,85,90,.12)}
 .dd-i.ok{border-left-color:var(--ok);opacity:.7}
 .dd-i.marco{border-left-color:#fff;opacity:.85}
 .dd-q{flex:0 0 auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;
-  color:var(--mut);padding-top:3px;min-width:62px}
-.dd-t{flex:1;min-width:0;font-size:13.5px;line-height:1.4}
-.dd-t i{display:block;font-style:normal;font-size:11.5px;color:var(--mut);margin-top:2px}
-.dd-s{flex:0 0 auto;font-size:11.5px;color:var(--mut);white-space:nowrap;padding-top:2px}
+  color:var(--mut);padding-top:3px;min-width:64px}
+.dd-t{flex:1;min-width:0;font-size:14px;line-height:1.45}
+.dd-t i{display:block;font-style:normal;font-size:12px;color:var(--mut);margin-top:2px}
+.dd-s{flex:0 0 auto;font-size:11.5px;color:var(--mut);white-space:nowrap;padding-top:3px}
 .dd-i.atr .dd-s{color:#FF8E92;font-weight:600}
 @media(max-width:560px){
+  .dd-fundo{align-items:flex-end;padding:0}
+  .dd-box{max-width:none;border-radius:18px 18px 0 0;max-height:82vh;padding:18px 16px 26px}
   .dd-i{flex-wrap:wrap;gap:5px}
   .dd-q{min-width:0}
   .dd-s{width:100%}
