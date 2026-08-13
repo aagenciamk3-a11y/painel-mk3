@@ -1153,14 +1153,33 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
 .kpi.replan b,.fc-n.replan span{color:var(--replan)}
 .db-ag.replan{border-left-color:var(--replan)}
 
-/* ===== visão do cliente: o que está parado com ele ===== */
-.po-esp{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
-.po-esp span{font-size:11.5px;padding:3px 10px;border-radius:99px;
+/* ===== Visão do cliente (cards) ===== */
+.pv-intro{max-width:640px;font-size:13.5px;opacity:.6;line-height:1.6;margin:0 0 18px}
+.pvcard{cursor:default}
+.pvcard .ccard-body{display:flex;flex-direction:column;gap:11px}
+.badge-ativo.hist{background:rgba(139,92,246,.2);color:#C4B5FD}
+.pv-esp{display:flex;flex-wrap:wrap;gap:6px}
+.pv-esp span{font-size:11.5px;padding:3px 10px;border-radius:99px;
   border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05)}
-.po-patrasado{color:#F87171;border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.12)}
-.po-phoje{color:#FB923C;border-color:rgba(251,146,60,.45);background:rgba(251,146,60,.12)}
-.po-pumdia{color:#FACC15;border-color:rgba(250,204,21,.4);background:rgba(250,204,21,.1)}
-.po-pok{opacity:.55}
+.pv-patrasado{color:#F87171;border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.12)}
+.pv-phoje{color:#FB923C;border-color:rgba(251,146,60,.45);background:rgba(251,146,60,.12)}
+.pv-pumdia{color:#FACC15;border-color:rgba(250,204,21,.4);background:rgba(250,204,21,.1)}
+.pv-pok{opacity:.5}
+.pv-url{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;opacity:.45;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:rgba(0,0,0,.24);border-radius:7px;padding:6px 9px}
+.pv-aviso{font-size:11.5px;color:#FACC15;opacity:.85}
+.pv-sem{font-size:13px;opacity:.5;padding:6px 0 2px}
+.pv-btns{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto}
+.pv-b{font:inherit;font-size:12.5px;padding:7px 14px;border-radius:9px;cursor:pointer;
+  text-decoration:none;display:inline-flex;align-items:center;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:inherit;
+  transition:background .15s}
+.pv-b:hover{background:rgba(255,255,255,.14)}
+.pv-b.principal{background:var(--mk3,#8B5CF6);border-color:transparent;font-weight:600}
+.pv-b.principal:hover{filter:brightness(1.12)}
+.pv-b.vazio{opacity:.35;cursor:default;background:transparent;border-style:dashed}
+.pv-b.vazio:hover{background:transparent}
 
 /* ===== atalho do rascunho de relatório ===== */
 .rel-atalho{margin:0 0 14px}
@@ -1297,7 +1316,7 @@ a.fd-c:hover{opacity:1;text-decoration:underline}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608131550"></script>
-<script src="motor.js?v=202608131550"></script>
+<script src="dados.js?v=202608131630"></script>
+<script src="motor.js?v=202608131630"></script>
 </body>
 </html>

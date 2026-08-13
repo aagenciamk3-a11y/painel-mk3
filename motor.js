@@ -489,7 +489,7 @@ function sidebarHTML(){
     h+='<button class="snav" data-clientes="1" title="Clientes"><span class="snav-i">'+IC.cards+'</span><span class="snav-t">Clientes</span></button>';
     h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
     h+='<button class="snav" data-agenda="1" title="Agenda ao vivo"><span class="snav-i">'+IC.cal+'</span><span class="snav-t">Agenda ao vivo</span></button>';
-    h+='<button class="snav" data-portais="1" title="O que o cliente vê no portal dele"><span class="snav-i">'+IC.olho+'</span><span class="snav-t">Visão do cliente</span></button>';
+    h+='<button class="snav'+(!c&&VISTA.modo==="portais"?" on":"")+'" data-portais="1" title="O que o cliente vê no portal dele"><span class="snav-i">'+IC.olho+'</span><span class="snav-t">Visão do cliente</span></button>';
   }
   const pu=eu();
   h+='<div class="side-user"><button class="snav" data-sair="1" title="Trocar de usuário">'+
@@ -966,56 +966,64 @@ function listaDemandas(){
   '</div>';
 }
 let PORTAIS=null;
-function abrirPortais(){
-  if(!ehAdmin()) return;
-  const base=location.origin+location.pathname.replace(/\/(index\.html)?$/,"");
-  const linhas = PORTAIS ? CLIENTES.map(c=>{
-      const p=PORTAIS[c.id];
-      if(!p) return '<div class="po-row"><span class="po-n">'+esc(c.nome)+'</span><span class="po-x">sem portal gerado</span></div>';
-      const tks=p.tokens||[p.token];
-      const esc0=(ESTADO.portais&&ESTADO.portais[c.id])||null;
-      const ativo=(esc0&&esc0.ativo&&tks.indexOf(esc0.ativo)>=0)?esc0.ativo:tks[p.ativo||0];
-      const restantes=tks.length-1-tks.indexOf(ativo);
-      const url=base+"/c/"+ativo+"/";
-      /* o mesmo que o cliente le no portal dele: o que esta parado na mao dele */
-      const pend=contadores(c);
-      const espera = pend.length
-        ? '<div class="po-esp">'+pend.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).map(x=>{
-              const nn=dias(x.vencimento);
-              const k=nn<0?"atrasado":nn===0?"hoje":nn===1?"umdia":"ok";
-              const txt=nn<0?("aprovou sozinho h\u00e1 "+Math.abs(nn)+" dia"+(Math.abs(nn)>1?"s":""))
-                      :nn===0?"aprova sozinho hoje"
-                      :"faltam "+nn+" dias \u00fateis";
-              return '<span class="po-p'+k+'">Aprovar '+esc(x.tipo)+' \u00b7 '+txt+'</span>';
-            }).join("")+'</div>'
-        : '<div class="po-esp"><span class="po-pok">Nada esperando o cliente</span></div>';
-      return '<div class="po-row"><span class="po-n">'+esc(c.nome)+
-        (p.historico?'<i class="po-h">com histórico</i>':'')+'</span>'+
-        '<span class="po-acoes">'+
-          '<button class="po-c" data-copiar="'+escAttr(url)+'">Copiar</button>'+
-          '<a class="po-a" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a>'+
-          (restantes>0
-            ? '<button class="po-r" data-novolink="'+c.id+'" title="Gera um endereço novo e invalida o atual">Trocar link</button>'
-            : '<span class="po-x">sem reservas</span>')+
-        '</span>'+
-        '<code class="po-u" title="Clique em Copiar para levar o link">'+esc(url)+'</code>'+
-        (esc0&&esc0.ativo&&esc0.ativo!==tks[p.ativo||0]?'<span class="po-p">novo link · vale após a publicação</span>':'')+
-        espera+
-        '</div>';
-    }).join("") : '<div class="vazio">Carregando…</div>';
-  const mm=$("modal");
-  mm.innerHTML='<div class="mbox portais"><h3>Vis\u00e3o do cliente</h3>'+
-    '<p class="msub">A p\u00e1gina que cada cliente enxerga: o objetivo dele, os n\u00fameros do m\u00eas, o que est\u00e1 esperando aprova\u00e7\u00e3o e o prazo de aprova\u00e7\u00e3o autom\u00e1tica. Link pessoal, sem senha: s\u00f3 quem tem o endere\u00e7o acessa, e cada p\u00e1gina mostra apenas os dados daquele cliente.</p>'+
-    '<div class="po-lista">'+linhas+'</div>'+
-    '<p class="nota-p">O que você marca no painel aparece para o cliente na publicação automática (toda manhã, dias úteis) — ou quando você me pedir para publicar agora.</p>'+
-    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
-  mostrarModal(true);
-  if(!PORTAIS){
-    fetch("portais.json?ts="+Date.now()).then(r=>r.json()).then(j=>{ PORTAIS=j; if(modalAberto()) abrirPortais(); }).catch(()=>{
-      PORTAIS={}; if(modalAberto()) abrirPortais();
-    });
-  }
+function pendCliHTML(c){
+  const pend=contadores(c);
+  if(!pend.length) return '<div class="pv-esp"><span class="pv-pok">Nada esperando o cliente</span></div>';
+  return '<div class="pv-esp">'+pend.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).map(x=>{
+      const nn=dias(x.vencimento);
+      const k=nn<0?"atrasado":nn===0?"hoje":nn===1?"umdia":"ok";
+      const txt=nn<0?("aprovou sozinho h\u00e1 "+Math.abs(nn)+" dia"+(Math.abs(nn)>1?"s":""))
+              :nn===0?"aprova sozinho hoje"
+              :"faltam "+nn+" dias \u00fateis";
+      return '<span class="pv-p'+k+'">Aprovar '+esc(x.tipo)+' \u00b7 '+txt+'</span>';
+    }).join("")+'</div>';
 }
+/* ---- Visao do cliente: escolhe o cliente, ve o que esta com ele e leva o link ---- */
+function portaisHTML(){
+  if(!ehAdmin()) return '<div class="fd-vazio">Tela s\u00f3 da administra\u00e7\u00e3o.</div>';
+  if(!PORTAIS){
+    fetch("portais.json?ts="+Date.now())
+      .then(r=>r.json()).then(j=>{ PORTAIS=j; if(VISTA.modo==="portais") semPular(render); })
+      .catch(()=>{ PORTAIS={}; if(VISTA.modo==="portais") semPular(render); });
+    return '<div class="fd-vazio">Carregando os links\u2026</div>';
+  }
+  const base=location.origin+location.pathname.replace(/\/(index\.html)?$/,"");
+  const cards=CLIENTES.map(c=>{
+    const cor=coresDe(c);
+    const p=PORTAIS[c.id];
+    const topo='<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
+      avatarHTML(c,"ccard-av")+
+      '<div class="ccard-body"><div class="ccard-top"><h3>'+esc(c.nome)+'</h3>'+
+      (p&&p.historico?'<span class="badge-ativo hist">com hist\u00f3rico</span>':'')+'</div>';
+    if(!p) return '<div class="ccard pvcard">'+topo+
+      '<div class="pv-sem">Portal ainda n\u00e3o gerado para este cliente.</div></div></div>';
+    const tks=p.tokens||[p.token];
+    const esc0=(ESTADO.portais&&ESTADO.portais[c.id])||null;
+    const ativo=(esc0&&esc0.ativo&&tks.indexOf(esc0.ativo)>=0)?esc0.ativo:tks[p.ativo||0];
+    const restantes=tks.length-1-tks.indexOf(ativo);
+    const url=base+"/c/"+ativo+"/";
+    return '<div class="ccard pvcard">'+topo+
+      pendCliHTML(c)+
+      '<div class="pv-url" title="'+escAttr(url)+'">'+esc(url.replace(/^https?:\/\//,""))+'</div>'+
+      (esc0&&esc0.ativo&&esc0.ativo!==tks[p.ativo||0]
+        ? '<div class="pv-aviso">link novo \u00b7 passa a valer na pr\u00f3xima publica\u00e7\u00e3o</div>' : '')+
+      '<div class="pv-btns">'+
+        '<button class="pv-b principal" data-copiar="'+escAttr(url)+'">Copiar link</button>'+
+        '<a class="pv-b" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a>'+
+        (restantes>0
+          ? '<button class="pv-b sec" data-novolink="'+c.id+'" title="Gera um endere\u00e7o novo e derruba o atual">Trocar</button>'
+          : '<span class="pv-b vazio" title="Sem endere\u00e7os de reserva">sem reservas</span>')+
+      '</div></div></div>';
+  }).join("");
+  return '<section class="pvista">'+
+    '<p class="pv-intro">A p\u00e1gina que cada cliente enxerga: o objetivo dele, os n\u00fameros do m\u00eas, '+
+    'o que est\u00e1 esperando aprova\u00e7\u00e3o e at\u00e9 quando. Link pessoal e sem senha, '+
+    's\u00f3 quem tem o endere\u00e7o acessa.</p>'+
+    '<div class="cards">'+cards+'</div>'+
+    '<p class="nota-p">O que voc\u00ea marca no painel chega ao cliente na publica\u00e7\u00e3o autom\u00e1tica, '+
+    'toda manh\u00e3 em dia \u00fatil.</p></section>';
+}
+
 function trocarLink(cid){
   const p=PORTAIS&&PORTAIS[cid]; if(!p) return;
   const tks=p.tokens||[p.token];
@@ -1026,7 +1034,7 @@ function trocarLink(cid){
   ESTADO.portais=ESTADO.portais||{};
   ESTADO.portais[cid]={ativo:tks[i+1], revogados:((ESTADO.portais[cid]||{}).revogados||[]).concat([at]), quando:iso(HOJE)};
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"novolink",nome:"Link do portal trocado",quem:USUARIO||null});
-  persist(); semPular(()=>abrirPortais());
+  persist(); semPular(render);
   toast("Link novo gerado. O antigo para de funcionar na próxima publicação.",false);
 }
 
@@ -3024,12 +3032,13 @@ function render(){
 
   if(!c){
     let body;
-    if((VISTA.modo==="tend"||VISTA.modo==="equipe") && !ehAdmin()) VISTA.modo="lista";
+    if((VISTA.modo==="tend"||VISTA.modo==="equipe"||VISTA.modo==="portais") && !ehAdmin()) VISTA.modo="lista";
     if(VISTA.modo==="equipe")     body = funcionariosHTML();
     else if(VISTA.modo==="tend")  body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="feed")  body = feedHTML();
+    else if(VISTA.modo==="portais") body = portaisHTML();
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
     else                          body = listaGlobalHTML();
     $("view").innerHTML = avisoGravacaoHTML()+body; animar(); gravarRota();
@@ -3089,7 +3098,7 @@ function aplicarRota(){
   if(!h) return false;
   const p=h.split("/").filter(Boolean).map(decodeURIComponent);
   const areas=["all","mkt","fin","com"];
-  const modos=["cards","feed","prio","equipe","lista","cal","tend"];
+  const modos=["cards","feed","prio","equipe","lista","cal","tend","portais"];
   const abas=["cal","tarefas","marca","tend","hist"];
   let mudou=false;
   if(p[0]==="cliente" && p[1]){
@@ -3101,7 +3110,7 @@ function aplicarRota(){
     VISTA.escopo=null; VISTA.modo=p[0]; mudou=true;
     if(p[1] && areas.indexOf(p[1])>=0 && podeArea(p[1])) VISTA.area=p[1];
   }
-  if((VISTA.modo==="tend"||VISTA.modo==="equipe") && !ehAdmin()) VISTA.modo="lista";
+  if((VISTA.modo==="tend"||VISTA.modo==="equipe"||VISTA.modo==="portais") && !ehAdmin()) VISTA.modo="lista";
   if(VISTA.aba==="tend" && !ehAdmin()) VISTA.aba="cal";
   return mudou;
 }
@@ -3157,7 +3166,7 @@ document.addEventListener("click", function(ev){
     const atual = D.permb==="admin" ? !!p.admin : ((p.areas||[]).indexOf(D.permb)>=0);
     setPerm(D.pnome, D.permb, !atual); return;
   }
-  if(D.portais){ abrirPortais(); return; }
+  if(D.portais){ VISTA.escopo=null; VISTA.modo="portais"; VISTA.filtro=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.recado){ abrirRecado(); return; }
   if(D.agenda){ abrirAgendaConfig(); return; }
   if(D.compromisso){ abrirCompromisso(VISTA.dia||null); return; }

@@ -194,6 +194,27 @@ __ok("espelho nao vaza dado interno",
   !("pessoas" in esp) && !("log" in esp) && !("agendaChave" in esp) && !("cobrancas" in esp));
 `);
 
+bloco("Visao do cliente", M, limpar+`
+USUARIO="Guilherme";
+PORTAIS={suelem:{tokens:["t1","t2"],ativo:0,historico:true}, leonardo:{tokens:["t9"],ativo:0}};
+const pv=portaisHTML();
+__ok("sai em cards, como a tela de clientes", /class="cards"/.test(pv) && /pvcard/.test(pv));
+__ok("tem o botao de copiar o link", /data-copiar=/.test(pv));
+__ok("tem o botao de abrir", /target="_blank"/.test(pv));
+__ok("quem tem reserva pode trocar o link", /data-novolink="suelem"/.test(pv));
+__ok("quem nao tem reserva avisa", /sem reservas/.test(pv));
+__ok("marca quem tem historico", /com hist/.test(pv));
+__ok("mostra o que esta parado com o cliente", /pv-esp/.test(pv));
+__ok("cliente sem portal aparece assim mesmo", /Portal ainda n/.test(pv));
+location.hash="#/portais";
+__ok("tem endereco proprio", aplicarRota()===true && VISTA.modo==="portais");
+USUARIO="Carla"; VISTA.modo="portais";
+__ok("quem nao e administracao nao entra", /administra/.test(portaisHTML()));
+location.hash="#/portais"; aplicarRota();
+__ok("rota derruba quem nao pode", VISTA.modo!=="portais");
+USUARIO="Guilherme"; PORTAIS=null;
+`);
+
 bloco("Rotas e menu", M, limpar+`
 USUARIO="Guilherme";
 location.hash="#/feed"; __ok("rota #/feed", aplicarRota()===true && VISTA.modo==="feed");
