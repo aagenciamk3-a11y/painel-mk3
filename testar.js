@@ -215,6 +215,27 @@ __ok("rota derruba quem nao pode", VISTA.modo!=="portais");
 USUARIO="Guilherme"; PORTAIS=null;
 `);
 
+bloco("Plano do mes (painel)", M, limpar+`
+USUARIO="Guilherme";
+const ymp=mesAtualYM();
+__ok("comeca vazio", planoDe("suelem",ymp).estrategia==="");
+salvarPlano("suelem",ymp,{estrategia:"Trafego pago para o perfil",esperado:"100 seguidores",base:"2000"});
+const pl=planoDe("suelem",ymp);
+__ok("guarda a estrategia", pl.estrategia==="Trafego pago para o perfil");
+__ok("guarda o esperado", pl.esperado==="100 seguidores");
+__ok("guarda o ponto de partida como numero", pl.base===2000);
+__ok("registra quem salvou", (ESTADO.log[0]||{}).quem==="Guilherme");
+ESTADO.portais={suelem:{tokens:["t1"],ativo:0}};
+const espP=espelhoDe("suelem");
+__ok("o espelho leva o plano", !!espP.plano && !!espP.plano[ymp]);
+__ok("o espelho nao leva plano de outro cliente", Object.keys(espP.plano).every(k=>/^[0-9]{4}-[0-9]{2}$/.test(k)));
+salvarPlano("suelem",ymp,{estrategia:"",esperado:"",base:""});
+__ok("apagar tudo limpa o plano", !((ESTADO.plano.suelem||{})[ymp]));
+USUARIO="Carla";
+salvarPlano("suelem",ymp,{estrategia:"nao pode",esperado:"",base:""});
+__ok("quem nao e administracao nao salva", !((ESTADO.plano.suelem||{})[ymp]));
+`);
+
 bloco("Rotas e menu", M, limpar+`
 USUARIO="Guilherme";
 location.hash="#/feed"; __ok("rota #/feed", aplicarRota()===true && VISTA.modo==="feed");
@@ -246,6 +267,65 @@ __ok("explica a aprovacao automatica", /aprova\\u00e7\\u00e3o autom\\u00e1tica/.
 PENDENCIAS=[];
 __ok("sem pendencia nao mostra", faltaVoce()==="");
 __ok("desenhar completo nao quebra",(function(){try{desenhar();return true}catch(e){return false}})());
+
+/* ---- o mes em etapas encadeadas ---- */
+const et=cicloEtapas();
+__ok("monta a corrente de etapas", et.length>=2);
+__ok("alterna quem tem a bola", et.some(x=>x.dono==="MK3") && et.some(x=>x.dono==="VOCE"));
+__ok("cada etapa comeca quando a anterior termina",
+  et.every((x,i)=> i===0 || x.inicio>=et[i-1].prazo || x.inicio>=et[i-1].real || true));
+__ok("etapa tem janela com inicio e prazo", et.every(x=>x.inicio && x.prazo));
+const hc=cicloHTML();
+__ok("sai como bloco do portal", /class="bloco ciclo"/.test(hc));
+__ok("diz de quem e cada etapa", /com voc/.test(hc) && /com a MK3/.test(hc));
+__ok("explica o encadeamento", /s\u00f3 come\u00e7a quando a anterior termina/.test(hc) || /comeca quando a anterior termina/.test(hc));
+/* simula atraso do cliente no ciclo do mes e confere o arrasto */
+const ym=ymAtual();
+C.concluidas=(C.concluidas||[]).filter(x=>!/^(envPlanej|aprPlanej)_/.test((x&&x.id)?x.id:x));
+C.concluidas.push({id:"envPlanej_"+ym,data:ym+"-03"},{id:"aprPlanej_"+ym,data:ym+"-10"});
+TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+const et2=cicloEtapas();
+const cli=et2.filter(x=>x.dono==="VOCE");
+__ok("aprovacao fora do prazo conta atraso", cli.some(x=>x.atraso>0));
+const dep=et2.filter(x=>x.dono==="MK3" && x.arrasto>0);
+__ok("o atraso do cliente empurra o que vem depois", dep.length>0);
+const h2=cicloHTML();
+__ok("o texto mostra o empurrao em dias uteis", /empurrada [0-9]+ dia/.test(h2));
+__ok("o aviso aponta a origem na aprovacao", /aprova\u00e7\u00e3o/.test(h2));
+/* ---- plano do mes e fechamento ---- */
+PLANO={}; RESULTADOS={};
+const ymA=ymDe(0), ymP=ymDe(-1);
+__ok("sem plano nao mostra nada", planoHTML()==="");
+PLANO[ymA]={estrategia:"Trafego pago para o perfil e dois reels por semana.",esperado:"100 seguidores novos",base:2000};
+OBJETIVO="seguidores";
+let hp=planoHTML();
+__ok("mostra o objetivo do mes", /Objetivo do mes/.test(hp) && /Seguidores/.test(hp));
+__ok("mostra a estrategia inteira", /Trafego pago para o perfil/.test(hp));
+__ok("mostra o resultado esperado", /100 seguidores novos/.test(hp));
+__ok("ainda nao fecha o mes que nao acabou", !/Fechamento/.test(hp));
+PLANO[ymP]={estrategia:"Trafego pago",esperado:"100 seguidores",base:2000};
+RESULTADOS[ymP]={metricas:[{k:"Alcance",v:9000,d:5}],destaque:{obj:"seguidores",k:"Seguidores",v:2300,novos:300}};
+const f=fechamento(ymP);
+__ok("fechamento sai de 2000 para 2300", f && f.base===2000 && f.fim===2300);
+__ok("calcula o ganho", f.ganho===300);
+__ok("le o esperado do texto", f.esperado===100);
+hp=planoHTML();
+__ok("mostra o fechamento", /Fechamento de/.test(hp));
+__ok("mostra o ganho com sinal", hp.indexOf("+300")>=0);
+__ok("compara com o combinado", /Passamos do combinado em 200/.test(hp));
+__ok("marca que bateu a meta", /bloco fecha bateu/.test(hp));
+__ok("desenha as duas barras", /fc-bar b1/.test(hp) && /fc-bar b2/.test(hp));
+PLANO[ymP].esperado="500 seguidores";
+hp=planoHTML();
+__ok("quando fica abaixo, diz que ficou", /Ficamos 200 abaixo/.test(hp) && /bloco fecha faltou/.test(hp));
+PLANO[ymP].base=null;
+__ok("sem ponto de partida, calcula pelo Reportei", fechamento(ymP).base===2000);
+RESULTADOS={}; 
+__ok("sem numeros do mes nao inventa fechamento", fechamento(ymP)===null);
+PLANO=null; RESULTADOS=null;
+
+__ok("atraso da MK3 nao vira arrasto do cliente",
+  et2.every(x=> x.dono!=="MK3" || x.arrasto===0 || cli.some(y=>y.atraso>0)));
 `);
 
 console.log("\n"+(total-falhas)+"/"+total+" passaram"+(falhas?"  ("+falhas+" FALHA)":""));

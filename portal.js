@@ -5,7 +5,7 @@ const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","a
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
-let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null;
+let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null, PLANO=null;
 let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
 
 /* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
@@ -78,6 +78,149 @@ function esperando(){
       return '<div class="item i-'+urg+'"><div class="i-t">'+esc(t.tarefa)+'</div>'+
         '<div class="i-m">Prazo '+fmt(t.data)+' \u00b7 '+txt+'</div></div>';
     }).join("")+'</section>';
+}
+
+/* ---- o plano do mes e o fechamento: promessa contra resultado ---- */
+const ROTOBJ = {seguidores:"Seguidores", alcance:"Alcance", perfil:"Visitas ao perfil", views:"Visualizacoes"};
+function mesNome(ym){
+  const d0=new Date(+ym.slice(0,4), +ym.slice(5,7)-1, 1);
+  return d0.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+}
+function ymDe(desloc){
+  const d0=new Date(HOJE.getFullYear(), HOJE.getMonth()+(desloc||0), 1);
+  return d0.getFullYear()+"-"+String(d0.getMonth()+1).padStart(2,"0");
+}
+function planoMes(ym){ return (PLANO&&PLANO[ym])||null; }
+function numPT(n){ return (n==null||isNaN(n))?"-":Number(n).toLocaleString("pt-BR"); }
+function soNumero(txt){ const m=String(txt||"").replace(/\./g,"").match(/-?[0-9]+/); return m?Number(m[0]):null; }
+/* fecha o mes: de onde saiu, onde chegou, e o que tinha sido prometido */
+function fechamento(ym){
+  const p=planoMes(ym); if(!p) return null;
+  const R=(RESULTADOS&&RESULTADOS[ym])||null; if(!R) return null;
+  const d=R.destaque||null;
+  let fim=null, ganho=null;
+  if(d && d.v!=null){ fim=d.v; ganho=(d.novos!=null?d.novos:null); }
+  else if(R.metricas&&R.metricas.length){ fim=R.metricas[0].v; }
+  if(fim==null) return null;
+  let base=(p.base!=null?p.base:null);
+  if(base==null && ganho!=null) base=fim-ganho;
+  if(base==null) return null;
+  if(ganho==null) ganho=fim-base;
+  return {base:base, fim:fim, ganho:ganho, esperado:soNumero(p.esperado),
+          rot:(d&&d.k)||((R.metricas&&R.metricas[0]&&R.metricas[0].k)||"Resultado")};
+}
+function barrasHTML(f){
+  const topo=Math.max(f.base, f.fim, 1);
+  const alt=v=>Math.max(6, Math.round(v/topo*100));
+  return '<div class="fc-graf">'+
+    '<div class="fc-col"><span class="fc-v">'+numPT(f.base)+'</span>'+
+      '<div class="fc-bar b1" style="height:'+alt(f.base)+'%"></div><i>inicio do mes</i></div>'+
+    '<div class="fc-col"><span class="fc-v forte">'+numPT(f.fim)+'</span>'+
+      '<div class="fc-bar b2" style="height:'+alt(f.fim)+'%"></div><i>fim do mes</i></div>'+
+  '</div>';
+}
+function planoHTML(){
+  const ymA=ymDe(0), ymP=ymDe(-1);
+  let h="";
+  const f=fechamento(ymP), pp=planoMes(ymP);
+  if(f && pp){
+    const bateu = f.esperado!=null ? (f.ganho>=f.esperado) : (f.ganho>0);
+    const dif = f.esperado!=null ? (f.ganho-f.esperado) : null;
+    const frase = f.esperado==null
+      ? (f.ganho>=0?"Fechamos com "+numPT(f.ganho)+" a mais.":"Fechamos com "+numPT(Math.abs(f.ganho))+" a menos.")
+      : (dif>0 ? "Passamos do combinado em "+numPT(dif)+"."
+        : dif===0 ? "Entregamos exatamente o combinado."
+        : "Ficamos "+numPT(Math.abs(dif))+" abaixo do combinado.");
+    h+='<section class="bloco fecha '+(bateu?"bateu":"faltou")+'">'+
+      '<h2>Fechamento de '+esc(mesNome(ymP))+'</h2>'+
+      '<div class="fc-linha"><span class="fc-rot">'+esc(f.rot)+'</span>'+
+        '<span class="fc-delta'+(f.ganho>=0?"":" neg")+'">'+(f.ganho>=0?"+":"")+numPT(f.ganho)+'</span></div>'+
+      barrasHTML(f)+
+      (f.esperado!=null?'<div class="fc-meta">Combinado no plano: <b>'+numPT(f.esperado)+'</b></div>':'')+
+      '<p class="fc-frase">'+esc(frase)+'</p>'+
+      (pp.estrategia?'<div class="fc-est"><span>O que fizemos</span>'+esc(pp.estrategia)+'</div>':'')+
+      '</section>';
+  }
+  const p=planoMes(ymA);
+  if(p && (p.estrategia||p.esperado)){
+    h+='<section class="bloco plano"><h2>O plano de '+esc(mesNome(ymA))+'</h2>'+
+      (OBJETIVO?'<div class="pl-l"><span>Objetivo do mes</span><b>'+esc(ROTOBJ[OBJETIVO]||OBJETIVO)+'</b></div>':'')+
+      (p.estrategia?'<div class="pl-l"><span>Estrategia</span><p>'+esc(p.estrategia)+'</p></div>':'')+
+      (p.esperado?'<div class="pl-l"><span>Resultado esperado</span><b>'+esc(p.esperado)+'</b></div>':'')+
+      '</section>';
+  }
+  return h;
+}
+
+/* ---- 2) o mes em etapas: quem tem a bola, at\u00e9 quando, e o que o atraso empurra ----
+   Cada etapa comeca quando a anterior termina de verdade. Por isso um atraso do
+   cliente aparece empurrando tudo que vem depois, com o numero de dias uteis. */
+function ymAtual(){ const d0=HOJE; return d0.getFullYear()+"-"+String(d0.getMonth()+1).padStart(2,"0"); }
+const ETAPAS = [
+  {p:"envPlanej", c1:"c1_plan",   rot:"Planejamento do m\u00eas",        dono:"MK3",   verbo:"entregamos"},
+  {p:"aprPlanej", c1:"c1_aprPlan",rot:"Aprova\u00e7\u00e3o do planejamento", dono:"VOCE",  verbo:"voc\u00ea aprova"},
+  {p:"envMidia",  c1:"c1_artes",  rot:"Artes e v\u00eddeos",             dono:"MK3",   verbo:"entregamos"},
+  {p:"aprMidia",  c1:"c1_aprMid", rot:"Aprova\u00e7\u00e3o das artes",       dono:"VOCE",  verbo:"voc\u00ea aprova"},
+  {p:"agendado",  c1:"c1_podepostar", c1b:"c1_entrega", rot:"Conte\u00fado no ar", dono:"MK3", verbo:"publicamos"}
+];
+function acharEtapa(e, ym){
+  return TAREFAS.find(t=>t.id===e.p+"_"+ym)
+      || TAREFAS.find(t=>t.id===e.c1)
+      || (e.c1b?TAREFAS.find(t=>t.id===e.c1b):null) || null;
+}
+function cicloEtapas(){
+  const ym=ymAtual(), hoje=iso(HOJE), out=[];
+  let fimAnterior=null, arrasto=0;
+  ETAPAS.forEach(e=>{
+    const t=acharEtapa(e,ym); if(!t || !t.data) return;
+    const feita = t.st.k==="ok";
+    const real  = feita ? (t.dataConclusao||t.data) : null;
+    const prazo = t.data;
+    const inicio= fimAnterior || prazo;
+    let atraso=0;
+    if(real) atraso=uteisEntre(prazo, real);
+    else if(hoje>prazo) atraso=uteisEntre(prazo, hoje);
+    if(atraso<0) atraso=0;
+    const estado = feita ? (atraso>0?"tarde":"ok")
+                 : (hoje>prazo ? "atrasado" : (inicio<=hoje ? "agora" : "futuro"));
+    out.push({rot:e.rot, dono:e.dono, verbo:e.verbo, inicio:inicio, prazo:prazo,
+              real:real, atraso:atraso, estado:estado, arrasto:arrasto});
+    if(e.dono==="VOCE" && atraso>0) arrasto+=atraso;     /* so o atraso do cliente empurra */
+    fimAnterior = real || (hoje>prazo?hoje:prazo);
+  });
+  return out;
+}
+function cicloHTML(){
+  const et=cicloEtapas();
+  if(et.length<2) return '';
+  const mes=HOJE.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  const totalArr=et.reduce((a,x)=>Math.max(a,x.arrasto),0);
+  const linhas=et.map(x=>{
+    const janela = x.inicio===x.prazo ? fmt(x.prazo) : (fmt(x.inicio)+" a "+fmt(x.prazo));
+    let nota="";
+    if(x.estado==="ok")        nota="feito no prazo"+(x.real?", em "+fmt(x.real):"");
+    else if(x.estado==="tarde")nota="saiu "+x.atraso+" dia"+(x.atraso>1?"s \u00fateis":" \u00fatil")+" depois do combinado"+(x.real?", em "+fmt(x.real):"");
+    else if(x.estado==="atrasado") nota="parado h\u00e1 "+x.atraso+" dia"+(x.atraso>1?"s \u00fateis":" \u00fatil")+", prazo era "+fmt(x.prazo);
+    else if(x.estado==="agora")nota="em andamento, prazo "+fmt(x.prazo);
+    else                       nota="ainda n\u00e3o come\u00e7ou";
+    const empurrada = x.arrasto>0 && x.dono==="MK3" && x.estado!=="ok"
+      ? '<div class="cl-emp">empurrada '+x.arrasto+' dia'+(x.arrasto>1?'s \u00fateis':' \u00fatil')+' pela aprova\u00e7\u00e3o anterior</div>' : '';
+    return '<div class="cl-row e-'+x.estado+' d-'+(x.dono==="VOCE"?"cli":"mk3")+'">'+
+      '<span class="cl-rail"><i></i></span>'+
+      '<div class="cl-body">'+
+        '<div class="cl-h"><b>'+esc(x.rot)+'</b>'+
+          '<span class="cl-dono">'+(x.dono==="VOCE"?"com voc\u00ea":"com a MK3")+'</span></div>'+
+        '<div class="cl-j">'+esc(janela)+'</div>'+
+        '<div class="cl-n">'+esc(nota)+'</div>'+ empurrada +
+      '</div></div>';
+  }).join("");
+  const resumo = totalArr>0
+    ? '<div class="cl-aviso">O ciclo deste m\u00eas est\u00e1 <b>'+totalArr+' dia'+(totalArr>1?'s \u00fateis':' \u00fatil')+
+      '</b> atr\u00e1s do previsto, e a origem foi a aprova\u00e7\u00e3o. Cada etapa s\u00f3 come\u00e7a quando a anterior termina, '+
+      'ent\u00e3o o que atrasa em uma ponta desloca tudo que vem depois.</div>'
+    : '<div class="cl-aviso ok">Ciclo em dia. Cada etapa comeca quando a anterior termina, ent\u00e3o manter as aprova\u00e7\u00f5es no prazo mant\u00e9m a publica\u00e7\u00e3o na data.</div>';
+  return '<section class="bloco ciclo"><h2>Como est\u00e1 '+esc(mes)+'</h2>'+
+    resumo+'<div class="cl-lista">'+linhas+'</div></section>';
 }
 
 /* ---- 2) próximos passos (o que vem) ---- */
@@ -213,7 +356,7 @@ function ligarDash(){
     DASH_ABERTO=true; cx.innerHTML=dashFrameHTML(r.dash); armarFrame(cx);
   };
 }
-function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
+function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
@@ -230,10 +373,10 @@ function marcarAtualizado(){
 function aplicarEspelho(v){
   if(!v || typeof v!=="object") return false;
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
-  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias});
+  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias,pl:v.plano});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
-  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || ""; PENDENCIAS = v.pendencias || null;
+  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || ""; PENDENCIAS = v.pendencias || null; PLANO = v.plano || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};

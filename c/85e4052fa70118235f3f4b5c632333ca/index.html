@@ -138,6 +138,73 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
   .falta-row{flex-wrap:wrap}
   .falta-d{width:100%;padding-left:56px}
 }
+
+/* ===== como está o mês: etapas encadeadas ===== */
+.bloco.ciclo h2{margin-bottom:12px}
+.cl-aviso{font-size:13px;line-height:1.6;background:rgba(248,113,113,.10);
+  border:1px solid rgba(248,113,113,.32);border-radius:10px;padding:11px 14px;margin-bottom:16px}
+.cl-aviso.ok{background:rgba(76,196,99,.09);border-color:rgba(76,196,99,.3)}
+.cl-lista{display:flex;flex-direction:column}
+.cl-row{display:flex;gap:14px;padding-bottom:16px}
+.cl-row:last-child{padding-bottom:0}
+.cl-rail{flex:0 0 auto;width:14px;display:flex;flex-direction:column;align-items:center;padding-top:5px}
+.cl-rail i{width:11px;height:11px;border-radius:50%;background:var(--mut);flex:0 0 auto}
+.cl-row:not(:last-child) .cl-rail::after{content:"";flex:1;width:2px;background:var(--line);margin-top:5px}
+.cl-body{flex:1;min-width:0;border-left:3px solid var(--mut);border-radius:9px;
+  background:var(--panel2);padding:11px 14px}
+.cl-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cl-h b{font-size:14.5px;font-weight:650}
+.cl-dono{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 9px;border-radius:99px;background:rgba(139,92,246,.22);color:#C4B5FD;white-space:nowrap}
+.d-cli .cl-dono{background:rgba(245,197,24,.2);color:#F5C518}
+.cl-j{font-size:12.5px;color:var(--mut);margin-top:3px}
+.cl-n{font-size:12.5px;margin-top:4px;opacity:.8}
+.cl-emp{font-size:12px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);color:#FF8A3D}
+
+.e-ok .cl-rail i{background:var(--ok)}
+.e-ok .cl-body{border-left-color:var(--ok)}
+.e-tarde .cl-rail i{background:var(--hoje)}
+.e-tarde .cl-body{border-left-color:var(--hoje)}
+.e-atrasado .cl-rail i{background:var(--atrasado);box-shadow:0 0 0 4px rgba(242,85,90,.18)}
+.e-atrasado .cl-body{border-left-color:var(--atrasado);background:rgba(242,85,90,.10)}
+.e-atrasado .cl-n{color:#FF8E92;opacity:1;font-weight:600}
+.e-agora .cl-rail i{background:var(--mk3);box-shadow:0 0 0 4px rgba(139,92,246,.2)}
+.e-agora .cl-body{border-left-color:var(--mk3)}
+.e-futuro{opacity:.52}
+@media(max-width:560px){.cl-h{flex-direction:column;gap:4px}}
+
+/* ===== plano do mês e fechamento ===== */
+.bloco.plano{border-color:rgba(139,92,246,.32)}
+.pl-l{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.pl-l:last-child{border-bottom:0}
+.pl-l>span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--mut);margin-bottom:4px}
+.pl-l>b{font-size:16px;font-weight:650}
+.pl-l>p{font-size:14px;line-height:1.65;color:var(--txt);margin:0;white-space:pre-line}
+
+.bloco.fecha{border-color:rgba(76,196,99,.35)}
+.bloco.fecha.faltou{border-color:rgba(255,138,61,.35)}
+.fc-linha{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px}
+.fc-rot{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.fc-delta{font-size:26px;font-weight:800;color:var(--ok);letter-spacing:-.02em}
+.fc-delta.neg{color:var(--atrasado)}
+.fc-graf{display:flex;align-items:flex-end;gap:26px;height:150px;padding:14px 4px 0;margin:6px 0 4px}
+.fc-col{flex:0 0 84px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;
+  align-items:center;gap:6px}
+.fc-v{font-size:14px;font-weight:700;color:var(--mut)}
+.fc-v.forte{color:var(--txt);font-size:16px}
+.fc-bar{width:100%;border-radius:8px 8px 3px 3px;min-height:6px;
+  transition:height .6s cubic-bezier(.2,.8,.2,1)}
+.fc-bar.b1{background:linear-gradient(180deg,#4B3E6E,#2E2249)}
+.fc-bar.b2{background:linear-gradient(180deg,#8B5CF6,#5B34C4)}
+.faltou .fc-bar.b2{background:linear-gradient(180deg,#FF8A3D,#C4581F)}
+.fc-col i{font-size:11px;font-style:normal;color:var(--mut);text-align:center}
+.fc-meta{font-size:12.5px;color:var(--mut);padding-top:8px;border-top:1px solid rgba(255,255,255,.07)}
+.fc-frase{font-size:14.5px;font-weight:600;margin:8px 0 0}
+.fc-est{margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:13.5px;line-height:1.6;color:var(--mut);white-space:pre-line}
+.fc-est>span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+@media(max-width:520px){.fc-graf{gap:16px;height:130px}.fc-col{flex-basis:70px}}
 </style></head><body>
 <div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
 <h1 id="titulo"></h1><div id="view"></div>
@@ -491,7 +558,7 @@ const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","a
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
-let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null;
+let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null, PLANO=null;
 let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
 
 /* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
@@ -564,6 +631,149 @@ function esperando(){
       return '<div class="item i-'+urg+'"><div class="i-t">'+esc(t.tarefa)+'</div>'+
         '<div class="i-m">Prazo '+fmt(t.data)+' \u00b7 '+txt+'</div></div>';
     }).join("")+'</section>';
+}
+
+/* ---- o plano do mes e o fechamento: promessa contra resultado ---- */
+const ROTOBJ = {seguidores:"Seguidores", alcance:"Alcance", perfil:"Visitas ao perfil", views:"Visualizacoes"};
+function mesNome(ym){
+  const d0=new Date(+ym.slice(0,4), +ym.slice(5,7)-1, 1);
+  return d0.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+}
+function ymDe(desloc){
+  const d0=new Date(HOJE.getFullYear(), HOJE.getMonth()+(desloc||0), 1);
+  return d0.getFullYear()+"-"+String(d0.getMonth()+1).padStart(2,"0");
+}
+function planoMes(ym){ return (PLANO&&PLANO[ym])||null; }
+function numPT(n){ return (n==null||isNaN(n))?"-":Number(n).toLocaleString("pt-BR"); }
+function soNumero(txt){ const m=String(txt||"").replace(/\./g,"").match(/-?[0-9]+/); return m?Number(m[0]):null; }
+/* fecha o mes: de onde saiu, onde chegou, e o que tinha sido prometido */
+function fechamento(ym){
+  const p=planoMes(ym); if(!p) return null;
+  const R=(RESULTADOS&&RESULTADOS[ym])||null; if(!R) return null;
+  const d=R.destaque||null;
+  let fim=null, ganho=null;
+  if(d && d.v!=null){ fim=d.v; ganho=(d.novos!=null?d.novos:null); }
+  else if(R.metricas&&R.metricas.length){ fim=R.metricas[0].v; }
+  if(fim==null) return null;
+  let base=(p.base!=null?p.base:null);
+  if(base==null && ganho!=null) base=fim-ganho;
+  if(base==null) return null;
+  if(ganho==null) ganho=fim-base;
+  return {base:base, fim:fim, ganho:ganho, esperado:soNumero(p.esperado),
+          rot:(d&&d.k)||((R.metricas&&R.metricas[0]&&R.metricas[0].k)||"Resultado")};
+}
+function barrasHTML(f){
+  const topo=Math.max(f.base, f.fim, 1);
+  const alt=v=>Math.max(6, Math.round(v/topo*100));
+  return '<div class="fc-graf">'+
+    '<div class="fc-col"><span class="fc-v">'+numPT(f.base)+'</span>'+
+      '<div class="fc-bar b1" style="height:'+alt(f.base)+'%"></div><i>inicio do mes</i></div>'+
+    '<div class="fc-col"><span class="fc-v forte">'+numPT(f.fim)+'</span>'+
+      '<div class="fc-bar b2" style="height:'+alt(f.fim)+'%"></div><i>fim do mes</i></div>'+
+  '</div>';
+}
+function planoHTML(){
+  const ymA=ymDe(0), ymP=ymDe(-1);
+  let h="";
+  const f=fechamento(ymP), pp=planoMes(ymP);
+  if(f && pp){
+    const bateu = f.esperado!=null ? (f.ganho>=f.esperado) : (f.ganho>0);
+    const dif = f.esperado!=null ? (f.ganho-f.esperado) : null;
+    const frase = f.esperado==null
+      ? (f.ganho>=0?"Fechamos com "+numPT(f.ganho)+" a mais.":"Fechamos com "+numPT(Math.abs(f.ganho))+" a menos.")
+      : (dif>0 ? "Passamos do combinado em "+numPT(dif)+"."
+        : dif===0 ? "Entregamos exatamente o combinado."
+        : "Ficamos "+numPT(Math.abs(dif))+" abaixo do combinado.");
+    h+='<section class="bloco fecha '+(bateu?"bateu":"faltou")+'">'+
+      '<h2>Fechamento de '+esc(mesNome(ymP))+'</h2>'+
+      '<div class="fc-linha"><span class="fc-rot">'+esc(f.rot)+'</span>'+
+        '<span class="fc-delta'+(f.ganho>=0?"":" neg")+'">'+(f.ganho>=0?"+":"")+numPT(f.ganho)+'</span></div>'+
+      barrasHTML(f)+
+      (f.esperado!=null?'<div class="fc-meta">Combinado no plano: <b>'+numPT(f.esperado)+'</b></div>':'')+
+      '<p class="fc-frase">'+esc(frase)+'</p>'+
+      (pp.estrategia?'<div class="fc-est"><span>O que fizemos</span>'+esc(pp.estrategia)+'</div>':'')+
+      '</section>';
+  }
+  const p=planoMes(ymA);
+  if(p && (p.estrategia||p.esperado)){
+    h+='<section class="bloco plano"><h2>O plano de '+esc(mesNome(ymA))+'</h2>'+
+      (OBJETIVO?'<div class="pl-l"><span>Objetivo do mes</span><b>'+esc(ROTOBJ[OBJETIVO]||OBJETIVO)+'</b></div>':'')+
+      (p.estrategia?'<div class="pl-l"><span>Estrategia</span><p>'+esc(p.estrategia)+'</p></div>':'')+
+      (p.esperado?'<div class="pl-l"><span>Resultado esperado</span><b>'+esc(p.esperado)+'</b></div>':'')+
+      '</section>';
+  }
+  return h;
+}
+
+/* ---- 2) o mes em etapas: quem tem a bola, at\u00e9 quando, e o que o atraso empurra ----
+   Cada etapa comeca quando a anterior termina de verdade. Por isso um atraso do
+   cliente aparece empurrando tudo que vem depois, com o numero de dias uteis. */
+function ymAtual(){ const d0=HOJE; return d0.getFullYear()+"-"+String(d0.getMonth()+1).padStart(2,"0"); }
+const ETAPAS = [
+  {p:"envPlanej", c1:"c1_plan",   rot:"Planejamento do m\u00eas",        dono:"MK3",   verbo:"entregamos"},
+  {p:"aprPlanej", c1:"c1_aprPlan",rot:"Aprova\u00e7\u00e3o do planejamento", dono:"VOCE",  verbo:"voc\u00ea aprova"},
+  {p:"envMidia",  c1:"c1_artes",  rot:"Artes e v\u00eddeos",             dono:"MK3",   verbo:"entregamos"},
+  {p:"aprMidia",  c1:"c1_aprMid", rot:"Aprova\u00e7\u00e3o das artes",       dono:"VOCE",  verbo:"voc\u00ea aprova"},
+  {p:"agendado",  c1:"c1_podepostar", c1b:"c1_entrega", rot:"Conte\u00fado no ar", dono:"MK3", verbo:"publicamos"}
+];
+function acharEtapa(e, ym){
+  return TAREFAS.find(t=>t.id===e.p+"_"+ym)
+      || TAREFAS.find(t=>t.id===e.c1)
+      || (e.c1b?TAREFAS.find(t=>t.id===e.c1b):null) || null;
+}
+function cicloEtapas(){
+  const ym=ymAtual(), hoje=iso(HOJE), out=[];
+  let fimAnterior=null, arrasto=0;
+  ETAPAS.forEach(e=>{
+    const t=acharEtapa(e,ym); if(!t || !t.data) return;
+    const feita = t.st.k==="ok";
+    const real  = feita ? (t.dataConclusao||t.data) : null;
+    const prazo = t.data;
+    const inicio= fimAnterior || prazo;
+    let atraso=0;
+    if(real) atraso=uteisEntre(prazo, real);
+    else if(hoje>prazo) atraso=uteisEntre(prazo, hoje);
+    if(atraso<0) atraso=0;
+    const estado = feita ? (atraso>0?"tarde":"ok")
+                 : (hoje>prazo ? "atrasado" : (inicio<=hoje ? "agora" : "futuro"));
+    out.push({rot:e.rot, dono:e.dono, verbo:e.verbo, inicio:inicio, prazo:prazo,
+              real:real, atraso:atraso, estado:estado, arrasto:arrasto});
+    if(e.dono==="VOCE" && atraso>0) arrasto+=atraso;     /* so o atraso do cliente empurra */
+    fimAnterior = real || (hoje>prazo?hoje:prazo);
+  });
+  return out;
+}
+function cicloHTML(){
+  const et=cicloEtapas();
+  if(et.length<2) return '';
+  const mes=HOJE.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  const totalArr=et.reduce((a,x)=>Math.max(a,x.arrasto),0);
+  const linhas=et.map(x=>{
+    const janela = x.inicio===x.prazo ? fmt(x.prazo) : (fmt(x.inicio)+" a "+fmt(x.prazo));
+    let nota="";
+    if(x.estado==="ok")        nota="feito no prazo"+(x.real?", em "+fmt(x.real):"");
+    else if(x.estado==="tarde")nota="saiu "+x.atraso+" dia"+(x.atraso>1?"s \u00fateis":" \u00fatil")+" depois do combinado"+(x.real?", em "+fmt(x.real):"");
+    else if(x.estado==="atrasado") nota="parado h\u00e1 "+x.atraso+" dia"+(x.atraso>1?"s \u00fateis":" \u00fatil")+", prazo era "+fmt(x.prazo);
+    else if(x.estado==="agora")nota="em andamento, prazo "+fmt(x.prazo);
+    else                       nota="ainda n\u00e3o come\u00e7ou";
+    const empurrada = x.arrasto>0 && x.dono==="MK3" && x.estado!=="ok"
+      ? '<div class="cl-emp">empurrada '+x.arrasto+' dia'+(x.arrasto>1?'s \u00fateis':' \u00fatil')+' pela aprova\u00e7\u00e3o anterior</div>' : '';
+    return '<div class="cl-row e-'+x.estado+' d-'+(x.dono==="VOCE"?"cli":"mk3")+'">'+
+      '<span class="cl-rail"><i></i></span>'+
+      '<div class="cl-body">'+
+        '<div class="cl-h"><b>'+esc(x.rot)+'</b>'+
+          '<span class="cl-dono">'+(x.dono==="VOCE"?"com voc\u00ea":"com a MK3")+'</span></div>'+
+        '<div class="cl-j">'+esc(janela)+'</div>'+
+        '<div class="cl-n">'+esc(nota)+'</div>'+ empurrada +
+      '</div></div>';
+  }).join("");
+  const resumo = totalArr>0
+    ? '<div class="cl-aviso">O ciclo deste m\u00eas est\u00e1 <b>'+totalArr+' dia'+(totalArr>1?'s \u00fateis':' \u00fatil')+
+      '</b> atr\u00e1s do previsto, e a origem foi a aprova\u00e7\u00e3o. Cada etapa s\u00f3 come\u00e7a quando a anterior termina, '+
+      'ent\u00e3o o que atrasa em uma ponta desloca tudo que vem depois.</div>'
+    : '<div class="cl-aviso ok">Ciclo em dia. Cada etapa comeca quando a anterior termina, ent\u00e3o manter as aprova\u00e7\u00f5es no prazo mant\u00e9m a publica\u00e7\u00e3o na data.</div>';
+  return '<section class="bloco ciclo"><h2>Como est\u00e1 '+esc(mes)+'</h2>'+
+    resumo+'<div class="cl-lista">'+linhas+'</div></section>';
 }
 
 /* ---- 2) próximos passos (o que vem) ---- */
@@ -699,7 +909,7 @@ function ligarDash(){
     DASH_ABERTO=true; cx.innerHTML=dashFrameHTML(r.dash); armarFrame(cx);
   };
 }
-function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
+function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
@@ -716,10 +926,10 @@ function marcarAtualizado(){
 function aplicarEspelho(v){
   if(!v || typeof v!=="object") return false;
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
-  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias});
+  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias,pl:v.plano});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
-  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || ""; PENDENCIAS = v.pendencias || null;
+  RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || ""; PENDENCIAS = v.pendencias || null; PLANO = v.plano || null;
   const E={concluidas:{},datas:{}};
   E.concluidas[CLIENTE_ID]=v.concluidas||[];
   E.datas[CLIENTE_ID]=v.datas||{};

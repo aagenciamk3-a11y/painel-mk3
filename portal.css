@@ -133,3 +133,70 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
   .falta-row{flex-wrap:wrap}
   .falta-d{width:100%;padding-left:56px}
 }
+
+/* ===== como está o mês: etapas encadeadas ===== */
+.bloco.ciclo h2{margin-bottom:12px}
+.cl-aviso{font-size:13px;line-height:1.6;background:rgba(248,113,113,.10);
+  border:1px solid rgba(248,113,113,.32);border-radius:10px;padding:11px 14px;margin-bottom:16px}
+.cl-aviso.ok{background:rgba(76,196,99,.09);border-color:rgba(76,196,99,.3)}
+.cl-lista{display:flex;flex-direction:column}
+.cl-row{display:flex;gap:14px;padding-bottom:16px}
+.cl-row:last-child{padding-bottom:0}
+.cl-rail{flex:0 0 auto;width:14px;display:flex;flex-direction:column;align-items:center;padding-top:5px}
+.cl-rail i{width:11px;height:11px;border-radius:50%;background:var(--mut);flex:0 0 auto}
+.cl-row:not(:last-child) .cl-rail::after{content:"";flex:1;width:2px;background:var(--line);margin-top:5px}
+.cl-body{flex:1;min-width:0;border-left:3px solid var(--mut);border-radius:9px;
+  background:var(--panel2);padding:11px 14px}
+.cl-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cl-h b{font-size:14.5px;font-weight:650}
+.cl-dono{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 9px;border-radius:99px;background:rgba(139,92,246,.22);color:#C4B5FD;white-space:nowrap}
+.d-cli .cl-dono{background:rgba(245,197,24,.2);color:#F5C518}
+.cl-j{font-size:12.5px;color:var(--mut);margin-top:3px}
+.cl-n{font-size:12.5px;margin-top:4px;opacity:.8}
+.cl-emp{font-size:12px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);color:#FF8A3D}
+
+.e-ok .cl-rail i{background:var(--ok)}
+.e-ok .cl-body{border-left-color:var(--ok)}
+.e-tarde .cl-rail i{background:var(--hoje)}
+.e-tarde .cl-body{border-left-color:var(--hoje)}
+.e-atrasado .cl-rail i{background:var(--atrasado);box-shadow:0 0 0 4px rgba(242,85,90,.18)}
+.e-atrasado .cl-body{border-left-color:var(--atrasado);background:rgba(242,85,90,.10)}
+.e-atrasado .cl-n{color:#FF8E92;opacity:1;font-weight:600}
+.e-agora .cl-rail i{background:var(--mk3);box-shadow:0 0 0 4px rgba(139,92,246,.2)}
+.e-agora .cl-body{border-left-color:var(--mk3)}
+.e-futuro{opacity:.52}
+@media(max-width:560px){.cl-h{flex-direction:column;gap:4px}}
+
+/* ===== plano do mês e fechamento ===== */
+.bloco.plano{border-color:rgba(139,92,246,.32)}
+.pl-l{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.pl-l:last-child{border-bottom:0}
+.pl-l>span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--mut);margin-bottom:4px}
+.pl-l>b{font-size:16px;font-weight:650}
+.pl-l>p{font-size:14px;line-height:1.65;color:var(--txt);margin:0;white-space:pre-line}
+
+.bloco.fecha{border-color:rgba(76,196,99,.35)}
+.bloco.fecha.faltou{border-color:rgba(255,138,61,.35)}
+.fc-linha{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px}
+.fc-rot{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.fc-delta{font-size:26px;font-weight:800;color:var(--ok);letter-spacing:-.02em}
+.fc-delta.neg{color:var(--atrasado)}
+.fc-graf{display:flex;align-items:flex-end;gap:26px;height:150px;padding:14px 4px 0;margin:6px 0 4px}
+.fc-col{flex:0 0 84px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;
+  align-items:center;gap:6px}
+.fc-v{font-size:14px;font-weight:700;color:var(--mut)}
+.fc-v.forte{color:var(--txt);font-size:16px}
+.fc-bar{width:100%;border-radius:8px 8px 3px 3px;min-height:6px;
+  transition:height .6s cubic-bezier(.2,.8,.2,1)}
+.fc-bar.b1{background:linear-gradient(180deg,#4B3E6E,#2E2249)}
+.fc-bar.b2{background:linear-gradient(180deg,#8B5CF6,#5B34C4)}
+.faltou .fc-bar.b2{background:linear-gradient(180deg,#FF8A3D,#C4581F)}
+.fc-col i{font-size:11px;font-style:normal;color:var(--mut);text-align:center}
+.fc-meta{font-size:12.5px;color:var(--mut);padding-top:8px;border-top:1px solid rgba(255,255,255,.07)}
+.fc-frase{font-size:14.5px;font-weight:600;margin:8px 0 0}
+.fc-est{margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.07);
+  font-size:13.5px;line-height:1.6;color:var(--mut);white-space:pre-line}
+.fc-est>span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+@media(max-width:520px){.fc-graf{gap:16px;height:130px}.fc-col{flex-basis:70px}}

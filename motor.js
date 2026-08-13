@@ -671,8 +671,14 @@ function espelhoDe(cid){
   const pend = cli ? contadores(cli).map(x=>({
         tipo:x.tipo, enviado:x.enviado, vencimento:x.vencimento,
         dias:dias(x.vencimento) })) : [];
+  const ymA=mesAtualYM();
+  const planos={};
+  [ymA, (function(){const d0=new Date(HOJE.getFullYear(),HOJE.getMonth()-1,1);
+    return d0.getFullYear()+"-"+String(d0.getMonth()+1).padStart(2,"0");})()]
+    .forEach(m=>{ const p=((ESTADO.plano&&ESTADO.plano[cid])||{})[m]; if(p) planos[m]=p; });
   return { ts:Date.now(),
            pendencias:pend,
+           plano:planos,
            ativo:(p&&p.ativo)||null,
            objetivo:cli?objetivoDe(cli):"",
            recado:cli?((fichaDe(cli)||{}).recado||""):"",
@@ -1552,6 +1558,10 @@ function handleModal(D){
   if(D.macao==="salvarficha"){ salvarFicha(D.cliid); return; }
   if(D.macao==="salvaragenda"){ salvarAgendaUrl(); return; }
   if(D.macao==="criarcomp"){ criarCompromisso(); return; }
+  if(D.macao==="salvarplano"){
+    salvarPlano(D.mcid, D.mym, {estrategia:($("plEstr")||{}).value, esperado:($("plEsp")||{}).value, base:($("plBase")||{}).value});
+    fecharModal(); return;
+  }
   if(D.macao==="copiarrecado"){
     const el=$("recTxt"); const t=el?el.textContent:"";
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast("Recado copiado",true)).catch(()=>toast("Não consegui copiar, selecione o texto")); }
@@ -1638,7 +1648,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.agenda)ESTADO.agenda=[]; if(!ESTADO.agendaResp)ESTADO.agendaResp={}; if(!ESTADO.cobrancas)ESTADO.cobrancas={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.agenda)ESTADO.agenda=[]; if(!ESTADO.agendaResp)ESTADO.agendaResp={}; if(!ESTADO.cobrancas)ESTADO.cobrancas={}; if(!ESTADO.plano)ESTADO.plano={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -2357,6 +2367,59 @@ function fichaDe(c){
   const f={}; FICHA_CAMPOS.forEach(k=>{ f[k[0]] = (salva[k[0]]!==undefined && salva[k[0]]!=="") ? salva[k[0]] : (pad[k[0]]||""); });
   return f;
 }
+/* ---- Plano do mes: o que prometemos, como vamos fazer e quanto esperamos ----
+   Fica por cliente e por mes. O cliente le isso no portal dele antes do mes
+   comecar, e no fim compara com o que realmente aconteceu. */
+function planoDe(cid, ym){
+  const p=((ESTADO.plano&&ESTADO.plano[cid])||{})[ym];
+  return p ? {...p} : {estrategia:"", esperado:"", base:null};
+}
+function salvarPlano(cid, ym, dados){
+  if(!ehAdmin()) return;
+  snapshot();
+  ESTADO.plano=ESTADO.plano||{};
+  ESTADO.plano[cid]=ESTADO.plano[cid]||{};
+  const limpo={ estrategia:(dados.estrategia||"").trim(),
+                esperado:(dados.esperado||"").trim(),
+                base:(dados.base===""||dados.base==null)?null:Number(dados.base) };
+  if(!limpo.estrategia && !limpo.esperado && limpo.base==null) delete ESTADO.plano[cid][ym];
+  else ESTADO.plano[cid][ym]=limpo;
+  const c=cliente(cid);
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"plano",
+    nome:"Plano de "+mesExtenso(ym),data:ym+"-01",quem:USUARIO||null});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); render();
+  toast("Plano de "+mesExtenso(ym)+" salvo"+(c?" para "+c.nome:""),true);
+}
+function abrirPlano(cid, ym){
+  if(!ehAdmin()) return;
+  const c=cliente(cid); if(!c) return;
+  ym = ym || mesAtualYM();
+  const p=planoDe(cid, ym);
+  const obj=objetivoDe(c), meta=metaDe(c);
+  const rotObj=(OBJETIVOS.find(o=>o[0]===obj)||["","sem objetivo definido"])[1];
+  const meses=[0,1,-1].map(k=>{
+    const d0=new Date(HOJE.getFullYear(), HOJE.getMonth()-k, 1);
+    return d0.getFullYear()+"-"+String(d0.getMonth()+1).padStart(2,"0");
+  });
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox planobox"><h3>Plano de '+esc(mesExtenso(ym))+'</h3>'+
+    '<p class="msub">'+esc(c.nome)+' \u00b7 objetivo <b>'+esc(rotObj)+'</b>'+
+      (meta?' (meta '+numBR(meta)+')':'')+
+      '. O cliente l\u00ea isso no portal dele.</p>'+
+    '<div class="fd-chips">'+meses.map(m=>
+      '<button class="fd-chip'+(m===ym?" on":"")+'" data-planomes="'+cid+'|'+m+'">'+esc(mesExtenso(m))+'</button>').join("")+'</div>'+
+    '<label class="mlab">Estrat\u00e9gia do m\u00eas'+
+      '<textarea id="plEstr" rows="5" placeholder="Como vamos chegar no objetivo. Ex.: tr\u00e1fego pago para o perfil, dois reels por semana com CTA de seguir, parceria com perfis locais.">'+esc(p.estrategia||"")+'</textarea></label>'+
+    '<label class="mlab">Resultado esperado'+
+      '<input id="plEsp" type="text" placeholder="Ex.: 100 seguidores novos no m\u00eas" value="'+escAttr(p.esperado||"")+'"></label>'+
+    '<label class="mlab">Ponto de partida (n\u00famero no dia 1)'+
+      '<input id="plBase" type="number" placeholder="Ex.: 2000" value="'+(p.base==null?"":p.base)+'">'+
+      '<span class="mhint">Serve para o gr\u00e1fico de compara\u00e7\u00e3o no fim do m\u00eas. Se ficar vazio, o painel calcula pelo Reportei.</span></label>'+
+    '<div class="mbtns"><button data-macao="salvarplano" data-mcid="'+escAttr(cid)+'" data-mym="'+ym+'">Salvar</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
+}
 function fichaHTML(c){
   const f=fichaDe(c), tem=FICHA_CAMPOS.some(k=>f[k[0]]);
   if(!tem) return '<div class="vazio">Sem ficha da marca ainda. '+(ehAdmin()?'Clique em Editar ficha para preencher a partir da imersão.':'Peça para a administração preencher a partir da imersão.')+'</div>'+
@@ -2885,8 +2948,10 @@ function tarefasHTML(c){
   const lista = (VISTA.filtro ? ts.filter(t=>t.st.k===VISTA.filtro) : ts.filter(t=>t.st.k!=="ok"))
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k] || String(a.data).localeCompare(String(b.data)));
   let html = semaf +
-    (ehAdmin()?'<div class="rel-atalho"><button data-relatorio="'+c.id+'|'+mesAtualYM()+'">'+
-      '&#128203; Rascunho do relat\u00f3rio de '+esc(mesExtenso(mesAtualYM()))+'</button></div>':'')+
+    (ehAdmin()?'<div class="rel-atalho"><button data-plano="'+c.id+'|'+mesAtualYM()+'">'+
+      '&#127919; Plano de '+esc(mesExtenso(mesAtualYM()))+'</button>'+
+      '<button data-relatorio="'+c.id+'|'+mesAtualYM()+'">'+
+      '&#128203; Rascunho do relat\u00f3rio</button></div>':'')+
     '<h2>'+(VISTA.filtro?ROTULO[VISTA.filtro]:"Fila de execução")+'</h2>'+
     (lista.length ? '<div class="fila">'+lista.slice(0,VISTA.verTudo?999:7).map(t=>linha(t,false)).join("")+'</div>'+
         (!VISTA.verTudo && lista.length>7 ? '<button class="vermais" data-vertudo="1">Ver todas as '+lista.length+'</button>' : '')
@@ -3123,7 +3188,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-usaragenda],[data-relatorio],[data-relmes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-usaragenda],[data-relatorio],[data-relmes],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3223,6 +3288,8 @@ document.addEventListener("click", function(ev){
   if(D.usaragenda){ const p=D.usaragenda.split("|"); usarDataDaAgenda(p[0],p[1]); return; }
   if(D.relatorio){ const p=D.relatorio.split("|"); abrirRelatorio(p[0],p[1]); return; }
   if(D.relmes){ const p=D.relmes.split("|"); semPular(()=>abrirRelatorio(p[0],p[1])); return; }
+  if(D.plano){ const p=D.plano.split("|"); abrirPlano(p[0],p[1]); return; }
+  if(D.planomes){ const p=D.planomes.split("|"); semPular(()=>abrirPlano(p[0],p[1])); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
   if(D.undo){ desfazer(); return; }
   if(D.redo){ refazer(); return; }
