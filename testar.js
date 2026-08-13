@@ -335,6 +335,17 @@ __ok("separa o que e da MK3 e o que e do cliente", /cd-mk3/.test(hc2) || /cd-cli
 __ok("pinta a janela de quem tem a bola", /j-mk3|j-cli/.test(hc2));
 __ok("tem legenda", /cd-leg/.test(hc2) && /com voc/.test(hc2));
 __ok("explica o vermelho", /fica vermelho/.test(hc2));
+/* dia clicavel */
+__ok("cada dia e um botao clicavel", /button type="button" class="cd-d/.test(hc2) && /data-pdia="/.test(hc2));
+__ok("sem dia aberto, convida a clicar", /Clique num dia/.test(hc2));
+PDIA=iso(HOJE); hc2=proximos();
+__ok("abre o painel do dia", /cd-det/.test(hc2));
+__ok("o dia aberto fica marcado na grade", /cd-d[^"]*sel/.test(hc2));
+__ok("diz de quem e a vez naquele dia", /dd-faixa/.test(hc2) || /Nada marcado/.test(hc2));
+__ok("tem botao de fechar", /data-pdia=""/.test(hc2));
+PDIA="2030-01-01"; hc2=proximos();
+__ok("dia sem nada diz que nao tem nada", /Nada marcado para este dia/.test(hc2));
+PDIA=null;
 PVISAO="lista"; hc2=proximos();
 __ok("aba Lista volta a lista", /linha-lista/.test(hc2) && !/cd-grade/.test(hc2));
 PVISAO="cal"; PMES=1;

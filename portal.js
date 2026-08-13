@@ -225,7 +225,7 @@ function cicloHTML(){
 }
 
 /* ---- 2) próximos passos (o que vem) ---- */
-let PMES = 0;                       /* 0 = mes corrente, -1 = anterior, 1 = seguinte */
+let PMES = 0, PDIA = null;                       /* 0 = mes corrente, -1 = anterior, 1 = seguinte */
 let PVISAO = "cal";                 /* cal ou lista */
 function tarefasDoPortal(){
   return TAREFAS.filter(t=>t.data && t.fase!=="Contrato" && !/^pag_|^fotos_/.test(t.id));
@@ -254,6 +254,47 @@ function listaHTML(abas){
       '<span class="ln-q '+(t.resp==="Cliente"?"cli":"mk3")+'">'+(t.resp==="Cliente"?"com você":"com a MK3")+'</span></div>').join("")+
     '</div></section>';
 }
+/* ---- o dia aberto: o que acontece nele e de quem e a vez ---- */
+function detalheDia(){
+  if(!PDIA) return '<div class="cd-dica">Clique num dia para ver o que acontece nele.</div>';
+  const hoje=iso(HOJE);
+  const ts=tarefasDoPortal().filter(t=>t.data===PDIA)
+    .sort((a,b)=>String(a.resp).localeCompare(String(b.resp)));
+  const mk=(C.marcos||[]).filter(m=>m.data===PDIA);
+  const f=faixas().find(x=>x.ini<=PDIA && PDIA<=x.fim);
+  const d0=d(PDIA);
+  const titulo=d0.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+  let corpo="";
+  if(f){
+    const dono = f.dono==="VOCE" ? "com você" : "com a MK3";
+    const alerta = f.estado==="atrasado";
+    corpo+='<div class="dd-faixa '+(f.dono==="VOCE"?"cli":"mk3")+(alerta?" alerta":"")+'">'+
+      '<b>'+esc(f.rot)+'</b> está '+dono+' neste dia'+
+      (alerta?' e o prazo já passou. Enquanto isso não sai, as etapas seguintes ficam paradas.'
+             :', dentro do prazo de '+fmt(f.ini)+' a '+fmt(f.fim)+'.')+'</div>';
+  }
+  if(!ts.length && !mk.length){
+    corpo+='<p class="dd-vazio">Nada marcado para este dia.</p>';
+  } else {
+    corpo+='<div class="dd-lista">'+
+      mk.map(m=>'<div class="dd-i marco"><span class="dd-q">marco</span>'+
+        '<span class="dd-t">'+esc(m.titulo)+(m.detalhe?'<i>'+esc(m.detalhe)+'</i>':'')+'</span></div>').join("")+
+      ts.map(t=>{
+        const feita=t.st.k==="ok";
+        const atrasada=!feita && t.data<hoje;
+        const cls=feita?"ok":(atrasada?"atr":(t.resp==="Cliente"?"cli":"mk3"));
+        const sit=feita?("concluído"+(t.st.quando?" em "+fmt(t.st.quando):""))
+                 :atrasada?("em atraso desde "+fmt(t.data))
+                 :(t.data===hoje?"para hoje":"programado");
+        return '<div class="dd-i '+cls+'">'+
+          '<span class="dd-q">'+(t.resp==="Cliente"?"com você":"com a MK3")+'</span>'+
+          '<span class="dd-t">'+esc(t.tarefa)+(t.detalhe?'<i>'+esc(t.detalhe)+'</i>':'')+'</span>'+
+          '<span class="dd-s">'+esc(sit)+'</span></div>';
+      }).join("")+'</div>';
+  }
+  return '<div class="cd-det"><div class="dd-h"><b>'+esc(titulo)+'</b>'+
+    '<button data-pdia="" aria-label="Fechar">&times;</button></div>'+corpo+'</div>';
+}
 function calendarioHTML(abas){
   const hoje=iso(HOJE);
   const ref=new Date(HOJE.getFullYear(), HOJE.getMonth()+PMES, 1);
@@ -280,8 +321,11 @@ function calendarioHTML(abas){
       return '<span class="cd-i cd-'+cls+'" title="'+esc(t.tarefa)+(t.resp==="Cliente"?" (com você)":" (com a MK3)")+'">'+
         esc(t.tarefa)+'</span>';
     }).join("")+marcos.map(m=>'<span class="cd-i cd-marco" title="'+esc(m.titulo)+'">'+esc(m.titulo)+'</span>').join("");
-    cels+='<div class="cd-d'+(dia===hoje?" hoje":"")+(fds?" fds":"")+cobre+'">'+
-      '<span class="cd-n">'+d0+'</span>'+(itens?'<div class="cd-itens">'+itens+'</div>':'')+'</div>';
+    const temAlgo = doDia.length || marcos.length;
+    cels+='<button type="button" class="cd-d'+(dia===hoje?" hoje":"")+(fds?" fds":"")+cobre+
+      (temAlgo?" tem":"")+(dia===PDIA?" sel":"")+'" data-pdia="'+dia+'"'+
+      ' aria-label="'+esc(fmt(dia))+(temAlgo?", "+(doDia.length+marcos.length)+" item(ns)":", sem nada")+'">'+
+      '<span class="cd-n">'+d0+'</span>'+(itens?'<div class="cd-itens">'+itens+'</div>':'')+'</button>';
   }
   const nomeMes=ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
   const legenda='<div class="cd-leg">'+
@@ -294,7 +338,7 @@ function calendarioHTML(abas){
       '<strong>'+esc(nomeMes)+'</strong>'+
       '<button data-pmes="'+(PMES+1)+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
     '<div class="cd-dow"><span>dom</span><span>seg</span><span>ter</span><span>qua</span><span>qui</span><span>sex</span><span>sáb</span></div>'+
-    '<div class="cd-grade">'+cels+'</div>'+ legenda +
+    '<div class="cd-grade">'+cels+'</div>'+ detalheDia() + legenda +
     '<p class="nota">O fundo de cada dia mostra de quem é a vez: roxo com a MK3, amarelo com você. '+
     'Quando a sua parte passa do prazo, o bloco fica vermelho e tudo que vem depois anda junto.</p>'+
     '</section>';
@@ -423,10 +467,11 @@ function ligarDash(){
 function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
 /* navegacao do calendario e troca de visao, sem recarregar a pagina */
 document.addEventListener("click", ev=>{
-  const a=ev.target.closest("[data-pmes],[data-pvisao]"); if(!a) return;
+  const a=ev.target.closest("[data-pmes],[data-pvisao],[data-pdia]"); if(!a) return;
   ev.preventDefault();
-  if(a.dataset.pmes!==undefined) PMES=Number(a.dataset.pmes)||0;
-  if(a.dataset.pvisao) PVISAO=a.dataset.pvisao;
+  if(a.dataset.pmes!==undefined){ PMES=Number(a.dataset.pmes)||0; PDIA=null; }
+  if(a.dataset.pdia!==undefined) PDIA = (a.dataset.pdia && a.dataset.pdia!==PDIA) ? a.dataset.pdia : null;
+  if(a.dataset.pvisao){ PVISAO=a.dataset.pvisao; PDIA=null; }
   desenhar();
 });
 desenhar();

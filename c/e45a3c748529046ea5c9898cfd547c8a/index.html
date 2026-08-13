@@ -251,6 +251,44 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-si
   .cd-i{font-size:0;padding:0;height:5px;border-radius:99px;margin-bottom:1px}
   .cd-n{font-size:10px}
 }
+
+/* ===== dia aberto no calendário ===== */
+button.cd-d{font:inherit;text-align:left;color:inherit;cursor:default;width:100%}
+button.cd-d.tem{cursor:pointer}
+button.cd-d.tem:hover{filter:brightness(1.25)}
+button.cd-d.sel{border-color:var(--txt);box-shadow:0 0 0 2px rgba(241,238,251,.35)}
+.cd-dica{margin-top:12px;font-size:12.5px;color:var(--mut);opacity:.75}
+.cd-det{margin-top:14px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:11px;padding:13px 15px}
+.dd-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.dd-h b{font-size:14.5px;text-transform:capitalize}
+.dd-h button{background:transparent;border:0;color:var(--mut);font-size:20px;line-height:1;
+  cursor:pointer;padding:0 4px}
+.dd-h button:hover{color:var(--txt)}
+.dd-faixa{font-size:12.5px;line-height:1.55;border-radius:8px;padding:9px 12px;margin-bottom:11px;
+  background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.3)}
+.dd-faixa.cli{background:rgba(245,197,24,.12);border-color:rgba(245,197,24,.32)}
+.dd-faixa.alerta{background:rgba(242,85,90,.14);border-color:rgba(242,85,90,.42)}
+.dd-vazio{font-size:13px;color:var(--mut);margin:0}
+.dd-lista{display:flex;flex-direction:column;gap:7px}
+.dd-i{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;border-radius:8px;
+  background:var(--panel);border-left:3px solid var(--mut)}
+.dd-i.mk3{border-left-color:var(--mk3)}
+.dd-i.cli{border-left-color:var(--umdia)}
+.dd-i.atr{border-left-color:var(--atrasado);background:rgba(242,85,90,.1)}
+.dd-i.ok{border-left-color:var(--ok);opacity:.7}
+.dd-i.marco{border-left-color:#fff;opacity:.85}
+.dd-q{flex:0 0 auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;
+  color:var(--mut);padding-top:3px;min-width:62px}
+.dd-t{flex:1;min-width:0;font-size:13.5px;line-height:1.4}
+.dd-t i{display:block;font-style:normal;font-size:11.5px;color:var(--mut);margin-top:2px}
+.dd-s{flex:0 0 auto;font-size:11.5px;color:var(--mut);white-space:nowrap;padding-top:2px}
+.dd-i.atr .dd-s{color:#FF8E92;font-weight:600}
+@media(max-width:560px){
+  .dd-i{flex-wrap:wrap;gap:5px}
+  .dd-q{min-width:0}
+  .dd-s{width:100%}
+}
 </style></head><body>
 <div class="wrap"><header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
 <h1 id="titulo"></h1><div id="view"></div>
@@ -824,7 +862,7 @@ function cicloHTML(){
 }
 
 /* ---- 2) próximos passos (o que vem) ---- */
-let PMES = 0;                       /* 0 = mes corrente, -1 = anterior, 1 = seguinte */
+let PMES = 0, PDIA = null;                       /* 0 = mes corrente, -1 = anterior, 1 = seguinte */
 let PVISAO = "cal";                 /* cal ou lista */
 function tarefasDoPortal(){
   return TAREFAS.filter(t=>t.data && t.fase!=="Contrato" && !/^pag_|^fotos_/.test(t.id));
@@ -853,6 +891,47 @@ function listaHTML(abas){
       '<span class="ln-q '+(t.resp==="Cliente"?"cli":"mk3")+'">'+(t.resp==="Cliente"?"com você":"com a MK3")+'</span></div>').join("")+
     '</div></section>';
 }
+/* ---- o dia aberto: o que acontece nele e de quem e a vez ---- */
+function detalheDia(){
+  if(!PDIA) return '<div class="cd-dica">Clique num dia para ver o que acontece nele.</div>';
+  const hoje=iso(HOJE);
+  const ts=tarefasDoPortal().filter(t=>t.data===PDIA)
+    .sort((a,b)=>String(a.resp).localeCompare(String(b.resp)));
+  const mk=(C.marcos||[]).filter(m=>m.data===PDIA);
+  const f=faixas().find(x=>x.ini<=PDIA && PDIA<=x.fim);
+  const d0=d(PDIA);
+  const titulo=d0.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+  let corpo="";
+  if(f){
+    const dono = f.dono==="VOCE" ? "com você" : "com a MK3";
+    const alerta = f.estado==="atrasado";
+    corpo+='<div class="dd-faixa '+(f.dono==="VOCE"?"cli":"mk3")+(alerta?" alerta":"")+'">'+
+      '<b>'+esc(f.rot)+'</b> está '+dono+' neste dia'+
+      (alerta?' e o prazo já passou. Enquanto isso não sai, as etapas seguintes ficam paradas.'
+             :', dentro do prazo de '+fmt(f.ini)+' a '+fmt(f.fim)+'.')+'</div>';
+  }
+  if(!ts.length && !mk.length){
+    corpo+='<p class="dd-vazio">Nada marcado para este dia.</p>';
+  } else {
+    corpo+='<div class="dd-lista">'+
+      mk.map(m=>'<div class="dd-i marco"><span class="dd-q">marco</span>'+
+        '<span class="dd-t">'+esc(m.titulo)+(m.detalhe?'<i>'+esc(m.detalhe)+'</i>':'')+'</span></div>').join("")+
+      ts.map(t=>{
+        const feita=t.st.k==="ok";
+        const atrasada=!feita && t.data<hoje;
+        const cls=feita?"ok":(atrasada?"atr":(t.resp==="Cliente"?"cli":"mk3"));
+        const sit=feita?("concluído"+(t.st.quando?" em "+fmt(t.st.quando):""))
+                 :atrasada?("em atraso desde "+fmt(t.data))
+                 :(t.data===hoje?"para hoje":"programado");
+        return '<div class="dd-i '+cls+'">'+
+          '<span class="dd-q">'+(t.resp==="Cliente"?"com você":"com a MK3")+'</span>'+
+          '<span class="dd-t">'+esc(t.tarefa)+(t.detalhe?'<i>'+esc(t.detalhe)+'</i>':'')+'</span>'+
+          '<span class="dd-s">'+esc(sit)+'</span></div>';
+      }).join("")+'</div>';
+  }
+  return '<div class="cd-det"><div class="dd-h"><b>'+esc(titulo)+'</b>'+
+    '<button data-pdia="" aria-label="Fechar">&times;</button></div>'+corpo+'</div>';
+}
 function calendarioHTML(abas){
   const hoje=iso(HOJE);
   const ref=new Date(HOJE.getFullYear(), HOJE.getMonth()+PMES, 1);
@@ -879,8 +958,11 @@ function calendarioHTML(abas){
       return '<span class="cd-i cd-'+cls+'" title="'+esc(t.tarefa)+(t.resp==="Cliente"?" (com você)":" (com a MK3)")+'">'+
         esc(t.tarefa)+'</span>';
     }).join("")+marcos.map(m=>'<span class="cd-i cd-marco" title="'+esc(m.titulo)+'">'+esc(m.titulo)+'</span>').join("");
-    cels+='<div class="cd-d'+(dia===hoje?" hoje":"")+(fds?" fds":"")+cobre+'">'+
-      '<span class="cd-n">'+d0+'</span>'+(itens?'<div class="cd-itens">'+itens+'</div>':'')+'</div>';
+    const temAlgo = doDia.length || marcos.length;
+    cels+='<button type="button" class="cd-d'+(dia===hoje?" hoje":"")+(fds?" fds":"")+cobre+
+      (temAlgo?" tem":"")+(dia===PDIA?" sel":"")+'" data-pdia="'+dia+'"'+
+      ' aria-label="'+esc(fmt(dia))+(temAlgo?", "+(doDia.length+marcos.length)+" item(ns)":", sem nada")+'">'+
+      '<span class="cd-n">'+d0+'</span>'+(itens?'<div class="cd-itens">'+itens+'</div>':'')+'</button>';
   }
   const nomeMes=ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
   const legenda='<div class="cd-leg">'+
@@ -893,7 +975,7 @@ function calendarioHTML(abas){
       '<strong>'+esc(nomeMes)+'</strong>'+
       '<button data-pmes="'+(PMES+1)+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
     '<div class="cd-dow"><span>dom</span><span>seg</span><span>ter</span><span>qua</span><span>qui</span><span>sex</span><span>sáb</span></div>'+
-    '<div class="cd-grade">'+cels+'</div>'+ legenda +
+    '<div class="cd-grade">'+cels+'</div>'+ detalheDia() + legenda +
     '<p class="nota">O fundo de cada dia mostra de quem é a vez: roxo com a MK3, amarelo com você. '+
     'Quando a sua parte passa do prazo, o bloco fica vermelho e tudo que vem depois anda junto.</p>'+
     '</section>';
@@ -1022,10 +1104,11 @@ function ligarDash(){
 function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
 /* navegacao do calendario e troca de visao, sem recarregar a pagina */
 document.addEventListener("click", ev=>{
-  const a=ev.target.closest("[data-pmes],[data-pvisao]"); if(!a) return;
+  const a=ev.target.closest("[data-pmes],[data-pvisao],[data-pdia]"); if(!a) return;
   ev.preventDefault();
-  if(a.dataset.pmes!==undefined) PMES=Number(a.dataset.pmes)||0;
-  if(a.dataset.pvisao) PVISAO=a.dataset.pvisao;
+  if(a.dataset.pmes!==undefined){ PMES=Number(a.dataset.pmes)||0; PDIA=null; }
+  if(a.dataset.pdia!==undefined) PDIA = (a.dataset.pdia && a.dataset.pdia!==PDIA) ? a.dataset.pdia : null;
+  if(a.dataset.pvisao){ PVISAO=a.dataset.pvisao; PDIA=null; }
   desenhar();
 });
 desenhar();
