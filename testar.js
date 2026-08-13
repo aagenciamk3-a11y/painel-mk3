@@ -324,6 +324,25 @@ RESULTADOS={};
 __ok("sem numeros do mes nao inventa fechamento", fechamento(ymP)===null);
 PLANO=null; RESULTADOS=null;
 
+/* ---- calendario do portal ---- */
+PVISAO="cal"; PMES=0;
+let hc2=proximos();
+__ok("abre no calendario", /class="bloco cal"/.test(hc2) && /cd-grade/.test(hc2));
+__ok("tem as duas abas", /data-pvisao="cal"/.test(hc2) && /data-pvisao="lista"/.test(hc2));
+__ok("tem navegacao de mes", /data-pmes="-1"/.test(hc2) && /data-pmes="1"/.test(hc2));
+__ok("marca o dia de hoje", /cd-d hoje|cd-d fds hoje|hoje/.test(hc2));
+__ok("separa o que e da MK3 e o que e do cliente", /cd-mk3/.test(hc2) || /cd-cli/.test(hc2));
+__ok("pinta a janela de quem tem a bola", /j-mk3|j-cli/.test(hc2));
+__ok("tem legenda", /cd-leg/.test(hc2) && /com voc/.test(hc2));
+__ok("explica o vermelho", /fica vermelho/.test(hc2));
+PVISAO="lista"; hc2=proximos();
+__ok("aba Lista volta a lista", /linha-lista/.test(hc2) && !/cd-grade/.test(hc2));
+PVISAO="cal"; PMES=1;
+__ok("navega para o mes seguinte sem quebrar", /cd-grade/.test(proximos()));
+PMES=-1;
+__ok("navega para o mes anterior sem quebrar", /cd-grade/.test(proximos()));
+PMES=0;
+
 __ok("atraso da MK3 nao vira arrasto do cliente",
   et2.every(x=> x.dono!=="MK3" || x.arrasto===0 || cli.some(y=>y.atraso>0)));
 `);

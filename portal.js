@@ -70,7 +70,8 @@ function esperando(){
     return '<section class="bloco ok"><h2>Nada esperando voc\u00ea</h2>'+
       '<p>Est\u00e1 tudo com a gente no momento. Assim que houver algo para aprovar, aparece aqui.</p></section>';
   if(!meus.length) return '';
-  return '<section class="bloco"><h2>Tamb\u00e9m com voc\u00ea</h2>'+
+  const tit = pendentes().length ? "Tamb\u00e9m com voc\u00ea" : "O que falta de voc\u00ea";
+  return '<section class="bloco"><h2>'+tit+'</h2>'+
     meus.map(t=>{
       const n = dias(t.data);
       const urg = n<0?"atrasado":n===0?"hoje":n===1?"umdia":"ok";
@@ -224,16 +225,79 @@ function cicloHTML(){
 }
 
 /* ---- 2) próximos passos (o que vem) ---- */
+let PMES = 0;                       /* 0 = mes corrente, -1 = anterior, 1 = seguinte */
+let PVISAO = "cal";                 /* cal ou lista */
+function tarefasDoPortal(){
+  return TAREFAS.filter(t=>t.data && t.fase!=="Contrato" && !/^pag_|^fotos_/.test(t.id));
+}
+/* janelas de cada etapa: serve para pintar o intervalo no calendario */
+function faixas(){
+  return cicloEtapas().map(x=>({
+    ini:x.inicio, fim:x.prazo, dono:x.dono, estado:x.estado, rot:x.rot
+  }));
+}
 function proximos(){
+  const abas='<div class="pv-abas">'+
+    '<button class="pv-aba'+(PVISAO==="cal"?" on":"")+'" data-pvisao="cal">Calendário</button>'+
+    '<button class="pv-aba'+(PVISAO==="lista"?" on":"")+'" data-pvisao="lista">Lista</button></div>';
+  return PVISAO==="cal" ? calendarioHTML(abas) : listaHTML(abas);
+}
+function listaHTML(abas){
   const hoje=iso(HOJE);
-  const ts=TAREFAS.filter(t=>t.data && t.data>=hoje && t.st.k!=="ok" && t.fase!=="Contrato" && !/^pag_/.test(t.id))
-    .sort((a,b)=>String(a.data).localeCompare(String(b.data))).slice(0,8);
-  if(!ts.length) return '';
-  return '<section class="bloco"><h2>Próximos passos</h2><div class="linha-lista">'+
+  const ts=tarefasDoPortal().filter(t=>t.data>=hoje && t.st.k!=="ok")
+    .sort((a,b)=>String(a.data).localeCompare(String(b.data))).slice(0,10);
+  if(!ts.length) return '<section class="bloco"><div class="pv-topo"><h2>Próximos passos</h2>'+abas+'</div>'+
+    '<p>Nada programado daqui para frente.</p></section>';
+  return '<section class="bloco"><div class="pv-topo"><h2>Próximos passos</h2>'+abas+'</div><div class="linha-lista">'+
     ts.map(t=>'<div class="ln"><span class="ln-d">'+fmt(t.data)+'</span>'+
       '<span class="ln-t">'+esc(t.tarefa)+'</span>'+
       '<span class="ln-q '+(t.resp==="Cliente"?"cli":"mk3")+'">'+(t.resp==="Cliente"?"com você":"com a MK3")+'</span></div>').join("")+
     '</div></section>';
+}
+function calendarioHTML(abas){
+  const hoje=iso(HOJE);
+  const ref=new Date(HOJE.getFullYear(), HOJE.getMonth()+PMES, 1);
+  const ano=ref.getFullYear(), mes=ref.getMonth();
+  const desloc=ref.getDay(), nDias=new Date(ano,mes+1,0).getDate();
+  const ts=tarefasDoPortal();
+  const fx=faixas();
+  const mk=(C.marcos||[]);
+
+  let cels="";
+  for(let i=0;i<desloc;i++) cels+='<div class="cd-vazio"></div>';
+  for(let d0=1;d0<=nDias;d0++){
+    const dia=iso(new Date(ano,mes,d0));
+    const doDia=ts.filter(t=>t.data===dia);
+    const marcos=mk.filter(m=>m.data===dia);
+    /* a janela que cobre este dia diz de quem e a bola */
+    const f=fx.find(x=>x.ini<=dia && dia<=x.fim);
+    const cobre = f ? (" j-"+(f.dono==="VOCE"?"cli":"mk3")+(f.estado==="atrasado"?" j-alerta":"")) : "";
+    const fds=[0,6].indexOf(new Date(ano,mes,d0).getDay())>=0;
+    const itens=doDia.map(t=>{
+      const feita=t.st.k==="ok";
+      const atrasada=!feita && t.data<hoje;
+      const cls=feita?"ok":(atrasada?"atr":(t.resp==="Cliente"?"cli":"mk3"));
+      return '<span class="cd-i cd-'+cls+'" title="'+esc(t.tarefa)+(t.resp==="Cliente"?" (com você)":" (com a MK3)")+'">'+
+        esc(t.tarefa)+'</span>';
+    }).join("")+marcos.map(m=>'<span class="cd-i cd-marco" title="'+esc(m.titulo)+'">'+esc(m.titulo)+'</span>').join("");
+    cels+='<div class="cd-d'+(dia===hoje?" hoje":"")+(fds?" fds":"")+cobre+'">'+
+      '<span class="cd-n">'+d0+'</span>'+(itens?'<div class="cd-itens">'+itens+'</div>':'')+'</div>';
+  }
+  const nomeMes=ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  const legenda='<div class="cd-leg">'+
+    '<span><i class="l-mk3"></i>com a MK3</span>'+
+    '<span><i class="l-cli"></i>com você</span>'+
+    '<span><i class="l-atr"></i>fora do prazo</span>'+
+    '<span><i class="l-ok"></i>concluído</span></div>';
+  return '<section class="bloco cal"><div class="pv-topo"><h2>Calendário</h2>'+abas+'</div>'+
+    '<div class="cd-nav"><button data-pmes="'+(PMES-1)+'" aria-label="Mês anterior">&lsaquo;</button>'+
+      '<strong>'+esc(nomeMes)+'</strong>'+
+      '<button data-pmes="'+(PMES+1)+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
+    '<div class="cd-dow"><span>dom</span><span>seg</span><span>ter</span><span>qua</span><span>qui</span><span>sex</span><span>sáb</span></div>'+
+    '<div class="cd-grade">'+cels+'</div>'+ legenda +
+    '<p class="nota">O fundo de cada dia mostra de quem é a vez: roxo com a MK3, amarelo com você. '+
+    'Quando a sua parte passa do prazo, o bloco fica vermelho e tudo que vem depois anda junto.</p>'+
+    '</section>';
 }
 
 /* ---- 3) linha do tempo com atrasos e efeito cascata ---- */
@@ -357,6 +421,14 @@ function ligarDash(){
   };
 }
 function desenhar(){ $("view").innerHTML = heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico(); ligarDash(); }
+/* navegacao do calendario e troca de visao, sem recarregar a pagina */
+document.addEventListener("click", ev=>{
+  const a=ev.target.closest("[data-pmes],[data-pvisao]"); if(!a) return;
+  ev.preventDefault();
+  if(a.dataset.pmes!==undefined) PMES=Number(a.dataset.pmes)||0;
+  if(a.dataset.pvisao) PVISAO=a.dataset.pvisao;
+  desenhar();
+});
 desenhar();
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
