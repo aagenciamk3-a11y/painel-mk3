@@ -432,6 +432,7 @@ const IC = {
   dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="9" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>',
   todas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
   tend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="1"/><rect x="13" y="7" width="3" height="10" rx="1"/></svg>',
+  olho:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>',
   feed:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="19.5" cy="19" r="1.6"/></svg>',
   add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
   link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12 19"/></svg>',
@@ -488,7 +489,7 @@ function sidebarHTML(){
     h+='<button class="snav" data-clientes="1" title="Clientes"><span class="snav-i">'+IC.cards+'</span><span class="snav-t">Clientes</span></button>';
     h+='<button class="snav" data-equipe="1" title="Equipe"><span class="snav-i">'+IC.equipe+'</span><span class="snav-t">Equipe</span></button>';
     h+='<button class="snav" data-agenda="1" title="Agenda ao vivo"><span class="snav-i">'+IC.cal+'</span><span class="snav-t">Agenda ao vivo</span></button>';
-    h+='<button class="snav" data-portais="1" title="Links dos clientes"><span class="snav-i">'+IC.link+'</span><span class="snav-t">Links dos clientes</span></button>';
+    h+='<button class="snav" data-portais="1" title="O que o cliente vê no portal dele"><span class="snav-i">'+IC.olho+'</span><span class="snav-t">Visão do cliente</span></button>';
   }
   const pu=eu();
   h+='<div class="side-user"><button class="snav" data-sair="1" title="Trocar de usuário">'+
@@ -976,6 +977,18 @@ function abrirPortais(){
       const ativo=(esc0&&esc0.ativo&&tks.indexOf(esc0.ativo)>=0)?esc0.ativo:tks[p.ativo||0];
       const restantes=tks.length-1-tks.indexOf(ativo);
       const url=base+"/c/"+ativo+"/";
+      /* o mesmo que o cliente le no portal dele: o que esta parado na mao dele */
+      const pend=contadores(c);
+      const espera = pend.length
+        ? '<div class="po-esp">'+pend.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).map(x=>{
+              const nn=dias(x.vencimento);
+              const k=nn<0?"atrasado":nn===0?"hoje":nn===1?"umdia":"ok";
+              const txt=nn<0?("aprovou sozinho h\u00e1 "+Math.abs(nn)+" dia"+(Math.abs(nn)>1?"s":""))
+                      :nn===0?"aprova sozinho hoje"
+                      :"faltam "+nn+" dias \u00fateis";
+              return '<span class="po-p'+k+'">Aprovar '+esc(x.tipo)+' \u00b7 '+txt+'</span>';
+            }).join("")+'</div>'
+        : '<div class="po-esp"><span class="po-pok">Nada esperando o cliente</span></div>';
       return '<div class="po-row"><span class="po-n">'+esc(c.nome)+
         (p.historico?'<i class="po-h">com histórico</i>':'')+'</span>'+
         '<span class="po-acoes">'+
@@ -987,11 +1000,12 @@ function abrirPortais(){
         '</span>'+
         '<code class="po-u" title="Clique em Copiar para levar o link">'+esc(url)+'</code>'+
         (esc0&&esc0.ativo&&esc0.ativo!==tks[p.ativo||0]?'<span class="po-p">novo link · vale após a publicação</span>':'')+
+        espera+
         '</div>';
     }).join("") : '<div class="vazio">Carregando…</div>';
   const mm=$("modal");
-  mm.innerHTML='<div class="mbox portais"><h3>Links dos clientes</h3>'+
-    '<p class="msub">Link pessoal de cada cliente, sem senha. Só quem tem o endereço acessa, e cada página mostra apenas os dados daquele cliente.</p>'+
+  mm.innerHTML='<div class="mbox portais"><h3>Vis\u00e3o do cliente</h3>'+
+    '<p class="msub">A p\u00e1gina que cada cliente enxerga: o objetivo dele, os n\u00fameros do m\u00eas, o que est\u00e1 esperando aprova\u00e7\u00e3o e o prazo de aprova\u00e7\u00e3o autom\u00e1tica. Link pessoal, sem senha: s\u00f3 quem tem o endere\u00e7o acessa, e cada p\u00e1gina mostra apenas os dados daquele cliente.</p>'+
     '<div class="po-lista">'+linhas+'</div>'+
     '<p class="nota-p">O que você marca no painel aparece para o cliente na publicação automática (toda manhã, dias úteis) — ou quando você me pedir para publicar agora.</p>'+
     '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
