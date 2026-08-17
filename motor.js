@@ -911,7 +911,10 @@ function bcardHTML(t, dayIso, dupOrig){
   const faceCli=(t.fase==="Demanda" && !t.cliDem)?"":'<span class="card-face cli" title="'+escAttr(t.cliente)+'">'+esc((t.cliente||"?").slice(0,1))+
     (fc?'<img src="'+fc+'" alt="" onerror="this.remove()">':'')+'</span>';
   return '<div class="bcard st-'+st+(dupOrig?" dup":"")+'" data-drag="'+escAttr(drag)+'">'+
-    (dupOrig?'<div class="dup-badge">&#8618; de '+fmt(dupOrig).slice(0,5)+'<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
+    (dupOrig?'<div class="dup-badge">'+
+      '<button class="dup-ir" data-irorig="'+dupOrig+'" title="Ir para '+fmt(dupOrig)+', o dia de origem desta tarefa">'+
+        '&#8618; de '+fmt(dupOrig).slice(0,5)+'</button>'+
+      '<button class="dup-x" data-dropx="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Remover">&#215;</button></div>':'')+
     (face?'<span class="face-topo" title="Responsável">'+face+'</span>':'')+
     (ehAdmin()
       ? '<button class="bcard-t edit" data-rename="'+t.clienteId+'|'+escAttr(t.id)+'" title="Clique para renomear">'+esc(rot)+(ob&&ob.parcial?' <span class="parc">parcial</span>':'')+'</button>'
@@ -3188,7 +3191,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-usaragenda],[data-relatorio],[data-relmes],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3285,6 +3288,18 @@ document.addEventListener("click", function(ev){
     /* a área é só um filtro: mantém a seção e o cliente abertos */
     semPular(render); return; }
   if(D.feed){ VISTA.feedDias=Number(D.feed)||7; semPular(render); return; }
+  if(D.irorig){                       /* a etiqueta laranja volta para o dia de origem */
+    const o=D.irorig, r0=d(o);
+    VISTA.psem=segOf(o); VISTA.pano=r0.getFullYear(); VISTA.pmes=r0.getMonth();
+    VISTA.dia=o; VISTA.filtro=null;
+    render();
+    setTimeout(()=>{
+      const col=document.querySelector('[data-daycol="'+o+'"]');
+      if(col){ col.classList.add("pisca"); col.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"});
+               setTimeout(()=>col.classList.remove("pisca"),1600); }
+    },60);
+    return;
+  }
   if(D.usaragenda){ const p=D.usaragenda.split("|"); usarDataDaAgenda(p[0],p[1]); return; }
   if(D.relatorio){ const p=D.relatorio.split("|"); abrirRelatorio(p[0],p[1]); return; }
   if(D.relmes){ const p=D.relmes.split("|"); semPular(()=>abrirRelatorio(p[0],p[1])); return; }

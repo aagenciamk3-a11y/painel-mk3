@@ -71,6 +71,9 @@
   .bcol.dragover{outline:2px dashed var(--mk3o);outline-offset:-4px;background:rgba(249,115,22,.06)}
   .bcard.dup{border-style:dashed}
   .dup-badge{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--mk3o);font-weight:700;margin-bottom:4px}
+  .dup-ir{background:none;border:none;color:inherit;font:inherit;font-size:10px;font-weight:700;
+    cursor:pointer;padding:1px 4px;border-radius:5px;text-align:left}
+  .dup-ir:hover{background:rgba(249,115,22,.18);text-decoration:underline}
   .dup-x{background:none;border:none;color:var(--mut);cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
   .dup-x:hover{color:var(--atrasado)}
   header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px}
@@ -1153,6 +1156,11 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
 .kpi.replan b,.fc-n.replan span{color:var(--replan)}
 .db-ag.replan{border-left-color:var(--replan)}
 
+/* dia de origem em destaque quando se chega nele pela etiqueta */
+@keyframes piscaCol{0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}
+  30%,70%{box-shadow:0 0 0 3px rgba(249,115,22,.55)}}
+.bcol.pisca{animation:piscaCol 1.6s ease;border-radius:12px}
+
 /* ===== plano do mês (janela) ===== */
 .mbox.planobox{max-width:560px}
 .mbox.planobox textarea{width:100%;font:inherit;font-size:13.5px;line-height:1.6;resize:vertical}
@@ -1321,7 +1329,7 @@ a.fd-c:hover{opacity:1;text-decoration:underline}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608131800"></script>
-<script src="motor.js?v=202608131800"></script>
+<script src="dados.js?v=202608171900"></script>
+<script src="motor.js?v=202608171900"></script>
 </body>
 </html>

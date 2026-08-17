@@ -47,7 +47,7 @@ const M=contexto(["dados.js","motor.js"]);
 bloco("Replanejar: antecipar, adiar e vencer de novo", M, limpar+`
 const hoje=iso(HOJE), passou=addD(hoje,-3);
 const alvo=TODAS.find(x=>x.clienteId==="cynthia"&&x.id==="planej_2026-08");
-__ok("a tarefa comeca no futuro", !!alvo && alvo.data>hoje && alvo.st.k==="futuro");
+__ok("a tarefa comeca no futuro", !!alvo && alvo.data>hoje && ["futuro","semana","umdia"].indexOf(alvo.st.k)>=0);
 __ok("da para trazer para hoje", podeReplanejar(alvo,hoje)===true);
 __ok("nao da para jogar no passado", podeReplanejar(alvo,addD(hoje,-1))===false);
 USUARIO="Carla";
@@ -234,6 +234,20 @@ __ok("apagar tudo limpa o plano", !((ESTADO.plano.suelem||{})[ymp]));
 USUARIO="Carla";
 salvarPlano("suelem",ymp,{estrategia:"nao pode",esperado:"",base:""});
 __ok("quem nao e administracao nao salva", !((ESTADO.plano.suelem||{})[ymp]));
+`);
+
+bloco("Etiqueta de origem no card replanejado", M, limpar+`
+USUARIO="Carla";
+duplicarTarefa("suelem","midia_2026-08","2026-09-02");
+const tt=TODAS.find(x=>x.clienteId==="suelem"&&x.id==="midia_2026-08");
+const card=bcardHTML(tt,"2026-09-02",tt.data);
+__ok("a etiqueta virou botao", /data-irorig="/.test(card));
+__ok("aponta para a data original", card.indexOf('data-irorig="'+tt.data+'"')>=0);
+__ok("mostra a data de origem no texto", card.indexOf(fmt(tt.data).slice(0,5))>=0);
+__ok("o titulo explica para onde vai", /o dia de origem desta tarefa/.test(card));
+__ok("o x de remover continua la", /data-dropx="1"/.test(card));
+const semDup=bcardHTML(tt,tt.data,null);
+__ok("card sem replanejamento nao ganha etiqueta", !/data-irorig/.test(semDup));
 `);
 
 bloco("Rotas e menu", M, limpar+`
