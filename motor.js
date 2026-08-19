@@ -698,6 +698,7 @@ function espelhoDe(cid){
   return { ts:Date.now(),
            base:base,
            historico:!!(p&&p.historico),
+           abas:((p&&p.abas&&p.abas.length)?p.abas:["geral","trafego"]),
            pendencias:pend,
            plano:planos,
            ativo:(p&&p.ativo)||null,
@@ -1032,6 +1033,32 @@ function pendCliHTML(c){
       return '<span class="pv-p'+k+'">Aprovar '+esc(x.tipo)+' \u00b7 '+txt+'</span>';
     }).join("")+'</div>';
 }
+/* o cliente pode ver as duas abas ou so uma; util para soltar uma novidade
+   para um cliente antes dos outros */
+const ABASPORTAL = [["geral","Visão geral"],["trafego","Tráfego pago"]];
+function abasDe(cid){
+  const p=portalDe(cid);
+  return (p && p.abas && p.abas.length) ? p.abas.slice() : ["geral","trafego"];
+}
+function alternarAba(cid, aba){
+  if(!ehAdmin()) return;
+  const at=abasDe(cid);
+  const i=at.indexOf(aba);
+  let nova = i>=0 ? at.filter(x=>x!==aba) : ABASPORTAL.map(a=>a[0]).filter(x=>at.indexOf(x)>=0 || x===aba);
+  if(!nova.length){ toast("O cliente precisa enxergar pelo menos uma aba",false); return; }
+  snapshot();
+  ESTADO.portais=ESTADO.portais||{};
+  ESTADO.portais[cid]=Object.assign({}, ESTADO.portais[cid]||{}, {abas:nova});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"abasportal",
+    nome:"O cliente passa a ver: "+nova.map(x=>(ABASPORTAL.find(a=>a[0]===x)||["",x])[1]).join(" e "),quem:USUARIO||null});
+  persist(); publicarEspelho(); semPular(render);
+}
+function abasCliHTML(cid, p){
+  const at=abasDe(cid);
+  return '<div class="pv-abas"><span>O cliente vê</span>'+
+    ABASPORTAL.map(a=>'<button class="pv-ab'+(at.indexOf(a[0])>=0?" on":"")+'" data-abacli="'+escAttr(cid)+'|'+a[0]+'">'+
+      a[1]+'</button>').join("")+'</div>';
+}
 /* ---- Visao do cliente: escolhe o cliente, ve o que esta com ele e leva o link ---- */
 function portaisHTML(){
   if(!ehAdmin()) return '<div class="fd-vazio">Tela só da administração.</div>';
@@ -1053,6 +1080,7 @@ function portaisHTML(){
       pendCliHTML(c)+
       '<div class="pv-url" title="'+escAttr(url)+'">'+esc(url.replace(/^https?:\/\//,""))+'</div>'+
       (nrev?'<div class="pv-aviso">'+nrev+' link'+(nrev>1?'s':'')+' antigo'+(nrev>1?'s':'')+' já derrubado'+(nrev>1?'s':'')+'</div>':'')+
+      abasCliHTML(c.id, p)+
       '<div class="pv-btns">'+
         '<button class="pv-b principal" data-copiar="'+escAttr(url)+'">Copiar link</button>'+
         '<a class="pv-b" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a>'+
@@ -3225,7 +3253,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3337,6 +3365,7 @@ document.addEventListener("click", function(ev){
   if(D.usaragenda){ const p=D.usaragenda.split("|"); usarDataDaAgenda(p[0],p[1]); return; }
   if(D.relatorio){ const p=D.relatorio.split("|"); abrirRelatorio(p[0],p[1]); return; }
   if(D.relmes){ const p=D.relmes.split("|"); semPular(()=>abrirRelatorio(p[0],p[1])); return; }
+  if(D.abacli){ const p=D.abacli.split("|"); alternarAba(p[0],p[1]); return; }
   if(D.gerarlink){ if(!ehAdmin()) return; snapshot(); garantirToken(D.gerarlink);
     ESTADO.log.unshift({ts:new Date().toISOString(),cliente:D.gerarlink,acao:"novolink",nome:"Link do portal criado",quem:USUARIO||null});
     persist(); publicarEspelho(); semPular(render); toast("Link criado",true); return; }

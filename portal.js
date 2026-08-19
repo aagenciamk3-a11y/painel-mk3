@@ -9,7 +9,7 @@ const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
 let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null, PLANO=null;
 let LEADS=null, CRM=null;
 let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
-let ABA="geral";
+let ABA="geral", ABAS=["geral","trafego"];
 
 function iniciar(base){
   if(!base || !base.id) return false;
@@ -128,23 +128,53 @@ function cardLead(l){
       '<button class="ld-mais" data-fechar="'+escAttr(l._id)+'" title="Registrar venda ou parceria">&#8942;</button>'+
     '</div></div>';
 }
+function mesRotulo(ym){
+  if(!ym || ym==="0000-00") return "Sem data";
+  const d0=new Date(+ym.slice(0,4), +ym.slice(5,7)-1, 1);
+  const s0=d0.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  return s0.charAt(0).toUpperCase()+s0.slice(1);
+}
+function grupoMes(ym, leads){
+  const feitos=leads.filter(x=>crmDe(x._id).contato).length;
+  return '<details class="gm"><summary class="gm-h">'+
+    '<span class="gm-t">'+esc(mesRotulo(ym))+'</span>'+
+    '<span class="gm-n">'+leads.length+' pessoa'+(leads.length>1?'s':'')+
+    (feitos?' · '+feitos+' já atendida'+(feitos>1?'s':''):'')+'</span></summary>'+
+    '<div class="ld-lista">'+leads.map(cardLead).join("")+'</div></details>';
+}
 function trafegoHTML(){
   if(LEADS===null) return '<section class="bloco"><h2>Tráfego pago</h2><p>Carregando os leads…</p></section>';
-  const l=listaLeads(), n=contarTrafego();
+  const l=listaLeads(), n=contarTrafego(), ym=ymDe(0);
   const num=(a,b,rot,cls)=>'<div class="tp-n '+cls+'"><b>'+a+'</b><i>'+rot+'</i><span>'+b+' no total</span></div>';
   const topo='<section class="bloco"><h2>Tráfego pago</h2>'+
     '<p class="tp-sub">Cada pessoa aqui preencheu o formulário do anúncio. '+
     'Quanto mais rápido o contato, maior a chance de resposta.</p></section>';
-  const lista = l.length
-    ? '<section class="bloco"><h2>Pessoas que chegaram</h2><div class="ld-lista">'+l.map(cardLead).join("")+'</div></section>'
-    : '<section class="bloco ok"><h2>Nenhum lead ainda</h2><p>Assim que alguém preencher o formulário do anúncio, aparece aqui na hora.</p></section>';
-  const contas='<section class="bloco"><h2>Números do mês</h2><div class="tp-nums">'+
+  const contas='<section class="bloco"><h2>'+esc(mesRotulo(ym))+'</h2><div class="tp-nums">'+
     num(n.leadsMes,   n.leadsTudo,   "pessoas chegaram", "leads")+
     num(n.contatoMes, n.contatoTudo, "já foram atendidas","cont")+
     num(n.vendaMes,   n.vendaTudo,   "vendas concluídas","venda")+
     num(n.parcMes,    n.parcTudo,    "parcerias fechadas","parc")+
     '</div></section>';
-  return topo+contas+lista;
+  if(!l.length) return topo+contas+
+    '<section class="bloco ok"><h2>Nenhum lead ainda</h2><p>Assim que alguém preencher o formulário do anúncio, aparece aqui na hora.</p></section>';
+
+  /* o mês corrente fica aberto; os anteriores ficam dobrados, um por mês */
+  const porMes={};
+  l.forEach(x=>{ const m=ymDeData(x.quando)||"0000-00"; (porMes[m]=porMes[m]||[]).push(x); });
+  const doMes=porMes[ym]||[];
+  const atual='<section class="bloco"><h2>Chegaram este mês</h2>'+
+    (doMes.length
+      ? '<div class="ld-lista">'+doMes.map(cardLead).join("")+'</div>'
+      : '<p class="dd-vazio">Nenhuma pessoa nova este mês ainda.</p>')+
+    '</section>';
+  const antigos=Object.keys(porMes).sort().reverse().filter(m=>m!==ym);
+  const nAnt=l.length-doMes.length;
+  const anteriores = antigos.length
+    ? '<section class="bloco"><h2>Meses anteriores</h2>'+
+      '<p class="tp-sub">'+nAnt+' pessoa'+(nAnt>1?'s':'')+' de antes. Clique no mês para abrir.</p>'+
+      antigos.map(m=>grupoMes(m, porMes[m])).join("")+'</section>'
+    : '';
+  return topo+contas+atual+anteriores;
 }
 function abrirFechamento(id){
   const l=listaLeads().find(x=>x._id===id); if(!l) return;
@@ -622,11 +652,14 @@ function caixaDia(){
   document.body.classList.toggle("travado", !!PDIA);
 }
 function topoHTML(){
-  const abas=[["geral","Visão geral"],["trafego","Tráfego pago"]];
+  const rot={geral:"Visão geral", trafego:"Tráfego pago"};
+  const disp=(ABAS||["geral","trafego"]).filter(a=>rot[a]);
   return '<div class="cli-topo"><h1>'+esc(C.nome)+'</h1>'+
-    '<div class="cli-abas">'+abas.map(a=>
-      '<button class="cli-aba'+(ABA===a[0]?" on":"")+'" data-aba="'+a[0]+'">'+a[1]+'</button>').join("")+
-    '</div></div>';
+    (disp.length>1
+      ? '<div class="cli-abas">'+disp.map(a=>
+          '<button class="cli-aba'+(ABA===a?" on":"")+'" data-aba="'+a+'">'+rot[a]+'</button>').join("")+'</div>'
+      : '')+
+    '</div>';
 }
 function desenhar(){
   if(!C){ return; }
@@ -680,6 +713,8 @@ function aplicarEspelho(v){
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
   if(!C && !iniciar(v.base)){ aviso("Link inválido","Não consegui carregar este acompanhamento. Confira o endereço ou peça um link novo à equipe da MK3."); return true; }
   if(typeof v.historico==="boolean") MOSTRA_HISTORICO=v.historico;
+  ABAS = (v.abas && v.abas.length) ? v.abas : ["geral","trafego"];
+  if(ABAS.indexOf(ABA)<0) ABA=ABAS[0];
   LEADS = v.leads || {};
   CRM   = v.crm   || {};
   const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias,pl:v.plano,l:v.leads,cr:v.crm});

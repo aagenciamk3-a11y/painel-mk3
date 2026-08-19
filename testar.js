@@ -295,12 +295,41 @@ __ok("parceria conta", contarTrafego().parcMes===1);
 CRM={};
 ABA="trafego";
 const ht=trafegoHTML();
-__ok("a aba lista as pessoas", /Pessoas que chegaram/.test(ht) && /Maria|maria/.test(ht));
+__ok("a aba lista as pessoas", /Chegaram este m\u00eas/.test(ht) && /Maria|maria/.test(ht));
 __ok("tem botao de whatsapp", /Chamar no WhatsApp/.test(ht));
 __ok("tem a marcacao de contato", /data-contato="l1"/.test(ht));
 __ok("tem os quatro contadores", /tp-n leads/.test(ht) && /tp-n cont/.test(ht) && /tp-n venda/.test(ht) && /tp-n parc/.test(ht));
 __ok("mostra o mes e o total", /no total/.test(ht));
 __ok("mostra o empreendimento do lead", /Pier Boulevard/.test(ht));
+/* separacao por mes */
+LEADS={a1:{nome:"Ana",tel:"p:27999990001",anuncio:"[LEADS] ATAIDE",quando:iso(HOJE)+"T09:00:00-03:00"},
+       a2:{nome:"Bia",tel:"p:27999990002",anuncio:"Casa - Rio Marinho",quando:"2026-05-10T09:00:00-03:00"},
+       a3:{nome:"Cida",tel:"p:27999990003",anuncio:"Casa - Rio Marinho",quando:"2026-05-11T09:00:00-03:00"},
+       a4:{nome:"Duda",tel:"p:27999990004",anuncio:"Casa - Fellini",quando:"2026-04-02T09:00:00-03:00"}};
+CRM={};
+let hm=trafegoHTML();
+__ok("o mes corrente vem aberto e separado", /Chegaram este m\u00eas/.test(hm));
+__ok("os meses de antes ficam dobrados", /<details class="gm"/.test(hm));
+__ok("cada mes anterior vira um grupo", (hm.match(/<details class="gm"/g)||[]).length===2);
+__ok("o grupo diz quantas pessoas tem", /2 pessoas/.test(hm));
+__ok("o titulo dos numeros e o mes por extenso", hm.indexOf(mesRotulo(ymDe(0)))>0);
+__ok("so o lead do mes conta no contador", contarTrafego().leadsMes===1);
+__ok("o total conta todos", contarTrafego().leadsTudo===4);
+CRM={a2:{contato:true}};
+__ok("o grupo do mes antigo mostra quantas ja foram atendidas", /1 j\u00e1 atendida/.test(trafegoHTML()));
+CRM={};
+LEADS={a2:{nome:"Bia",tel:"p:27999990002",anuncio:"x",quando:"2026-05-10T09:00:00-03:00"}};
+__ok("mes corrente vazio avisa em vez de sumir", /Nenhuma pessoa nova este m\u00eas ainda/.test(trafegoHTML()));
+
+/* abas liberadas por cliente */
+ABAS=["geral","trafego"]; ABA="geral";
+__ok("com as duas abas, aparece o seletor", /cli-abas/.test(topoHTML()));
+ABAS=["trafego"]; ABA="trafego";
+const t1=topoHTML();
+__ok("com uma aba so, o seletor some", !/cli-abas/.test(t1));
+__ok("e o nome continua no topo", /cli-topo/.test(t1) && t1.indexOf(C.nome)>0);
+ABAS=["geral","trafego"]; ABA="geral";
+
 LEADS={};
 __ok("sem lead, explica em vez de mostrar tabela vazia", /Nenhum lead ainda/.test(trafegoHTML()));
 LEADS=null;
