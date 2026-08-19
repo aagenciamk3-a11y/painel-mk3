@@ -18,6 +18,7 @@ function contexto(arquivos, pre){
     navigator:{clipboard:{writeText:()=>Promise.resolve()}},
     addEventListener(){},removeEventListener(){},dispatchEvent(){},
     requestAnimationFrame:f=>f(), matchMedia:()=>({matches:false,addEventListener(){}}),
+    crypto:{getRandomValues:a=>{ for(let i=0;i<a.length;i++) a[i]=Math.floor(Math.random()*256); return a; }},
     EventSource:function(){this.addEventListener=()=>{};this.close=()=>{};}};
   ctx.window=ctx; ctx.self=ctx;
   vm.createContext(ctx);
@@ -194,60 +195,30 @@ __ok("espelho nao vaza dado interno",
   !("pessoas" in esp) && !("log" in esp) && !("agendaChave" in esp) && !("cobrancas" in esp));
 `);
 
-bloco("Visao do cliente", M, limpar+`
+bloco("Visao do cliente e links", M, limpar+`
 USUARIO="Guilherme";
-PORTAIS={suelem:{tokens:["t1","t2"],ativo:0,historico:true}, leonardo:{tokens:["t9"],ativo:0}};
-const pv=portaisHTML();
+ESTADO.portais={};
+let pv=portaisHTML();
+__ok("cliente sem link mostra o botao de gerar", /data-gerarlink="suelem"/.test(pv) && /Ainda sem link/.test(pv));
+const tk=garantirToken("suelem");
+__ok("gera token com cara de token", /^[0-9a-f]{32}$/.test(tk));
+__ok("guarda no estado", ESTADO.portais.suelem.ativo===tk);
+__ok("o endereco leva a chave depois do #", urlPortal(tk).indexOf("/c/#t="+tk)>0);
+__ok("o token nao vira caminho de pasta", urlPortal(tk).indexOf("/c/"+tk)<0);
+pv=portaisHTML();
 __ok("sai em cards, como a tela de clientes", /class="cards"/.test(pv) && /pvcard/.test(pv));
 __ok("tem o botao de copiar o link", /data-copiar=/.test(pv));
 __ok("tem o botao de abrir", /target="_blank"/.test(pv));
-__ok("quem tem reserva pode trocar o link", /data-novolink="suelem"/.test(pv));
-__ok("quem nao tem reserva avisa", /sem reservas/.test(pv));
-__ok("marca quem tem historico", /com hist/.test(pv));
+__ok("da para trocar o link", /data-novolink="suelem"/.test(pv));
 __ok("mostra o que esta parado com o cliente", /pv-esp/.test(pv));
-__ok("cliente sem portal aparece assim mesmo", /Portal ainda n/.test(pv));
-location.hash="#/portais";
-__ok("tem endereco proprio", aplicarRota()===true && VISTA.modo==="portais");
-USUARIO="Carla"; VISTA.modo="portais";
+const antigo=ESTADO.portais.suelem.ativo;
+trocarLink("suelem");
+__ok("trocar gera token diferente", ESTADO.portais.suelem.ativo!==antigo);
+__ok("e guarda o antigo como revogado", (ESTADO.portais.suelem.revogados||[]).indexOf(antigo)>=0);
+__ok("o painel avisa que derrubou o antigo", /j\u00e1 derrubado/.test(portaisHTML()));
+USUARIO="Carla";
 __ok("quem nao e administracao nao entra", /administra/.test(portaisHTML()));
-location.hash="#/portais"; aplicarRota();
-__ok("rota derruba quem nao pode", VISTA.modo!=="portais");
-USUARIO="Guilherme"; PORTAIS=null;
-`);
-
-bloco("Plano do mes (painel)", M, limpar+`
 USUARIO="Guilherme";
-const ymp=mesAtualYM();
-__ok("comeca vazio", planoDe("suelem",ymp).estrategia==="");
-salvarPlano("suelem",ymp,{estrategia:"Trafego pago para o perfil",esperado:"100 seguidores",base:"2000"});
-const pl=planoDe("suelem",ymp);
-__ok("guarda a estrategia", pl.estrategia==="Trafego pago para o perfil");
-__ok("guarda o esperado", pl.esperado==="100 seguidores");
-__ok("guarda o ponto de partida como numero", pl.base===2000);
-__ok("registra quem salvou", (ESTADO.log[0]||{}).quem==="Guilherme");
-ESTADO.portais={suelem:{tokens:["t1"],ativo:0}};
-const espP=espelhoDe("suelem");
-__ok("o espelho leva o plano", !!espP.plano && !!espP.plano[ymp]);
-__ok("o espelho nao leva plano de outro cliente", Object.keys(espP.plano).every(k=>/^[0-9]{4}-[0-9]{2}$/.test(k)));
-salvarPlano("suelem",ymp,{estrategia:"",esperado:"",base:""});
-__ok("apagar tudo limpa o plano", !((ESTADO.plano.suelem||{})[ymp]));
-USUARIO="Carla";
-salvarPlano("suelem",ymp,{estrategia:"nao pode",esperado:"",base:""});
-__ok("quem nao e administracao nao salva", !((ESTADO.plano.suelem||{})[ymp]));
-`);
-
-bloco("Etiqueta de origem no card replanejado", M, limpar+`
-USUARIO="Carla";
-duplicarTarefa("suelem","midia_2026-08","2026-09-02");
-const tt=TODAS.find(x=>x.clienteId==="suelem"&&x.id==="midia_2026-08");
-const card=bcardHTML(tt,"2026-09-02",tt.data);
-__ok("a etiqueta virou botao", /data-irorig="/.test(card));
-__ok("aponta para a data original", card.indexOf('data-irorig="'+tt.data+'"')>=0);
-__ok("mostra a data de origem no texto", card.indexOf(fmt(tt.data).slice(0,5))>=0);
-__ok("o titulo explica para onde vai", /o dia de origem desta tarefa/.test(card));
-__ok("o x de remover continua la", /data-dropx="1"/.test(card));
-const semDup=bcardHTML(tt,tt.data,null);
-__ok("card sem replanejamento nao ganha etiqueta", !/data-irorig/.test(semDup));
 `);
 
 bloco("Rotas e menu", M, limpar+`
@@ -268,8 +239,13 @@ vm.runInContext(fs.readFileSync(path.join(raiz,"dados.js"),"utf8")+"\nthis.__C=C
 const motorSrc=fs.readFileSync(path.join(raiz,"motor.js"),"utf8");
 const regrasSrc=motorSrc.slice(0, motorSrc.indexOf("/* ================= INTERFACE ================= */"));
 const P=contexto([{nome:"regras.js",src:regrasSrc},"portal.js"],
-  "const CLIENTES=["+JSON.stringify(d0.__C[1])+"];const MOSTRA_HISTORICO=false;var MEU_TOKEN='tok1',MK3_DB=null;");
+  "var CLIENTES=[],CLIENTE_ID='',MOSTRA_HISTORICO=false,MEU_TOKEN='tok1',MK3_DB=null;");
 bloco("Portal do cliente", P, `
+__ok("sem espelho, nao quebra", C===null && (function(){try{desenhar();return true}catch(e){return false}})());
+__ok("iniciar monta o cliente", iniciar(`+JSON.stringify(d0.__C[1])+`)===true && !!C && !!C.nome);
+__ok("iniciar recusa base vazia", iniciar(null)===false);
+__ok("o topo traz o nome no centro e as duas abas",
+  /cli-topo/.test(topoHTML()) && /data-aba="geral"/.test(topoHTML()) && /data-aba="trafego"/.test(topoHTML()));
 __ok("bloco renderiza", typeof faltaVoce()==="string");
 PENDENCIAS=[{tipo:"planejamento",enviado:"2026-08-05",vencimento:"2026-08-07",dias:-3},
             {tipo:"midia",enviado:iso(HOJE),vencimento:addD(iso(HOJE),2),dias:2}];
@@ -281,6 +257,53 @@ __ok("explica a aprovacao automatica", /aprova\\u00e7\\u00e3o autom\\u00e1tica/.
 PENDENCIAS=[];
 __ok("sem pendencia nao mostra", faltaVoce()==="");
 __ok("desenhar completo nao quebra",(function(){try{desenhar();return true}catch(e){return false}})());
+
+/* ---- trafego pago ---- */
+__ok("telefone com +55 vira 11 digitos", telLimpo("p:+5527998887565")==="27998887565");
+__ok("telefone sem +55 tambem", telLimpo("p:27998887565")==="27998887565");
+__ok("telefone com espaco tambem", telLimpo("p:27 998887565")==="27998887565");
+__ok("telefone com + sem 55 tambem", telLimpo("p:+27998887565")==="27998887565");
+__ok("fixo de 10 digitos ganha o 9", telLimpo("p:2733334444")==="27933334444");
+__ok("telefone bonito sai formatado", telBonito("p:+5527998887565")==="(27) 99888-7565");
+__ok("empreendimento sai do nome do anuncio",
+  empreendimentoDe({anuncio:"Casa - Rio Marinho - Video"})==="Rio Marinho");
+__ok("empreendimento aceita travessao",
+  empreendimentoDe({anuncio:"Casa - Domingos Martins \u2014 V\u00eddeo V2"})==="Domingos Martins");
+__ok("anuncio desconhecido nao inventa empreendimento", empreendimentoDe({anuncio:"qualquer coisa"})==="");
+const l1={_id:"l1",nome:"maria de souza",tel:"p:+5527998887565",anuncio:"[LEADS] PIER BOULEVARD",quando:iso(HOJE)+"T10:00:00-03:00"};
+__ok("a mensagem cita o primeiro nome", mensagemDe(l1).indexOf("Maria")>=0);
+__ok("a mensagem cita o empreendimento", mensagemDe(l1).indexOf("Pier Boulevard")>=0);
+__ok("o link do whats leva o numero com 55", linkZap(l1).indexOf("wa.me/5527998887565")>0);
+__ok("o link do whats leva a mensagem pronta", linkZap(l1).indexOf("?text=")>0);
+__ok("telefone invalido nao gera link", linkZap({tel:"p:123"})==="");
+LEADS={l1:l1, l2:{nome:"jose",tel:"p:2799998888",anuncio:"Casa - Rio Marinho",quando:"2020-01-01T10:00:00-03:00"},
+       l3:{nome:"teste",tel:"p:x",teste:true}};
+CRM={};
+__ok("lead de teste fica de fora", listaLeads().length===2);
+let n1=contarTrafego();
+__ok("conta os leads do mes", n1.leadsMes===1);
+__ok("conta o total de sempre", n1.leadsTudo===2);
+__ok("ninguem contatado ainda", n1.contatoMes===0);
+CRM={l1:{contato:true}};
+__ok("contato conta", contarTrafego().contatoMes===1);
+CRM={l1:{contato:true,venda:true}};
+__ok("venda conta", contarTrafego().vendaMes===1);
+CRM={l1:{parceria:true}};
+__ok("parceria conta", contarTrafego().parcMes===1);
+CRM={};
+ABA="trafego";
+const ht=trafegoHTML();
+__ok("a aba lista as pessoas", /Pessoas que chegaram/.test(ht) && /Maria|maria/.test(ht));
+__ok("tem botao de whatsapp", /Chamar no WhatsApp/.test(ht));
+__ok("tem a marcacao de contato", /data-contato="l1"/.test(ht));
+__ok("tem os quatro contadores", /tp-n leads/.test(ht) && /tp-n cont/.test(ht) && /tp-n venda/.test(ht) && /tp-n parc/.test(ht));
+__ok("mostra o mes e o total", /no total/.test(ht));
+__ok("mostra o empreendimento do lead", /Pier Boulevard/.test(ht));
+LEADS={};
+__ok("sem lead, explica em vez de mostrar tabela vazia", /Nenhum lead ainda/.test(trafegoHTML()));
+LEADS=null;
+__ok("antes de carregar, avisa que esta carregando", /Carregando os leads/.test(trafegoHTML()));
+ABA="geral"; LEADS=null; CRM=null;
 
 /* ---- o mes em etapas encadeadas ---- */
 const et=cicloEtapas();

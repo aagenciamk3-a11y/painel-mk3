@@ -1,17 +1,27 @@
-/* Portal do cliente — somente leitura. Usa as mesmas regras do painel. */
-const C = CLIENTES[0];
-const ORIGINAL = JSON.parse(JSON.stringify(C));
+/* Portal do cliente. A pagina e generica: tudo que aparece aqui chega
+   pelo no painel/publico/<token> do Firebase. O token vem no endereco,
+   depois do #, e nunca existe dentro do repositorio. */
+let C = null, ORIGINAL = null, TAREFAS = [];
 const CAMPOS_DATA = ["envioPlanejamento","aprovacaoPlanejamento","envioMidia","aprovacaoMidia","gravacao","alteracaoPedida"];
 const $ = id => document.getElementById(id);
 const escAttr = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-let TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
 let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null, PLANO=null;
+let LEADS=null, CRM=null;
 let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
+let ABA="geral";
 
-/* aplica o estado publicado pela MK3 (o que foi marcado no painel) */
+function iniciar(base){
+  if(!base || !base.id) return false;
+  C = JSON.parse(JSON.stringify(base));
+  ORIGINAL = JSON.parse(JSON.stringify(base));
+  CLIENTE_ID = base.id;
+  TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
+  return true;
+}
+/* aplica o que a MK3 marcou no painel */
 function aplicarEstado(E){
-  if(!E) return;
+  if(!C || !E) return;
   C.concluidas=(ORIGINAL.concluidas||[]).slice();
   CAMPOS_DATA.forEach(k=>C[k]=ORIGINAL[k]);
   const dd=(E.datas&&E.datas[CLIENTE_ID])||{};
@@ -22,19 +32,154 @@ function aplicarEstado(E){
   }
   TAREFAS = regras(C).map(t=>({...t, st:status(t)}));
 }
-function linkValido(E){
-  const p=(E&&E.portais&&E.portais[CLIENTE_ID])||null;
-  if(!p || !p.ativo) return true;             /* sem configuração = vale */
-  return p.ativo===MEU_TOKEN;
+function aviso(titulo, texto){
+  $("view").innerHTML='<section class="bloco"><h2>'+esc(titulo)+'</h2><p>'+esc(texto)+'</p></section>';
 }
 function expirado(){
-  document.getElementById("view").innerHTML=
-    '<section class="bloco"><h2>Link expirado</h2>'+
-    '<p>Este endereço foi substituído por um novo, por segurança. Peça o link atualizado à equipe da MK3.</p></section>';
+  aviso("Link expirado","Este endereço foi substituído por um novo, por segurança. Peça o link atualizado à equipe da MK3.");
 }
-
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
-$("titulo").textContent = C.nome;
+
+/* ================== TRAFEGO PAGO ==================
+   Os leads chegam da planilha do Meta pela ponte no Apps Script e ficam no
+   Firebase. O que a equipe marca aqui (contato, venda, parceria) vive num no
+   separado, para a proxima carga do Meta nunca sobrescrever o trabalho. */
+const EMPRE = [
+  [/pier\s*boulevard/i, "Pier Boulevard"],
+  [/rio\s*marinho/i,    "Rio Marinho"],
+  [/domingos\s*martins/i,"Domingos Martins"],
+  [/fellini/i,          "Ed. Fellini"],
+  [/casa\s*amarela/i,   "Casa Amarela"]
+];
+function empreendimentoDe(l){
+  const txt=String((l&&l.anuncio)||"")+" "+String((l&&l.conjunto)||"");
+  for(const e of EMPRE) if(e[0].test(txt)) return e[1];
+  return "";
+}
+/* o telefone vem em quatro formatos diferentes da planilha; aqui vira um so */
+function telLimpo(t){
+  let n=String(t||"").replace(/^p:/,"").replace(/[^0-9]/g,"");
+  if(!n) return "";
+  if(n.length>=12 && n.slice(0,2)==="55") n=n.slice(2);
+  if(n.length===10) n=n.slice(0,2)+"9"+n.slice(2);   /* fixo antigo de celular */
+  if(n.length!==11) return n.length>=10?n:"";
+  return n;
+}
+function telBonito(t){
+  const n=telLimpo(t);
+  if(n.length!==11) return String(t||"").replace(/^p:/,"") || "sem telefone";
+  return "("+n.slice(0,2)+") "+n.slice(2,7)+"-"+n.slice(7);
+}
+function primeiroNome(nome){
+  const p=String(nome||"").trim().split(/\s+/)[0]||"";
+  return p ? p.charAt(0).toUpperCase()+p.slice(1).toLowerCase() : "";
+}
+function mensagemDe(l){
+  const nome=primeiroNome(l.nome), emp=empreendimentoDe(l);
+  const ola = nome ? ("Oi, "+nome+"! ") : "Oi! ";
+  if(emp) return ola+"Aqui é a Suelem. Vi que você demonstrou interesse no "+emp+
+    ". Posso te mandar os valores e as condições, e tirar qualquer dúvida?";
+  return ola+"Aqui é a Suelem. Vi que você demonstrou interesse em um dos imóveis. "+
+    "Posso te mandar os detalhes e tirar suas dúvidas?";
+}
+function linkZap(l){
+  const n=telLimpo(l.tel);
+  if(n.length!==11) return "";
+  return "https://wa.me/55"+n+"?text="+encodeURIComponent(mensagemDe(l));
+}
+function listaLeads(){
+  const m=LEADS||{};
+  return Object.keys(m).map(k=>({...m[k], _id:k}))
+    .filter(l=>l && l.nome && !l.teste)
+    .sort((a,b)=>String(b.quando||"").localeCompare(String(a.quando||"")));
+}
+function crmDe(id){ return (CRM&&CRM[id])||{}; }
+function ymDeData(iso0){ return String(iso0||"").slice(0,7); }
+function contarTrafego(){
+  const ym=ymDe(0), l=listaLeads();
+  const noMes=x=>ymDeData(x.quando)===ym;
+  const vend=x=>{ const c=crmDe(x._id); return !!c.venda; };
+  const parc=x=>{ const c=crmDe(x._id); return !!c.parceria; };
+  return {
+    leadsMes:l.filter(noMes).length,       leadsTudo:l.length,
+    contatoMes:l.filter(x=>noMes(x)&&crmDe(x._id).contato).length,
+    contatoTudo:l.filter(x=>crmDe(x._id).contato).length,
+    vendaMes:l.filter(x=>noMes(x)&&vend(x)).length,   vendaTudo:l.filter(vend).length,
+    parcMes:l.filter(x=>noMes(x)&&parc(x)).length,    parcTudo:l.filter(parc).length
+  };
+}
+function cardLead(l){
+  const c=crmDe(l._id), emp=empreendimentoDe(l), zap=linkZap(l);
+  const quando=l.quando?fmt(String(l.quando).slice(0,10)):"";
+  return '<div class="ld'+(c.contato?" feito":"")+(c.venda?" vendeu":"")+'">'+
+    '<div class="ld-topo">'+
+      '<div class="ld-id"><b>'+esc(l.nome||"sem nome")+'</b>'+
+        '<span>'+esc(telBonito(l.tel))+(quando?' · '+quando:'')+'</span></div>'+
+      (emp?'<span class="ld-emp">'+esc(emp)+'</span>':'')+
+    '</div>'+
+    (c.venda?'<div class="ld-selo v">Venda concluída</div>':'')+
+    (c.parceria?'<div class="ld-selo p">Parceria concluída</div>':'')+
+    '<div class="ld-acoes">'+
+      (zap?'<a class="ld-zap" href="'+escAttr(zap)+'" target="_blank" rel="noopener">Chamar no WhatsApp</a>'
+          :'<span class="ld-zap off" title="Telefone fora do padrão">Telefone inválido</span>')+
+      '<button class="ld-chk'+(c.contato?" on":"")+'" data-contato="'+escAttr(l._id)+'">'+
+        (c.contato?'&#10003; Falei com essa pessoa':'Entrei em contato?')+'</button>'+
+      '<button class="ld-mais" data-fechar="'+escAttr(l._id)+'" title="Registrar venda ou parceria">&#8942;</button>'+
+    '</div></div>';
+}
+function trafegoHTML(){
+  if(LEADS===null) return '<section class="bloco"><h2>Tráfego pago</h2><p>Carregando os leads…</p></section>';
+  const l=listaLeads(), n=contarTrafego();
+  const num=(a,b,rot,cls)=>'<div class="tp-n '+cls+'"><b>'+a+'</b><i>'+rot+'</i><span>'+b+' no total</span></div>';
+  const topo='<section class="bloco"><h2>Tráfego pago</h2>'+
+    '<p class="tp-sub">Cada pessoa aqui preencheu o formulário do anúncio. '+
+    'Quanto mais rápido o contato, maior a chance de resposta.</p></section>';
+  const lista = l.length
+    ? '<section class="bloco"><h2>Pessoas que chegaram</h2><div class="ld-lista">'+l.map(cardLead).join("")+'</div></section>'
+    : '<section class="bloco ok"><h2>Nenhum lead ainda</h2><p>Assim que alguém preencher o formulário do anúncio, aparece aqui na hora.</p></section>';
+  const contas='<section class="bloco"><h2>Números do mês</h2><div class="tp-nums">'+
+    num(n.leadsMes,   n.leadsTudo,   "pessoas chegaram", "leads")+
+    num(n.contatoMes, n.contatoTudo, "já foram atendidas","cont")+
+    num(n.vendaMes,   n.vendaTudo,   "vendas concluídas","venda")+
+    num(n.parcMes,    n.parcTudo,    "parcerias fechadas","parc")+
+    '</div></section>';
+  return topo+contas+lista;
+}
+function abrirFechamento(id){
+  const l=listaLeads().find(x=>x._id===id); if(!l) return;
+  const c=crmDe(id);
+  let cx=document.getElementById("diaModal");
+  if(!cx){ cx=document.createElement("div"); cx.id="diaModal"; document.body.appendChild(cx); }
+  cx.innerHTML='<div class="dd-fundo" data-fecharx="1"><div class="dd-box" role="dialog" aria-modal="true">'+
+    '<div class="dd-h"><b>'+esc(l.nome||"Lead")+'</b><button data-fecharx="1" aria-label="Fechar">&times;</button></div>'+
+    '<p class="dd-sub">'+esc(telBonito(l.tel))+(empreendimentoDe(l)?' · '+esc(empreendimentoDe(l)):'')+'</p>'+
+    '<div class="fe-op">'+
+      '<button class="fe-b'+(c.venda?" on":"")+'" data-marcar="'+escAttr(id)+'|venda">Venda concluída</button>'+
+      '<button class="fe-b'+(c.parceria?" on":"")+'" data-marcar="'+escAttr(id)+'|parceria">Parceria concluída</button>'+
+    '</div>'+
+    '<p class="dd-nota">Clique de novo para desmarcar. Fica registrado para a MK3 e para você, na hora.</p>'+
+    '</div></div>';
+  document.body.classList.add("travado");
+}
+/* escreve so no proprio no do link, um lead por vez */
+function gravarCRM(id, campo, valor){
+  const antes=crmDe(id);
+  CRM=CRM||{}; CRM[id]=Object.assign({}, antes);
+  CRM[id][campo]=valor;
+  CRM[id].por = valor ? "cliente" : (antes.por||"cliente");
+  CRM[id].ts  = new Date().toISOString();
+  desenhar();
+  const u=(typeof MK3_DB!=="undefined"&&MK3_DB)
+    ? MK3_DB+"/painel/publico/"+MEU_TOKEN+"/crm/"+encodeURIComponent(id)+".json" : null;
+  if(!u) return;
+  fetch(u,{method:"PATCH",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({[campo]:valor, por:CRM[id].por, ts:CRM[id].ts})})
+    .catch(()=>{ /* sem rede: fica marcado na tela e a proxima leitura corrige */ });
+}
+function fecharModalLead(){
+  const cx=document.getElementById("diaModal"); if(cx) cx.innerHTML="";
+  document.body.classList.remove("travado");
+}
 
 /* ---- 1) o que está esperando o cliente ---- */
 function pendentes(){
@@ -475,13 +620,24 @@ function caixaDia(){
   cx.innerHTML=detalheDia();
   document.body.classList.toggle("travado", !!PDIA);
 }
+function topoHTML(){
+  const abas=[["geral","Visão geral"],["trafego","Tráfego pago"]];
+  return '<div class="cli-topo"><h1>'+esc(C.nome)+'</h1>'+
+    '<div class="cli-abas">'+abas.map(a=>
+      '<button class="cli-aba'+(ABA===a[0]?" on":"")+'" data-aba="'+a[0]+'">'+a[1]+'</button>').join("")+
+    '</div></div>';
+}
 function desenhar(){
-  $("view").innerHTML = heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico();
-  ligarDash(); caixaDia();
+  if(!C){ return; }
+  const corpo = ABA==="trafego"
+    ? trafegoHTML()
+    : (heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico());
+  $("view").innerHTML = topoHTML() + corpo;
+  if(ABA!=="trafego"){ ligarDash(); caixaDia(); }
 }
 /* navegacao do calendario e troca de visao, sem recarregar a pagina */
 document.addEventListener("click", ev=>{
-  const a=ev.target.closest("[data-pmes],[data-pvisao],[data-pdia]"); if(!a) return;
+  const a=ev.target.closest("[data-pmes],[data-pvisao],[data-pdia],[data-aba],[data-contato],[data-fechar],[data-marcar],[data-fecharx]"); if(!a) return;
   ev.preventDefault();
   if(a.dataset.pmes!==undefined){ PMES=Number(a.dataset.pmes)||0; PDIA=null; }
   if(a.dataset.pdia!==undefined){
@@ -489,10 +645,23 @@ document.addEventListener("click", ev=>{
     PDIA = (a.dataset.pdia && a.dataset.pdia!==PDIA) ? a.dataset.pdia : null;
   }
   if(a.dataset.pvisao){ PVISAO=a.dataset.pvisao; PDIA=null; }
+  if(a.dataset.aba){ ABA=a.dataset.aba; PDIA=null; }
+  if(a.dataset.contato){ const id=a.dataset.contato; gravarCRM(id,"contato",!crmDe(id).contato); return; }
+  if(a.dataset.fechar){ abrirFechamento(a.dataset.fechar); return; }
+  if(a.dataset.marcar){
+    const p=a.dataset.marcar.split("|");
+    gravarCRM(p[0], p[1], !crmDe(p[0])[p[1]]);
+    abrirFechamento(p[0]); return;
+  }
+  if(a.dataset.fecharx){ if(ev.target===a || a.tagName==="BUTTON"){ fecharModalLead(); } return; }
   desenhar();
 });
-document.addEventListener("keydown", ev=>{ if(ev.key==="Escape" && PDIA){ PDIA=null; caixaDia(); } });
-desenhar();
+document.addEventListener("keydown", ev=>{
+  if(ev.key!=="Escape") return;
+  if(PDIA){ PDIA=null; caixaDia(); return; }
+  const cx=document.getElementById("diaModal");
+  if(cx && cx.innerHTML) fecharModalLead();
+});
 
 /* ---- atualização automática: lê só o nó deste link no banco da MK3 ---- */
 const URL_ESP = (typeof MK3_DB!=="undefined" && MK3_DB) ? (MK3_DB+"/painel/publico/"+MEU_TOKEN+".json") : null;
@@ -508,7 +677,11 @@ function marcarAtualizado(){
 function aplicarEspelho(v){
   if(!v || typeof v!=="object") return false;
   if(v.ativo && v.ativo!==MEU_TOKEN){ expirado(); return true; }
-  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias,pl:v.plano});
+  if(!C && !iniciar(v.base)){ aviso("Link inválido","Não consegui carregar este acompanhamento. Confira o endereço ou peça um link novo à equipe da MK3."); return true; }
+  if(typeof v.historico==="boolean") MOSTRA_HISTORICO=v.historico;
+  LEADS = v.leads || {};
+  CRM   = v.crm   || {};
+  const assinatura = JSON.stringify({c:v.concluidas,d:v.datas,r:v.resultados,a:v.ativo,p:v.pendencias,pl:v.plano,l:v.leads,cr:v.crm});
   if(assinatura===ULTIMO){ marcarAtualizado(); return true; }   /* nada mudou: não redesenha */
   ULTIMO=assinatura;
   RESULTADOS = v.resultados || null; OBJETIVO = v.objetivo || ""; META = v.meta || null; RECADO = v.recado || ""; PENDENCIAS = v.pendencias || null; PLANO = v.plano || null;
@@ -518,21 +691,19 @@ function aplicarEspelho(v){
   aplicarEstado(E); desenhar(); marcarAtualizado();
   return true;
 }
-function lerPublicado(){
-  fetch("../../estado.json?ts="+Date.now())
-    .then(r=>r.ok?r.json():null)
-    .then(E=>{ if(!E) return; if(!linkValido(E)){ expirado(); return; } aplicarEstado(E); desenhar(); })
-    .catch(()=>{});
-}
 function puxarEspelho(){
-  if(!URL_ESP){ lerPublicado(); return; }
+  if(!URL_ESP) return;
   fetch(URL_ESP+"?ts="+Date.now())
     .then(r=>r.ok?r.json():null)
-    .then(v=>{ if(v && aplicarEspelho(v)){ TEM_ESPELHO=true; } else if(!TEM_ESPELHO){ lerPublicado(); } })
-    .catch(()=>{ if(!TEM_ESPELHO) lerPublicado(); });
+    .then(v=>{
+      if(v && aplicarEspelho(v)){ TEM_ESPELHO=true; return; }
+      if(!TEM_ESPELHO) aviso("Link inválido","Não encontrei nenhum acompanhamento neste endereço. Peça o link à equipe da MK3.");
+    })
+    .catch(()=>{ if(!TEM_ESPELHO) aviso("Sem conexão","Não consegui falar com o servidor agora. Tente novamente em instantes."); });
 }
-puxarEspelho();
-if(URL_ESP && window.EventSource){
+if(!MEU_TOKEN) aviso("Link incompleto","Este endereço está sem a chave de acesso. Use o link completo que a MK3 enviou.");
+else puxarEspelho();
+if(MEU_TOKEN && URL_ESP && window.EventSource){
   try{
     FONTE=new EventSource(URL_ESP);
     FONTE.addEventListener("put",  ()=>puxarEspelho());
@@ -540,5 +711,5 @@ if(URL_ESP && window.EventSource){
     FONTE.onerror=()=>{ /* cai para a checagem periódica */ };
   }catch(e){}
 }
-setInterval(puxarEspelho, 60000);
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden) puxarEspelho(); });
+if(MEU_TOKEN) setInterval(puxarEspelho, 60000);
+document.addEventListener("visibilitychange",()=>{ if(MEU_TOKEN && !document.hidden) puxarEspelho(); });

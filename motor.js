@@ -671,12 +671,33 @@ function espelhoDe(cid){
   const pend = cli ? contadores(cli).map(x=>({
         tipo:x.tipo, enviado:x.enviado, vencimento:x.vencimento,
         dias:dias(x.vencimento) })) : [];
+  /* a pagina do portal e generica: os dados do cliente viajam pelo espelho,
+     ja limpos de tudo que e interno (valores, contrato, segmento, financeiro) */
+  const base = cli ? (function(){
+    const pub=JSON.parse(JSON.stringify(cli));
+    ["mensalidade","contrato","justificados","inicioContrato","plano","segmento","marca",
+     "__pendenteForcado","tarefasExtras","marcos","concluidas"].forEach(k=>delete pub[k]);
+    const orig=ORIG.concat(ESTADO.novosClientes||[]).find(x=>x.id===cid) || cli;
+    pub.concluidas=(orig.concluidas||[]).slice();
+    pub.tarefasExtras=(orig.tarefasExtras||[]).filter(t=>{
+      const txt=((t.tarefa||"")+" "+(t.detalhe||"")).toLowerCase();
+      return !(t.fase==="Contrato" || /^pag_|^fotos_/.test(t.id||"") ||
+               /r\$|pagar|fornecedor|mensalidade|contrato|nota fiscal/.test(txt));
+    });
+    const lim=x=>String(x||"").replace(/CS\s*\d{3,}[\/\d]*/gi,"").replace(/R\$\s*[\d.,]+/g,"")
+      .replace(/\s{2,}/g," ").trim().replace(/[·\-–]\s*$/,"").trim();
+    pub.marcos=(orig.marcos||[]).map(mm=>({data:mm.data,titulo:lim(mm.titulo),detalhe:lim(mm.detalhe)}))
+      .filter(mm=>mm.titulo);
+    return pub;
+  })() : null;
   const ymA=mesAtualYM();
   const planos={};
   [ymA, (function(){const d0=new Date(HOJE.getFullYear(),HOJE.getMonth()-1,1);
     return d0.getFullYear()+"-"+String(d0.getMonth()+1).padStart(2,"0");})()]
     .forEach(m=>{ const p=((ESTADO.plano&&ESTADO.plano[cid])||{})[m]; if(p) planos[m]=p; });
   return { ts:Date.now(),
+           base:base,
+           historico:!!(p&&p.historico),
            pendencias:pend,
            plano:planos,
            ativo:(p&&p.ativo)||null,
@@ -688,14 +709,16 @@ function espelhoDe(cid){
            datas:((ESTADO.datas&&ESTADO.datas[cid])||{}) };
 }
 function publicarEspelho(){
-  if(!SYNC_ON || !PORTAIS || !window.firebase) return;
+  if(!SYNC_ON || !window.firebase) return;
   try{
     const base=firebase.database().ref("painel/publico");
-    Object.keys(PORTAIS).forEach(cid=>{
-      const dados=espelhoDe(cid);
-      const tks=(PORTAIS[cid]&&PORTAIS[cid].tokens)||[];
-      const ativo=dados.ativo||tks[(PORTAIS[cid]||{}).ativo||0]||null;
-      tks.forEach(tk=>{ base.child(tk).set({...dados, ativo:ativo}); });
+    CLIENTES.forEach(c=>{
+      const cfg=(ESTADO.portais&&ESTADO.portais[c.id])||null;
+      if(!cfg || !cfg.ativo) return;                 /* sem link gerado ainda */
+      const dados=espelhoDe(c.id);
+      /* leads e crm ja moram no no do token: nao sobrescreve o que esta la */
+      base.child(cfg.ativo).update({...dados, ativo:cfg.ativo});
+      (cfg.revogados||[]).forEach(tk=>{ base.child(tk).remove(); });
     });
   }catch(e){}
 }
@@ -974,7 +997,29 @@ function listaDemandas(){
        feitas.map(linha).join("")+'</details>':'')+
   '</div>';
 }
-let PORTAIS=null;
+/* o link do cliente nao existe dentro do repositorio: o token e gerado aqui,
+   fica no estado sincronizado e viaja so no endereco, depois do # */
+function novoToken(){
+  const a=new Uint8Array(16);
+  (window.crypto||window.msCrypto).getRandomValues(a);
+  return Array.from(a).map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+function portalDe(cid){
+  ESTADO.portais=ESTADO.portais||{};
+  return ESTADO.portais[cid]||null;
+}
+function garantirToken(cid){
+  ESTADO.portais=ESTADO.portais||{};
+  const p=ESTADO.portais[cid];
+  if(p && p.ativo) return p.ativo;
+  const tk=novoToken();
+  ESTADO.portais[cid]=Object.assign({revogados:[],historico:false}, p||{}, {ativo:tk, quando:iso(HOJE)});
+  return tk;
+}
+function urlPortal(tk){
+  const base=location.origin+location.pathname.replace(/\/(index\.html)?$/,"");
+  return base+"/c/#t="+tk;
+}
 function pendCliHTML(c){
   const pend=contadores(c);
   if(!pend.length) return '<div class="pv-esp"><span class="pv-pok">Nada esperando o cliente</span></div>';
@@ -989,62 +1034,53 @@ function pendCliHTML(c){
 }
 /* ---- Visao do cliente: escolhe o cliente, ve o que esta com ele e leva o link ---- */
 function portaisHTML(){
-  if(!ehAdmin()) return '<div class="fd-vazio">Tela s\u00f3 da administra\u00e7\u00e3o.</div>';
-  if(!PORTAIS){
-    fetch("portais.json?ts="+Date.now())
-      .then(r=>r.json()).then(j=>{ PORTAIS=j; if(VISTA.modo==="portais") semPular(render); })
-      .catch(()=>{ PORTAIS={}; if(VISTA.modo==="portais") semPular(render); });
-    return '<div class="fd-vazio">Carregando os links\u2026</div>';
-  }
-  const base=location.origin+location.pathname.replace(/\/(index\.html)?$/,"");
+  if(!ehAdmin()) return '<div class="fd-vazio">Tela só da administração.</div>';
   const cards=CLIENTES.map(c=>{
     const cor=coresDe(c);
-    const p=PORTAIS[c.id];
+    const p=portalDe(c.id);
     const topo='<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
       avatarHTML(c,"ccard-av")+
       '<div class="ccard-body"><div class="ccard-top"><h3>'+esc(c.nome)+'</h3>'+
-      (p&&p.historico?'<span class="badge-ativo hist">com hist\u00f3rico</span>':'')+'</div>';
-    if(!p) return '<div class="ccard pvcard">'+topo+
-      '<div class="pv-sem">Portal ainda n\u00e3o gerado para este cliente.</div></div></div>';
-    const tks=p.tokens||[p.token];
-    const esc0=(ESTADO.portais&&ESTADO.portais[c.id])||null;
-    const ativo=(esc0&&esc0.ativo&&tks.indexOf(esc0.ativo)>=0)?esc0.ativo:tks[p.ativo||0];
-    const restantes=tks.length-1-tks.indexOf(ativo);
-    const url=base+"/c/"+ativo+"/";
+      (p&&p.historico?'<span class="badge-ativo hist">com histórico</span>':'')+'</div>';
+    if(!p || !p.ativo) return '<div class="ccard pvcard">'+topo+
+      pendCliHTML(c)+
+      '<div class="pv-sem">Ainda sem link. Gere um para este cliente.</div>'+
+      '<div class="pv-btns"><button class="pv-b principal" data-gerarlink="'+escAttr(c.id)+'">Gerar link</button></div>'+
+      '</div></div>';
+    const url=urlPortal(p.ativo);
+    const nrev=(p.revogados||[]).length;
     return '<div class="ccard pvcard">'+topo+
       pendCliHTML(c)+
       '<div class="pv-url" title="'+escAttr(url)+'">'+esc(url.replace(/^https?:\/\//,""))+'</div>'+
-      (esc0&&esc0.ativo&&esc0.ativo!==tks[p.ativo||0]
-        ? '<div class="pv-aviso">link novo \u00b7 passa a valer na pr\u00f3xima publica\u00e7\u00e3o</div>' : '')+
+      (nrev?'<div class="pv-aviso">'+nrev+' link'+(nrev>1?'s':'')+' antigo'+(nrev>1?'s':'')+' já derrubado'+(nrev>1?'s':'')+'</div>':'')+
       '<div class="pv-btns">'+
         '<button class="pv-b principal" data-copiar="'+escAttr(url)+'">Copiar link</button>'+
         '<a class="pv-b" href="'+escAttr(url)+'" target="_blank" rel="noopener">Abrir</a>'+
-        (restantes>0
-          ? '<button class="pv-b sec" data-novolink="'+c.id+'" title="Gera um endere\u00e7o novo e derruba o atual">Trocar</button>'
-          : '<span class="pv-b vazio" title="Sem endere\u00e7os de reserva">sem reservas</span>')+
+        '<button class="pv-b sec" data-novolink="'+escAttr(c.id)+'" title="Gera um endereço novo e derruba o atual na hora">Trocar</button>'+
       '</div></div></div>';
   }).join("");
   return '<section class="pvista">'+
     '<p class="pv-intro">A p\u00e1gina que cada cliente enxerga: o objetivo dele, os n\u00fameros do m\u00eas, '+
-    'o que est\u00e1 esperando aprova\u00e7\u00e3o e at\u00e9 quando. Link pessoal e sem senha, '+
-    's\u00f3 quem tem o endere\u00e7o acessa.</p>'+
+    'o que est\u00e1 esperando aprova\u00e7\u00e3o e, quando tem tr\u00e1fego pago, os leads que chegaram. '+
+    'A chave fica depois do # do endere\u00e7o, ent\u00e3o n\u00e3o aparece em log de servidor nem no reposit\u00f3rio. '+
+    'Trocar o link derruba o antigo na hora.</p>'+
     '<div class="cards">'+cards+'</div>'+
     '<p class="nota-p">O que voc\u00ea marca no painel chega ao cliente na publica\u00e7\u00e3o autom\u00e1tica, '+
     'toda manh\u00e3 em dia \u00fatil.</p></section>';
 }
 
 function trocarLink(cid){
-  const p=PORTAIS&&PORTAIS[cid]; if(!p) return;
-  const tks=p.tokens||[p.token];
-  const at=(ESTADO.portais&&ESTADO.portais[cid]&&ESTADO.portais[cid].ativo)||tks[p.ativo||0];
-  const i=tks.indexOf(at);
-  if(i<0 || i>=tks.length-1){ toast("Sem endereços de reserva. Me peça para gerar mais.",false); return; }
+  if(!ehAdmin()) return;
   snapshot();
   ESTADO.portais=ESTADO.portais||{};
-  ESTADO.portais[cid]={ativo:tks[i+1], revogados:((ESTADO.portais[cid]||{}).revogados||[]).concat([at]), quando:iso(HOJE)};
+  const p=ESTADO.portais[cid]||{};
+  const velho=p.ativo||null;
+  ESTADO.portais[cid]={ativo:novoToken(),
+    revogados:(p.revogados||[]).concat(velho?[velho]:[]).slice(-10),
+    historico:!!p.historico, quando:iso(HOJE)};
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,acao:"novolink",nome:"Link do portal trocado",quem:USUARIO||null});
-  persist(); semPular(render);
-  toast("Link novo gerado. O antigo para de funcionar na próxima publicação.",false);
+  persist(); publicarEspelho(); semPular(render);
+  toast("Link novo gerado. O antigo já parou de funcionar.",false);
 }
 
 /* objetivos possíveis para o destaque do cliente */
@@ -1665,8 +1701,6 @@ async function init(){
   if(USUARIO && !eu()) USUARIO=null;
   rebuild(); render(); montarTooltip(); syncIniciar(); ligarAgendaAoVivo();
   setTimeout(rodarCobrancas, 4000);
-  fetch("portais.json?ts="+Date.now()).then(r=>r.ok?r.json():null)
-    .then(j=>{ if(j){ PORTAIS=j; agendarEspelho(); } }).catch(()=>{});
 }
 
 $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
@@ -3191,7 +3225,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3303,6 +3337,9 @@ document.addEventListener("click", function(ev){
   if(D.usaragenda){ const p=D.usaragenda.split("|"); usarDataDaAgenda(p[0],p[1]); return; }
   if(D.relatorio){ const p=D.relatorio.split("|"); abrirRelatorio(p[0],p[1]); return; }
   if(D.relmes){ const p=D.relmes.split("|"); semPular(()=>abrirRelatorio(p[0],p[1])); return; }
+  if(D.gerarlink){ if(!ehAdmin()) return; snapshot(); garantirToken(D.gerarlink);
+    ESTADO.log.unshift({ts:new Date().toISOString(),cliente:D.gerarlink,acao:"novolink",nome:"Link do portal criado",quem:USUARIO||null});
+    persist(); publicarEspelho(); semPular(render); toast("Link criado",true); return; }
   if(D.plano){ const p=D.plano.split("|"); abrirPlano(p[0],p[1]); return; }
   if(D.planomes){ const p=D.planomes.split("|"); semPular(()=>abrirPlano(p[0],p[1])); return; }
   if(D.editar){ abrirEditor(D.mcid, D.mtid); return; }
