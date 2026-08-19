@@ -270,6 +270,8 @@ __ok("empreendimento sai do nome do anuncio",
 __ok("empreendimento aceita travessao",
   empreendimentoDe({anuncio:"Casa - Domingos Martins \u2014 V\u00eddeo V2"})==="Domingos Martins");
 __ok("anuncio desconhecido nao inventa empreendimento", empreendimentoDe({anuncio:"qualquer coisa"})==="");
+__ok("reconhece o Ataide", empreendimentoDe({anuncio:"[LEADS] ATAIDE"})==="Ata\u00edde");
+__ok("reconhece o Ataide com acento", empreendimentoDe({conjunto:"[LEADS] Cadastro - Ata\u00edde"})==="Ata\u00edde");
 const l1={_id:"l1",nome:"maria de souza",tel:"p:+5527998887565",anuncio:"[LEADS] PIER BOULEVARD",quando:iso(HOJE)+"T10:00:00-03:00"};
 __ok("a mensagem cita o primeiro nome", mensagemDe(l1).indexOf("Maria")>=0);
 __ok("a mensagem cita o empreendimento", mensagemDe(l1).indexOf("Pier Boulevard")>=0);

@@ -770,7 +770,8 @@ const EMPRE = [
   [/rio\s*marinho/i,    "Rio Marinho"],
   [/domingos\s*martins/i,"Domingos Martins"],
   [/fellini/i,          "Ed. Fellini"],
-  [/casa\s*amarela/i,   "Casa Amarela"]
+  [/casa\s*amarela/i,   "Casa Amarela"],
+  [/ata(i|í)de/i,       "Ataíde"]
 ];
 function empreendimentoDe(l){
   const txt=String((l&&l.anuncio)||"")+" "+String((l&&l.conjunto)||"");
