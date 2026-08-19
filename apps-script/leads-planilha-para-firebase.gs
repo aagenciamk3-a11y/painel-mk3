@@ -1,0 +1,173 @@
+/* =====================================================================
+   PONTE: planilha de leads do Meta  ->  Firebase  ->  portal do cliente
+
+   Onde instalar: na PRÓPRIA planilha LEADS_SUELEM
+   (Extensões > Apps Script), não no projeto da agenda.
+
+   O que ela faz:
+   - lê a aba de leads,
+   - normaliza o telefone (a planilha traz quatro formatos diferentes),
+   - descarta os leads de teste do Meta,
+   - descobre sozinha qual é o link ativo do cliente hoje,
+   - e escreve no nó daquele link, para o portal ver na hora.
+
+   Se você trocar o link do cliente no painel, esta ponte acompanha:
+   ela lê o token atual do próprio banco antes de escrever.
+   ===================================================================== */
+
+/* ---------- CONFIGURAÇÃO ---------- */
+var DB      = "https://painel-mk3-default-rtdb.firebaseio.com";
+var CLIENTE = "suelem";        // id do cliente no painel
+var PULAR   = [];              // abas a ignorar, se um dia houver alguma de apoio
+
+/* O segredo do banco NÃO fica escrito aqui.
+   Guarde uma vez em Configurações do projeto > Propriedades do script,
+   com o nome FIREBASE_SECRET. */
+function segredo_(){
+  var s = PropertiesService.getScriptProperties().getProperty("FIREBASE_SECRET");
+  if(!s) throw new Error("Falta a propriedade FIREBASE_SECRET nas configurações do script.");
+  return s;
+}
+
+/* ---------- INSTALAÇÃO (rode uma vez) ---------- */
+function instalar(){
+  var ss = SpreadsheetApp.getActive();
+  ScriptApp.getProjectTriggers().forEach(function(t){ ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("sincronizar").forSpreadsheet(ss).onChange().create();
+  ScriptApp.newTrigger("sincronizar").timeBased().everyMinutes(5).create();
+  sincronizar();
+  Logger.log("Ponte instalada: dispara a cada mudança e a cada 5 minutos.");
+}
+
+/* ---------- NORMALIZAÇÃO ---------- */
+function telLimpo_(v){
+  var n = String(v==null?"":v).replace(/^p:/,"").replace(/[^0-9]/g,"");
+  if(!n) return "";
+  if(n.length >= 12 && n.slice(0,2) === "55") n = n.slice(2);
+  if(n.length === 10) n = n.slice(0,2) + "9" + n.slice(2);   // fixo antigo de celular
+  return n.length === 11 ? n : "";
+}
+function ehTeste_(linha){
+  var txt = JSON.stringify(linha).toLowerCase();
+  return txt.indexOf("test lead") >= 0 || txt.indexOf("dummy data") >= 0;
+}
+function limpaId_(v){ return String(v==null?"":v).replace(/^l:/,"").replace(/[^A-Za-z0-9_-]/g,""); }
+
+/* ---------- LEITURA DA PLANILHA ----------
+   A planilha e organizada por mes ("Maio - Julho", "08. Agosto", ...).
+   Lemos TODAS as abas e juntamos, porque o mes novo entra numa aba nova. */
+function lerAba_(sh, out){
+  var val = sh.getDataRange().getValues();
+  if(val.length < 2) return 0;
+
+  var cab = val[0].map(function(c){ return String(c).trim().toLowerCase(); });
+  var col = function(nome){ return cab.indexOf(nome); };
+
+  var iId   = col("id"),
+      iQdo  = col("created_time"),
+      iAd   = col("ad_name"),
+      iSet  = col("adset_name"),
+      iPlat = col("platform"),
+      iNome = col("nome_completo"),
+      iTel  = col("número_de_telefone"),
+      iReg  = -1;
+  for(var k = 0; k < cab.length; k++){ if(cab[k].indexOf("regi") >= 0){ iReg = k; break; } }
+
+  // aba sem o cabecalho esperado e ignorada, em vez de derrubar a rotina inteira
+  if(iId < 0 || iNome < 0 || iTel < 0){
+    Logger.log("Aba \"" + sh.getName() + "\" fora do padrao, ignorada.");
+    return 0;
+  }
+
+  var n = 0;
+  for(var r = 1; r < val.length; r++){
+    var L = val[r];
+    if(!L[iId] && !L[iNome]) continue;
+    if(ehTeste_(L)) continue;
+
+    var id = limpaId_(L[iId]) || (sh.getSheetId() + "r" + r);
+    var quando = L[iQdo];
+    if(quando instanceof Date) quando = Utilities.formatDate(quando, "America/Sao_Paulo", "yyyy-MM-dd'T'HH:mm:ssXXX");
+    else quando = String(quando || "");
+
+    out[id] = {
+      nome:      String(L[iNome] || "").trim(),
+      tel:       telLimpo_(L[iTel]),
+      telBruto:  String(L[iTel] || "").replace(/^p:/,""),
+      anuncio:   iAd  >= 0 ? String(L[iAd]  || "") : "",
+      conjunto:  iSet >= 0 ? String(L[iSet] || "") : "",
+      plataforma:iPlat>= 0 ? String(L[iPlat]|| "") : "",
+      regiao:    iReg >= 0 ? String(L[iReg] || "").slice(0,200) : "",
+      quando:    quando,
+      aba:       sh.getName()
+    };
+    n++;
+  }
+  return n;
+}
+function lerLeads_(){
+  var out = {};
+  SpreadsheetApp.getActive().getSheets().forEach(function(sh){
+    if(PULAR.indexOf(sh.getName()) >= 0) return;
+    var n = lerAba_(sh, out);
+    Logger.log("Aba \"" + sh.getName() + "\": " + n + " leads.");
+  });
+  return out;
+}
+
+/* ---------- FIREBASE ---------- */
+function fbGet_(caminho){
+  var u = DB + "/" + caminho + ".json?auth=" + segredo_();
+  var r = UrlFetchApp.fetch(u, {muteHttpExceptions:true});
+  if(r.getResponseCode() !== 200) return null;
+  var t = r.getContentText();
+  return (t === "null" || !t) ? null : JSON.parse(t);
+}
+function fbPut_(caminho, obj){
+  var u = DB + "/" + caminho + ".json?auth=" + segredo_();
+  var r = UrlFetchApp.fetch(u, {
+    method:"put", contentType:"application/json",
+    payload:JSON.stringify(obj), muteHttpExceptions:true
+  });
+  if(r.getResponseCode() >= 300)
+    throw new Error("Firebase respondeu " + r.getResponseCode() + ": " + r.getContentText().slice(0,200));
+}
+
+/* qual é o link ativo do cliente agora */
+function tokenAtivo_(){
+  var p = fbGet_("painel/estado/portais/" + CLIENTE);
+  return (p && p.ativo) ? p.ativo : null;
+}
+
+/* ---------- ROTINA PRINCIPAL ---------- */
+function sincronizar(){
+  var leads = lerLeads_();
+  var n = Object.keys(leads).length;
+
+  // cópia interna, sempre: é a fonte da verdade e não depende do link
+  fbPut_("painel/leads/" + CLIENTE, leads);
+
+  var tk = tokenAtivo_();
+  if(!tk){
+    Logger.log("Li " + n + " leads e guardei em painel/leads/" + CLIENTE +
+               ". O cliente ainda não tem link gerado no painel, então não publiquei no portal.");
+    return;
+  }
+  // só o nó de leads: não encosta em nada que o painel publica
+  fbPut_("painel/publico/" + tk + "/leads", leads);
+  Logger.log("Publiquei " + n + " leads no portal do cliente " + CLIENTE + ".");
+}
+
+/* ---------- CONFERÊNCIA (rode à mão para testar) ---------- */
+function conferir(){
+  var leads = lerLeads_();
+  var ks = Object.keys(leads);
+  var semTel = ks.filter(function(k){ return !leads[k].tel; });
+  var meses = {};
+  ks.forEach(function(k){ var m = String(leads[k].quando).slice(0,7) || "sem data"; meses[m] = (meses[m]||0)+1; });
+  Logger.log("Leads validos: " + ks.length);
+  Logger.log("Sem telefone aproveitavel: " + semTel.length);
+  Logger.log("Por mes: " + JSON.stringify(meses));
+  Logger.log("Link ativo do cliente: " + (tokenAtivo_() || "nenhum"));
+  if(ks.length) Logger.log("Exemplo de registro: " + JSON.stringify(leads[ks[0]]));
+}
