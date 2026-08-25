@@ -1173,6 +1173,15 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
 .row-desrem:hover{background:rgba(251,113,133,.28)}
 .dem-x.off{opacity:.2;cursor:not-allowed}
 
+/* no celular os botões da Visão do cliente viram alvo de polegar */
+@media(max-width:640px){
+  .pv-btns{flex-direction:column;align-items:stretch}
+  .pv-b{justify-content:center;padding:11px 14px}
+  .pv-abas{margin-top:2px}
+  .pv-url{font-size:10px}
+  .row-desrem{display:inline-block;margin:4px 0 0}
+}
+
 /* ===== quais abas o cliente vê ===== */
 .pv-abas{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px}
 .pv-abas>span{opacity:.5;text-transform:uppercase;letter-spacing:.06em;font-size:10px;margin-right:2px}
@@ -1344,7 +1353,7 @@ a.fd-c:hover{opacity:1;text-decoration:underline}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608251500"></script>
-<script src="motor.js?v=202608251500"></script>
+<script src="dados.js?v=202608251620"></script>
+<script src="motor.js?v=202608251620"></script>
 </body>
 </html>
