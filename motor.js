@@ -498,6 +498,7 @@ function sidebarHTML(){
   return h;
 }
 
+let MOVERMODO = true;      /* arrastar e replanejar movem por padrao */
 const VISTA  = { pinPara:null, area:"all", escopo:null, aba:"cal", modo:"cards", feedDias:7, mes:0, dia:null, filtro:null, verTudo:false, edit:false, pano:null, pmes:0, psem:null, side:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
@@ -554,6 +555,16 @@ function antecipacao(cid,tid,dataOrig){
   return l.length?l[0].dia:null;
 }
 function ajustarReplan(t){
+  /* tarefa movida: o dia novo e o unico que existe, inclusive para o status */
+  const mv=movidaPara(t.clienteId,t.id);
+  if(mv && mv!==t.data){
+    const orig=t.data;
+    t.data=mv;
+    t.movidaDe=orig;
+    t.st=status(t);
+    if(t.st.k!=="ok") t.st.txt=t.st.txt+" · movida de "+fmt(orig);
+    return t;
+  }
   if(t.feita || t.st.k==="ok" || t.st.k==="parcial") return t;
   const ant=antecipacao(t.clienteId,t.id,t.data);
   if(ant){
@@ -906,16 +917,28 @@ function neutralizar(cid,tid,day){
 /* da para antecipar ou adiar; so nao da para jogar no passado */
 function minimoReplan(t){ return iso(HOJE); }
 function podeReplanejar(t,dia){ return !!t && dia>=minimoReplan(t); }
-function duplicarTarefa(cid,tid,dia){
+/* mover = a tarefa passa a valer no dia novo e sai do dia antigo.
+   copiar = deixa as duas, para quando a entrega acontece em duas etapas. */
+function moverTarefa(cid,tid,dia){ return duplicarTarefa(cid,tid,dia,true); }
+function duplicarTarefa(cid,tid,dia,mover){
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   if(t.data===dia) return;
   if(!podeReplanejar(t,dia)){ toast("Não dá para replanejar para um dia que já passou",false); return; }
   ESTADO.dup=ESTADO.dup||[];
   if(ESTADO.dup.some(e=>e.cid===cid&&e.tid===tid&&e.dia===dia)) return;
   snapshot();
-  ESTADO.dup.push({cid:cid,tid:tid,dia:dia,orig:t.data});
-  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t.tarefa,acao:"replanejar",id:tid,data:dia,quem:USUARIO||null});
+  /* mover não acumula: substitui qualquer remarcação anterior da mesma tarefa */
+  if(mover) ESTADO.dup=ESTADO.dup.filter(e=>!(e.cid===cid&&e.tid===tid));
+  ESTADO.dup.push({cid:cid,tid:tid,dia:dia,orig:t.data,mover:!!mover});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:cid,nome:t.tarefa,
+    acao:(mover?"mover":"replanejar"),id:tid,data:dia,quem:USUARIO||null});
   persist(); rebuild(); render();
+}
+/* para onde a tarefa foi movida, se foi */
+function movidaPara(cid,tid){
+  const e=(ESTADO.dup||[]).filter(x=>x.cid===cid && x.tid===tid && x.mover)
+    .sort((a,b)=>a.dia.localeCompare(b.dia)).pop();
+  return e?e.dia:null;
 }
 function removeDup(cid,tid,dia){
   snapshot();
@@ -923,6 +946,7 @@ function removeDup(cid,tid,dia){
   persist(); rebuild(); render();
 }
 function bcardHTML(t, dayIso, dupOrig){
+  if(!dupOrig && t.movidaDe) dupOrig=t.movidaDe;   /* movida: a etiqueta conta de onde veio */
   const feita=t.st.k==="ok";
   const x=xInfo(VISTA.psem,t.clienteId,t.id,dayIso);
   const st=feita?"ok":(x?"x":"none");
@@ -990,6 +1014,22 @@ function removeDemanda(id){
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
 }
+/* faxina: tira de uma vez o que ja foi concluido */
+function limparDemandasFeitas(){
+  if(!ehAdmin()) return;
+  const feitas=(ESTADO.demandas||[]).filter(x=>demConcluida(x.id));
+  if(!feitas.length){ toast("Não há demanda concluída para limpar",false); return; }
+  snapshot();
+  const ids=feitas.map(x=>x.id);
+  ESTADO.demandas=(ESTADO.demandas||[]).filter(x=>ids.indexOf(x.id)<0);
+  ESTADO.concluidas["_dem"]=(ESTADO.concluidas["_dem"]||[]).filter(e=>ids.indexOf((e&&e.id)?e.id:e)<0);
+  ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demandax",
+    nome:"Limpou "+feitas.length+" demanda"+(feitas.length>1?"s":"")+" concluída"+(feitas.length>1?"s":""),
+    quem:USUARIO||null});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
+  toast(feitas.length+" demanda"+(feitas.length>1?"s removidas":" removida"),true);
+}
 function demConcluida(id){ const e=(ESTADO.concluidas["_dem"]||[]).find(x=>((x&&x.id)?x.id:x)===id); return !!(e&&!e.remove); }
 function listaDemandas(){
   const todas=(ESTADO.demandas||[]).slice().sort((a,b)=>String(b.data).localeCompare(String(a.data)));
@@ -1010,8 +1050,11 @@ function listaDemandas(){
   };
   const pend=todas.filter(x=>!demConcluida(x.id));
   const feitas=todas.filter(x=>demConcluida(x.id));
+  const limpar = ehAdmin() && feitas.length
+    ? '<button class="dem-limpa" data-demlimpa="1" title="Remove de uma vez todas as demandas já concluídas">'+
+      'Limpar as '+feitas.length+' concluída'+(feitas.length>1?'s':'')+'</button>' : '';
   return '<div class="dem-lista">'+
-    '<div class="dem-lista-h">Demandas cadastradas <span class="dem-n">'+pend.length+' em aberto</span></div>'+
+    '<div class="dem-lista-h">Demandas cadastradas <span class="dem-n">'+pend.length+' em aberto</span>'+limpar+'</div>'+
     (pend.length?pend.map(linha).join(""):'<div class="dem-vazio">Nada em aberto.</div>')+
     (feitas.length?'<details class="dem-feitas"><summary>Concluídas ('+feitas.length+') — ainda dá para editar ou corrigir a data</summary>'+
        feitas.map(linha).join("")+'</details>':'')+
@@ -1469,8 +1512,11 @@ function abrirMover(cid,tid,diaAtual,mesRef){
   const mm=$("modal");
   mm.innerHTML='<div class="mbox mover-box"><h3>Replanejar para outro dia</h3>'+
     '<p class="msub">'+esc(t?t.tarefa:"")+(t?" · "+esc(t.cliente):"")+'</p>'+
-    '<p class="msub">Escolha qualquer dia de hoje em diante. Para <b>frente</b>, cria uma cópia e o prazo original'+
-      (t&&t.data?" ("+fmt(t.data)+")":"")+' continua valendo. Para <b>trás</b>, antecipa: a tarefa passa a vencer no dia escolhido.</p>'+
+    '<p class="msub">Escolha o dia. <b>Mover</b> tira do dia de hoje e leva para o novo. '+
+      '<b>Copiar</b> deixa nos dois, para entrega em duas etapas.</p>'+
+    '<div class="mv-modo">'+
+      '<button class="mv-m'+(MOVERMODO?" on":"")+'" data-mvmodo="1" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Mover</button>'+
+      '<button class="mv-m'+(MOVERMODO?"":" on")+'" data-mvmodo="0" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Copiar</button></div>'+
     '<div class="mv-nav"><button class="mv-set" data-mesmover="'+prev+'" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+(diaAtual||"")+'" aria-label="Mês anterior">&lsaquo;</button>'+
       '<strong>'+ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})+'</strong>'+
       '<button class="mv-set" data-mesmover="'+next+'" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+(diaAtual||"")+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
@@ -1625,8 +1671,8 @@ function handleModal(D){
   }
   if(D.macao==="mover"){
     const eraAtr=(TODAS.find(x=>x.clienteId===D.mcid&&x.id===D.mtid)||{}).st;
-    duplicarTarefa(D.mcid,D.mtid,D.mday);
-    toast("Colocada em "+fmt(D.mday),true);
+    duplicarTarefa(D.mcid,D.mtid,D.mday,MOVERMODO);
+    toast((MOVERMODO?"Movida para ":"Copiada para ")+fmt(D.mday),true);
     if(eraAtr&&eraAtr.k==="atrasado"){ abrirAtrasadas(D.mday); } else { fecharModal(); }
     return;
   }
@@ -3021,7 +3067,7 @@ function prioridadesHTML(){
     const dayIso=addD(VISTA.psem,i);
     const reais=TODAS.filter(t=>t.data===dayIso && relevanteBoard(t))
       .sort((a,b)=> (ORDEM[a.st.k]??9)-(ORDEM[b.st.k]??9) || a.clienteId.localeCompare(b.clienteId));
-    const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso)
+    const dups=(ESTADO.dup||[]).filter(e=>e.dia===dayIso && !e.mover)
       .map(e=>({t:TODAS.find(x=>x.clienteId===e.cid&&x.id===e.tid),orig:e.orig}))
       .filter(o=>o.t && relevanteBoard(o.t));   /* a cópia respeita a área, como a original */
     const cs=reais.map(t=>bcardHTML(t,dayIso,null)).concat(dups.map(o=>bcardHTML(o.t,dayIso,o.orig)));
@@ -3296,7 +3342,7 @@ const novaAba = ev => ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1;
 
 /* ---------------- CLIQUES ---------------- */
 document.addEventListener("click", function(ev){
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-desrem],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-mvmodo],[data-desrem],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demlimpa],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3362,6 +3408,7 @@ document.addEventListener("click", function(ev){
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
   if(D.pessoax){ semPular(()=>{ removePessoa(D.pessoax); abrirEquipe(); }); return; }
   if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
+  if(D.demlimpa){ semPular(()=>{ limparDemandasFeitas(); abrirDemanda(); }); return; }
   if(D.demobs){ abrirObsDemanda(D.demobs, true); return; }
   if(D.demedit){ abrirEditarDemanda(D.demedit); return; }
   if(D.rename){ const p=D.rename.split("|"); abrirRenomear(p[0],p[1]); return; }
@@ -3393,6 +3440,8 @@ document.addEventListener("click", function(ev){
     /* a área é só um filtro: mantém a seção e o cliente abertos */
     semPular(render); return; }
   if(D.feed){ VISTA.feedDias=Number(D.feed)||7; semPular(render); return; }
+  if(D.mvmodo!==undefined){ MOVERMODO=(D.mvmodo==="1");
+    if(D.mcid&&D.mtid) semPular(()=>abrirMover(D.mcid,D.mtid,null,null)); return; }
   if(D.desrem){ const p=D.desrem.split("|"); desfazerRemanejo(p[0],p[1]); return; }
   if(D.irorig){                       /* a etiqueta laranja volta para o dia de origem */
     const o=D.irorig, r0=d(o);
@@ -3482,7 +3531,7 @@ document.addEventListener("mouseup", function(e){
   const col=el&&el.closest?el.closest("[data-daycol]"):null;
   if(!col) return;
   const p=st.data.split("|");
-  duplicarTarefa(p[0],p[1],col.getAttribute("data-daycol"));
+  moverTarefa(p[0],p[1],col.getAttribute("data-daycol"));
 });
 
 /* ---- atalhos de teclado (4.3) ---- */

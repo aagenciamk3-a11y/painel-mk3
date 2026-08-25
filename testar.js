@@ -250,6 +250,44 @@ __ok("admin apaga a de qualquer um", podeApagarDem(dAdmin)===true);
 __ok("o x fica desabilitado para quem nao pode", (function(){ USUARIO="Bia";
   const h=listaDemandas(); USUARIO="Guilherme"; return /dem-x off/.test(h); })());
 
+/* --- mover x copiar --- */
+ESTADO.dup=[]; rebuild();
+USUARIO="Carla";
+const alvo2=TODAS.filter(x=>x.clienteId==="suelem" && x.data>addD(iso(HOJE),3) && x.st.k!=="ok")
+  .sort((a,b)=>a.data.localeCompare(b.data))[0];
+const ID2=alvo2.id, ORIG2=alvo2.data, NOVO=addD(iso(HOJE),1);
+moverTarefa("suelem",ID2,NOVO);
+let m=TODAS.find(x=>x.clienteId==="suelem"&&x.id===ID2);
+__ok("mover troca a data que vale", m.data===NOVO);
+__ok("guarda de onde veio", m.movidaDe===ORIG2);
+__ok("o texto diz que foi movida", /movida de/.test(m.st.txt));
+__ok("movidaPara devolve o dia novo", movidaPara("suelem",ID2)===NOVO);
+__ok("fica registrado como mover, nao replanejar", (ESTADO.log[0]||{}).acao==="mover");
+moverTarefa("suelem",ID2,addD(iso(HOJE),2));
+__ok("mover de novo substitui, nao acumula",
+  (ESTADO.dup||[]).filter(e=>e.cid==="suelem"&&e.tid===ID2).length===1);
+ESTADO.dup=[]; rebuild();
+duplicarTarefa("suelem",ID2,NOVO,false);
+m=TODAS.find(x=>x.clienteId==="suelem"&&x.id===ID2);
+__ok("copiar mantem a data original", m.data===ORIG2);
+__ok("e nao marca como movida", !m.movidaDe);
+__ok("copia fica registrada como replanejar", (ESTADO.log[0]||{}).acao==="replanejar");
+ESTADO.dup=[]; rebuild();
+
+/* --- faxina das demandas --- */
+USUARIO="Guilherme"; ESTADO.demandas=[]; ESTADO.concluidas["_dem"]=[];
+addDemanda("A","mkt",iso(HOJE),"Carla","","");
+addDemanda("B","mkt",iso(HOJE),"Carla","","");
+const dA=ESTADO.demandas[0].id;
+ESTADO.concluidas["_dem"]=[{id:dA,data:iso(HOJE)}];
+__ok("o botao de limpar aparece com concluida", /data-demlimpa="1"/.test(listaDemandas()));
+limparDemandasFeitas();
+__ok("limpa so a concluida", ESTADO.demandas.length===1 && ESTADO.demandas[0].texto==="B");
+__ok("e tira a marcacao junto", (ESTADO.concluidas["_dem"]||[]).length===0);
+USUARIO="Carla";
+__ok("quem nao e admin nao ve o botao de limpar", !/data-demlimpa/.test(listaDemandas()));
+ESTADO.demandas=[]; USUARIO="Guilherme";
+
 /* --- x para desfazer o remanejamento --- */
 ESTADO.dup=[]; rebuild();
 USUARIO="Carla";
