@@ -47,23 +47,26 @@ const M=contexto(["dados.js","motor.js"]);
 
 bloco("Replanejar: antecipar, adiar e vencer de novo", M, limpar+`
 const hoje=iso(HOJE), passou=addD(hoje,-3);
-const alvo=TODAS.find(x=>x.clienteId==="cynthia"&&x.id==="planej_2026-08");
-__ok("a tarefa comeca no futuro", !!alvo && alvo.data>hoje && ["futuro","semana","umdia"].indexOf(alvo.st.k)>=0);
+/* pega qualquer tarefa que ainda esteja no futuro: assim o teste nao envelhece */
+const alvo=TODAS.filter(x=>x.clienteId==="cynthia" && x.data>addD(hoje,3) && x.st.k!=="ok")
+  .sort((a,b)=>a.data.localeCompare(b.data))[0];
+const ALVO=alvo?alvo.id:null;
+__ok("achou uma tarefa no futuro para o teste", !!alvo && alvo.data>hoje);
 __ok("da para trazer para hoje", podeReplanejar(alvo,hoje)===true);
 __ok("nao da para jogar no passado", podeReplanejar(alvo,addD(hoje,-1))===false);
 USUARIO="Carla";
-duplicarTarefa("cynthia","planej_2026-08",hoje);
-let t=TODAS.find(x=>x.clienteId==="cynthia"&&x.id==="planej_2026-08");
+duplicarTarefa("cynthia",ALVO,hoje);
+let t=TODAS.find(x=>x.clienteId==="cynthia"&&x.id===ALVO);
 __ok("antecipar faz vencer hoje", t.st.k==="hoje");
 __ok("o texto diz de onde veio", /antecipada de/.test(t.st.txt));
 __ok("guarda a data original", t.st.antecipada===alvo.data);
 __ok("registra quem replanejou", (ESTADO.log[0]||{}).quem==="Carla");
 ESTADO.dup=[]; rebuild();
-duplicarTarefa("cynthia","planej_2026-08","2026-09-10");
-t=TODAS.find(x=>x.clienteId==="cynthia"&&x.id==="planej_2026-08");
+duplicarTarefa("cynthia",ALVO,addD(hoje,40));
+t=TODAS.find(x=>x.clienteId==="cynthia"&&x.id===ALVO);
 __ok("adiar mantem o prazo original", !/antecipada/.test(t.st.txt));
-ESTADO.dup=[{cid:"cynthia",tid:"planej_2026-08",dia:passou,orig:"2026-08-23"}]; rebuild();
-t=TODAS.find(x=>x.clienteId==="cynthia"&&x.id==="planej_2026-08");
+ESTADO.dup=[{cid:"cynthia",tid:ALVO,dia:passou,orig:alvo.data}]; rebuild();
+t=TODAS.find(x=>x.clienteId==="cynthia"&&x.id===ALVO);
 __ok("remarcacao vencida vira status proprio", t.st.k==="replan");
 __ok("e diz que venceu de novo", /venceu de novo/.test(t.st.txt));
 __ok("replan esta nos baldes", BUCKETS.indexOf("replan")>=0 && !!ROTULO.replan);
@@ -219,6 +222,47 @@ __ok("o painel avisa que derrubou o antigo", /j\u00e1 derrubado/.test(portaisHTM
 USUARIO="Carla";
 __ok("quem nao e administracao nao entra", /administra/.test(portaisHTML()));
 USUARIO="Guilherme";
+`);
+
+bloco("Demandas da equipe e remanejamento", M, limpar+`
+/* --- quem pode criar e apagar demanda --- */
+USUARIO="Carla";
+addDemanda("Gravar reels da Suelem","mkt",iso(HOJE),"Marlon","","suelem");
+let d0=ESTADO.demandas[ESTADO.demandas.length-1];
+__ok("guarda quem criou", d0.criadaPor==="Carla");
+__ok("quem nao e admin cria so para si", d0.resp==="Carla");
+__ok("o menu mostra Nova demanda para todos", /data-demanda="1"/.test(sidebarHTML()));
+__ok("mas nao mostra as ferramentas de administracao", !/data-equipe="1"/.test(sidebarHTML()));
+USUARIO="Guilherme";
+addDemanda("Fechar contrato","com",iso(HOJE),"Marlon","","");
+const dAdmin=ESTADO.demandas[ESTADO.demandas.length-1];
+__ok("admin cria para outra pessoa", dAdmin.resp==="Marlon");
+USUARIO="Bia";
+__ok("nao apaga demanda dos outros", podeApagarDem(d0)===false);
+removeDemanda(d0.id);
+__ok("e a demanda continua la", ESTADO.demandas.some(x=>x.id===d0.id));
+USUARIO="Carla";
+__ok("apaga a propria", podeApagarDem(d0)===true);
+removeDemanda(d0.id);
+__ok("e ela some", !ESTADO.demandas.some(x=>x.id===d0.id));
+USUARIO="Guilherme";
+__ok("admin apaga a de qualquer um", podeApagarDem(dAdmin)===true);
+__ok("o x fica desabilitado para quem nao pode", (function(){ USUARIO="Bia";
+  const h=listaDemandas(); USUARIO="Guilherme"; return /dem-x off/.test(h); })());
+
+/* --- x para desfazer o remanejamento --- */
+ESTADO.dup=[]; rebuild();
+USUARIO="Carla";
+duplicarTarefa("suelem","midia_2026-08","2026-09-02");
+const tr=TODAS.find(x=>x.clienteId==="suelem"&&x.id==="midia_2026-08");
+__ok("a tarefa aparece como remanejada", remanejadaDe(tr)==="2026-09-02");
+__ok("a linha ganha o x", /data-desrem="suelem\|midia_2026-08"/.test(linha(tr,false)));
+desfazerRemanejo("suelem","midia_2026-08");
+__ok("o x desfaz o remanejamento", (ESTADO.dup||[]).length===0);
+const tr2=TODAS.find(x=>x.clienteId==="suelem"&&x.id==="midia_2026-08");
+__ok("e a linha para de mostrar o x", !/data-desrem/.test(linha(tr2,false)));
+__ok("tarefa sem remanejamento nao mostra o x", remanejadaDe(tr2)===null);
+__ok("desfazer fica registrado no feed", ESTADO.log.some(x=>x.acao==="desremanejar"));
 `);
 
 bloco("Rotas e menu", M, limpar+`
