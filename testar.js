@@ -333,6 +333,28 @@ const tq2=TODAS.find(x=>x.clienteId==="suelem"&&x.id===tq.id);
 __ok("tarefa de cliente aceita data real", tq2.st.k==="ok" && tq2.st.quando===ontem);
 ESTADO.concluidas={}; ESTADO.demandas=[]; rebuild();
 
+/* --- concluir na data prevista --- */
+ESTADO.concluidas={}; ESTADO.demandas=[]; USUARIO="Guilherme"; rebuild();
+const atrasada=TODAS.find(x=>x.clienteId==="suelem" && x.st.k==="atrasado" && x.data);
+if(atrasada){
+  const bl=blocoConcluir("suelem",atrasada.id,atrasada,"Concluído");
+  __ok("oferece concluir na data prevista", /data-macao="prevista"/.test(bl));
+  __ok("e leva a data da tarefa", bl.indexOf('data-mday="'+atrasada.data+'"')>0);
+  __ok("mostra a data no botao", bl.indexOf(fmt(atrasada.data))>0);
+  marcar("suelem",atrasada.id,atrasada.data,"concluir");
+  const dep=TODAS.find(x=>x.clienteId==="suelem"&&x.id===atrasada.id);
+  __ok("conclui sem gerar atraso", dep.st.k==="ok" && dep.st.atraso===0);
+  __ok("e a data registrada e a prevista", dep.st.quando===atrasada.data);
+}else{ __ok("nao ha tarefa atrasada agora para o teste",true); }
+const futura=TODAS.find(x=>x.clienteId==="suelem" && x.data>iso(HOJE) && x.st.k!=="ok");
+if(futura){
+  const bf=blocoConcluir("suelem",futura.id,futura,"Concluído");
+  __ok("tarefa ainda no prazo nao oferece data prevista", !/data-macao="prevista"/.test(bf));
+}
+__ok("o bloco tem os botoes empilhados", /class="mconc"/.test(blocoConcluir("suelem","x",{data:null},"Concluído")));
+__ok("e o campo de data anda junto do botao", /mconc-data/.test(blocoConcluir("suelem","x",{data:null},"Concluído")));
+ESTADO.concluidas={}; rebuild();
+
 /* --- faxina das demandas --- */
 USUARIO="Guilherme"; ESTADO.demandas=[]; ESTADO.concluidas["_dem"]=[];
 addDemanda("A","mkt",iso(HOJE),"Carla","","");

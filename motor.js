@@ -1639,6 +1639,35 @@ function abrirRelatorio(cid, ym){
     '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal(true);
 }
+/* As tres formas de concluir, no mesmo lugar e com o mesmo desenho.
+   "na data prevista" existe porque quase sempre a marcacao vem depois do fato:
+   a entrega saiu no prazo, so o registro atrasou. */
+function blocoConcluir(cid, tid, t, verbo){
+  const hoje=iso(HOJE);
+  const prev=t.data && t.data<hoje ? t.data : null;
+  return '<div class="mconc">'+
+    '<button class="mconc-b principal" data-macao="hoje" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">'+
+      esc(verbo)+' hoje <i>'+fmt(hoje)+'</i></button>'+
+    (prev?'<button class="mconc-b" data-macao="prevista" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'" data-mday="'+prev+'">'+
+      esc(verbo)+' na data prevista <i>'+fmt(prev)+'</i></button>':'')+
+    '</div>'+
+    '<label class="mlab">Ou em outro dia'+
+      '<div class="mconc-data">'+
+        '<input type="date" id="mdata" value="'+hoje+'" max="'+hoje+'">'+
+        '<button data-macao="data" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Concluir</button>'+
+      '</div>'+
+      '<span class="mhint">O painel conta o atraso pela data que voc\u00ea informar, n\u00e3o pela de hoje.</span>'+
+    '</label>';
+}
+function blocoCorrigir(cid, tid, quando){
+  const hoje=iso(HOJE);
+  return '<label class="mlab">Corrigir a data em que ficou pronta'+
+    '<div class="mconc-data">'+
+      '<input type="date" id="mdata" value="'+(quando||hoje)+'" max="'+hoje+'">'+
+      '<button data-macao="data" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Salvar</button>'+
+    '</div></label>';
+}
+
 /* demanda nao e tarefa de cliente: tem editor proprio, com remover e editar */
 function podeEditarDem(x){
   if(!x) return false;
@@ -1660,16 +1689,9 @@ function abrirEditorDemanda(id){
     (dm.obs?'<p class="mok">&#128221; '+esc(dm.obs)+'</p>':'')+
     (feita
       ? '<p class="mok">Concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
-        '<label class="mlab">Corrigir a data em que ficou pronta'+
-          '<input type="date" id="mdata" value="'+(t.st.quando||iso(HOJE))+'" max="'+iso(HOJE)+'"></label>'+
-        '<div class="mbtns wrap">'+
-          '<button data-macao="data" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Salvar a data</button>'+
-          '<button class="danger" data-macao="desfazer" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Reabrir</button></div>'
-      : '<div class="mbtns wrap"><button data-macao="hoje" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Concluir hoje</button></div>'+
-        '<label class="mlab">Ou no dia em que ela ficou pronta'+
-          '<input type="date" id="mdata" value="'+iso(HOJE)+'" max="'+iso(HOJE)+'">'+
-          '<span class="mhint">Serve para registrar depois: o painel conta o atraso pela data real, não pela de hoje.</span></label>'+
-        '<div class="mbtns"><button data-macao="data" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Concluir nesta data</button></div>')+
+        blocoCorrigir("_dem", id, t.st.quando)+
+        '<div class="mbtns wrap"><button class="danger" data-macao="desfazer" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Reabrir</button></div>'
+      : blocoConcluir("_dem", id, t, "Concluir"))+
     '<div class="mbtns wrap">'+
       (podeEditarDem(dm)?'<button class="sec" data-demedit="'+escAttr(id)+'">Editar</button>':'')+
       '<button class="sec" data-demobs="'+escAttr(id)+'">Observação</button>'+
@@ -1693,17 +1715,11 @@ function abrirEditor(cid,tid){
       : '')+
     (feita
       ? '<p class="mok">Já marcada como concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
-        '<label class="mlab">Corrigir a data em que ficou pronta'+
-          '<input type="date" id="mdata" value="'+(t.st.quando||iso(HOJE))+'" max="'+iso(HOJE)+'"></label>'+
-        '<div class="mbtns wrap"><button data-macao="data" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Salvar a data</button>'+
-        '<button class="danger" data-macao="desfazer" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Desfazer</button>'+
+        blocoCorrigir(cid, tid, t.st.quando)+
+        '<div class="mbtns wrap"><button class="danger" data-macao="desfazer" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">Desfazer</button>'+
         '<button class="sec" data-macao="fechar">Fechar</button></div>'
-      : '<div class="mbtns wrap"><button data-macao="hoje" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">'+esc(verbo)+' hoje</button></div>'+
-        '<label class="mlab">Ou no dia em que ficou pronta'+
-          '<input type="date" id="mdata" value="'+iso(HOJE)+'" max="'+iso(HOJE)+'">'+
-          '<span class="mhint">Serve para registrar depois: o painel conta o atraso pela data real, n\u00e3o pela de hoje.</span></label>'+
-        '<div class="mbtns"><button data-macao="data" data-mcid="'+cid+'" data-mtid="'+escAttr(tid)+'">'+esc(verbo)+' nesta data</button>'+
-        '<button class="sec" data-macao="fechar">Cancelar</button></div>')+
+      : blocoConcluir(cid, tid, t, verbo)+
+        '<div class="mbtns"><button class="sec" data-macao="fechar">Cancelar</button></div>')+
     '</div>';
   mostrarModal();
 }
@@ -1769,7 +1785,9 @@ function handleModal(D){
   if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value,($("dobs")&&$("dobs").value)||"",($("dcli")&&$("dcli").value)||null); abrirDemanda(); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
-  let dv = (D.macao==="hoje") ? iso(HOJE) : (($("mdata")&&$("mdata").value)||iso(HOJE));
+  let dv = (D.macao==="hoje") ? iso(HOJE)
+         : (D.macao==="prevista") ? (D.mday||iso(HOJE))
+         : (($("mdata")&&$("mdata").value)||iso(HOJE));
   /* nao existe concluir no futuro: o que se registra e o que ja aconteceu */
   if(dv>iso(HOJE)){ toast("A data de conclusão não pode ser no futuro",false); return; }
   marcar(cid,tid,dv,"concluir"); fecharModal();

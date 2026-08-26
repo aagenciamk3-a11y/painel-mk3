@@ -1173,6 +1173,22 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
 .row-desrem:hover{background:rgba(251,113,133,.28)}
 .dem-x.off{opacity:.2;cursor:not-allowed}
 
+/* ===== janela de concluir: opções empilhadas e alinhadas ===== */
+.mconc{display:flex;flex-direction:column;gap:7px;margin:4px 0 16px}
+.mconc-b{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:var(--txt);
+  font:inherit;font-size:14px;font-weight:600;padding:12px 15px;border-radius:10px;cursor:pointer;
+  text-align:left;transition:background .14s,border-color .14s}
+.mconc-b:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.26)}
+.mconc-b i{font-style:normal;font-size:12.5px;font-weight:500;opacity:.6;white-space:nowrap}
+.mconc-b.principal{background:var(--ok,#34D399);border-color:transparent;color:#06301c}
+.mconc-b.principal i{opacity:.75;color:#06301c}
+.mconc-b.principal:hover{filter:brightness(1.08);background:var(--ok,#34D399)}
+.mconc-data{display:flex;gap:7px;align-items:stretch;margin-top:5px}
+.mconc-data input{flex:1;min-width:0}
+.mconc-data button{flex:0 0 auto;padding:0 18px;white-space:nowrap}
+.mbox .mhint{display:block;font-size:11.5px;opacity:.5;margin-top:6px;line-height:1.45}
+
 /* demanda no calendário: sai do meio das tarefas do ciclo */
 .ev.ev-dem{border-left-width:3px!important;border-left-style:dashed!important}
 .ev.ev-dem .ev-tt::before{content:"+ ";opacity:.65;font-weight:800}
@@ -1368,7 +1384,7 @@ a.fd-c:hover{opacity:1;text-decoration:underline}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608261620"></script>
-<script src="motor.js?v=202608261620"></script>
+<script src="dados.js?v=202608261730"></script>
+<script src="motor.js?v=202608261730"></script>
 </body>
 </html>
