@@ -290,6 +290,27 @@ __ok("dia distante tambem tem data-dia",
   calendario(tarefasArea(), [], true).indexOf('data-dia=')>=0);
 ESTADO.demandas=[]; rebuild();
 
+/* --- clicar na demanda abre editor proprio --- */
+ESTADO.demandas=[]; ESTADO.concluidas["_dem"]=[]; USUARIO="Guilherme"; rebuild();
+addDemanda("Ajustar carrossel","mkt",iso(HOJE),"Carla","olhar a capa","suelem");
+const dmId=ESTADO.demandas[0].id;
+let erro=null;
+try{ abrirEditor("_dem", dmId); }catch(e){ erro=e.message; }
+__ok("clicar na demanda nao quebra", erro===null);
+const dmObj=ESTADO.demandas[0];
+__ok("admin pode editar", podeEditarDem(dmObj)===true);
+__ok("admin pode remover", podeApagarDem(dmObj)===true);
+USUARIO="Bia";
+__ok("quem nao criou nao edita", podeEditarDem(dmObj)===false);
+USUARIO="Guilherme";
+erro=null;
+try{ abrirEditor("suelem","midia_2026-08"); }catch(e){ erro=e.message; }
+__ok("tarefa normal continua abrindo", erro===null);
+erro=null;
+try{ abrirEditor("naoexiste","x"); }catch(e){ erro=e.message; }
+__ok("cliente inexistente nao quebra", erro===null);
+ESTADO.demandas=[]; rebuild();
+
 /* --- faxina das demandas --- */
 USUARIO="Guilherme"; ESTADO.demandas=[]; ESTADO.concluidas["_dem"]=[];
 addDemanda("A","mkt",iso(HOJE),"Carla","","");

@@ -1042,7 +1042,7 @@ function listaDemandas(){
       '<span class="dem-t">'+esc(x.texto)+' <i>'+(A[x.area]||"")+'</i>'+
         (x.obs?'<span class="dem-obs">&#128221; '+esc(x.obs)+'</span>':'')+'</span>'+
       '<span class="dem-r">'+esc(x.resp)+'</span>'+
-      (ehAdmin()?'<button class="dem-e" data-demedit="'+escAttr(x.id)+'" title="Editar demanda (texto, data, área, responsável)" aria-label="Editar demanda">&#9881;</button>':'')+
+      (podeEditarDem(x)?'<button class="dem-e" data-demedit="'+escAttr(x.id)+'" title="Editar demanda (texto, data, área, responsável)" aria-label="Editar demanda">&#9881;</button>':'')+
       '<button class="dem-e" data-demobs="'+escAttr(x.id)+'" title="Observações" aria-label="Observações">&#9998;</button>'+
       (podeApagarDem(x)
         ? '<button class="dem-x" data-demx="'+escAttr(x.id)+'" title="Remover" aria-label="Remover demanda">&#215;</button>'
@@ -1639,9 +1639,42 @@ function abrirRelatorio(cid, ym){
     '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal(true);
 }
+/* demanda nao e tarefa de cliente: tem editor proprio, com remover e editar */
+function podeEditarDem(x){
+  if(!x) return false;
+  if(ehAdmin()) return true;
+  return !!USUARIO && x.criadaPor===USUARIO;
+}
+function abrirEditorDemanda(id){
+  const dm=(ESTADO.demandas||[]).find(x=>x.id===id);
+  const t=TODAS.find(x=>x.clienteId==="_dem"&&x.id===id);
+  if(!dm || !t) return;
+  const feita=t.st.k==="ok";
+  const A={mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
+  const cli=dm.cli?cliente(dm.cli):null;
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>'+esc(dm.texto)+'</h3>'+
+    '<p class="msub">Demanda · '+esc(A[dm.area]||dm.area)+' · '+fmt(dm.data)+
+      ' · '+esc(dm.resp)+(cli?' · '+esc(cli.nome):'')+
+      (dm.criadaPor?' <i class="opt-l">(criada por '+esc(dm.criadaPor)+')</i>':'')+'</p>'+
+    (dm.obs?'<p class="mok">&#128221; '+esc(dm.obs)+'</p>':'')+
+    (feita
+      ? '<p class="mok">Concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
+        '<div class="mbtns wrap"><button class="danger" data-macao="desfazer" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Reabrir</button></div>'
+      : '<div class="mbtns wrap"><button data-macao="hoje" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Concluir hoje</button></div>')+
+    '<div class="mbtns wrap">'+
+      (podeEditarDem(dm)?'<button class="sec" data-demedit="'+escAttr(id)+'">Editar</button>':'')+
+      '<button class="sec" data-demobs="'+escAttr(id)+'">Observação</button>'+
+      (podeApagarDem(dm)?'<button class="danger" data-demx="'+escAttr(id)+'">Remover</button>':'')+
+    '</div>'+
+    (podeEditarDem(dm)?'':'<p class="mhint">Editar e remover só quem criou, ou a administração.</p>')+
+    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
+}
 function abrirEditor(cid,tid){
+  if(cid==="_dem"){ abrirEditorDemanda(tid); return; }
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
-  const feita=t.st.k==="ok"; const cli=cliente(cid); const anc=ANCORA[tid];
+  const feita=t.st.k==="ok"; const cli=cliente(cid); if(!cli) return; const anc=ANCORA[tid];
   const verbo = anc ? anc.verbo : "Concluído";
   const mm=$("modal");
   mm.innerHTML='<div class="mbox">'+
@@ -3413,10 +3446,15 @@ document.addEventListener("click", function(ev){
   }
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
   if(D.pessoax){ semPular(()=>{ removePessoa(D.pessoax); abrirEquipe(); }); return; }
-  if(D.demx){ semPular(()=>{ removeDemanda(D.demx); abrirDemanda(); }); return; }
+  if(D.demx){ const veio=modalAberto()&&/Demanda ·/.test(($("modal")||{}).innerHTML||"");
+    semPular(()=>{ removeDemanda(D.demx); if(veio) fecharModal(); else abrirDemanda(); }); return; }
   if(D.demlimpa){ semPular(()=>{ limparDemandasFeitas(); abrirDemanda(); }); return; }
   if(D.demobs){ abrirObsDemanda(D.demobs, true); return; }
-  if(D.demedit){ abrirEditarDemanda(D.demedit); return; }
+  if(D.demedit){
+    const dm=(ESTADO.demandas||[]).find(x=>x.id===D.demedit);
+    if(!podeEditarDem(dm)){ toast("Só dá para editar demanda que você mesmo criou",false); return; }
+    abrirEditarDemanda(D.demedit); return;
+  }
   if(D.rename){ const p=D.rename.split("|"); abrirRenomear(p[0],p[1]); return; }
   if(D.delt){ const p=D.delt.split("|"); confirmarExcluir(p[0],p[1]); return; }
   if(D.excl){ const p=D.excl.split("|"); excluirTarefa(p[0],p[1]); fecharModal(); return; }
