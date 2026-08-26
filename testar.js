@@ -274,6 +274,22 @@ __ok("e nao marca como movida", !m.movidaDe);
 __ok("copia fica registrada como replanejar", (ESTADO.log[0]||{}).acao==="replanejar");
 ESTADO.dup=[]; rebuild();
 
+/* --- demanda aparece na agenda e o dia vazio abre --- */
+ESTADO.demandas=[]; ESTADO.concluidas["_dem"]=[]; USUARIO="Guilherme"; VISTA.area="all"; VISTA.escopo=null; rebuild();
+const hjA=iso(HOJE);
+addDemanda("Demanda visivel na agenda","mkt",hjA,"Carla","","");
+__ok("a demanda entra na lista de tarefas", TODAS.some(x=>x.clienteId==="_dem"&&x.tarefa==="Demanda visivel na agenda"));
+__ok("e passa pelo filtro de area", tarefasArea().some(x=>x.tarefa==="Demanda visivel na agenda"));
+const cal=calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
+__ok("aparece no calendario", cal.indexOf("Demanda visivel na agenda")>=0);
+__ok("com marcacao propria", /ev-dem/.test(cal));
+__ok("todo dia e clicavel", cal.indexOf('data-dia="'+hjA+'"')>=0);
+/* um dia sem nada tambem tem que abrir */
+const vazio=addD(hjA,200);
+__ok("dia distante tambem tem data-dia",
+  calendario(tarefasArea(), [], true).indexOf('data-dia=')>=0);
+ESTADO.demandas=[]; rebuild();
+
 /* --- faxina das demandas --- */
 USUARIO="Guilherme"; ESTADO.demandas=[]; ESTADO.concluidas["_dem"]=[];
 addDemanda("A","mkt",iso(HOJE),"Carla","","");

@@ -1397,8 +1397,11 @@ function abrirDia(dayIso){
     (ags.length?'<div class="diaag">'+ags.map(e=>'<div class="diaag-l">&#9679; '+esc(e.titulo)+(e.diaInteiro?'':' · '+esc(e.hora||''))+
       ' '+donoHTML(e)+(e.meet?' <span class="ag-m" role="link" tabindex="0" data-abrir="'+escAttr(e.meet)+'">Meet</span>':'')+'</div>').join("")+'</div>':'')+
     (mks.length?'<div class="diamarco">'+mks.map(m=>"&#9670; "+esc(m.titulo)).join("<br>")+'</div>':'')+
-    (base.length?'<div class="dia-lista">'+base.map(t=>diaItem(t,showCli)).join("")+'</div>':'<div class="vazio">Nenhuma tarefa neste dia.</div>')+
-    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
+    (base.length?'<div class="dia-lista">'+base.map(t=>diaItem(t,showCli)).join("")+'</div>'
+               :'<div class="vazio">Nada marcado neste dia. Bom lugar para encaixar uma demanda.</div>')+
+    '<div class="mbtns">'+
+      (USUARIO?'<button data-demanda="1" data-demdia="'+dayIso+'">+ Nova demanda neste dia</button>':'')+
+      '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal();
 }
 function abrirNota(day){
@@ -1874,7 +1877,7 @@ const linha = (t, showCli) => '<div class="row editavel'+(showCli?" rowc":"")+'"
 
 /* ---- bloco de evento no calendário (estilo referência) ---- */
 function evCard(t, showCli, isMarco){
-  const cls  = isMarco ? "marco" : t.st.k;
+  const cls  = isMarco ? "marco" : (t.st.k + (t.fase==="Demanda" ? " ev-dem" : ""));
   const meta = isMarco ? "Marco" : (showCli ? t.cliente : t.resp);
   const tt   = (isMarco?"◆ ":"")+esc(t.tarefa || t.titulo);
   const dattr = isMarco ? (' data-tt="'+escAttr(t.titulo||t.tarefa||"")+'"') : attrsEdit(t);
@@ -2038,9 +2041,12 @@ function calendario(tasks, marcos, showCli){
     const mk   = marcos.filter(m=>m.data===s);
     const ags  = (VISTA.area==="all"||VISTA.area==="mkt") ? agendaVisivel().filter(e=>e.dia===s) : [];
     const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":""].filter(Boolean).join(" ");
-    const maxEv = 2;
+    const maxEv = 3;
     /* dentro do dia: o que está atrasado vem primeiro, o que já foi aprovado/concluído vem por último */
-    const peso = it => it.ag ? 1.5 : (it.marco ? 3.5 : (ORDEM[it.o.st.k]!=null ? ORDEM[it.o.st.k] : 9));
+    const peso = it => it.ag ? 1.5
+      : (it.marco ? 3.5
+      : (it.o.fase==="Demanda" ? 0.8            /* demanda aparece cedo: e o que a equipe acabou de criar */
+      : (ORDEM[it.o.st.k]!=null ? ORDEM[it.o.st.k] : 9)));
     const items = ags.map(a=>({o:a,ag:true})).concat(mk.map(m=>({o:m,marco:true}))).concat(evs.map(t=>({o:t,marco:false})))
       .sort((a,b)=> peso(a)-peso(b)
         || String((a.ag||a.marco)?(a.o.titulo||""):(a.o.cliente||"")).localeCompare(String((b.ag||b.marco)?(b.o.titulo||""):(b.o.cliente||"")))

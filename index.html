@@ -1173,6 +1173,11 @@ a.abar-b.on,a.abar-b.on:visited{color:#fff}
 .row-desrem:hover{background:rgba(251,113,133,.28)}
 .dem-x.off{opacity:.2;cursor:not-allowed}
 
+/* demanda no calendário: sai do meio das tarefas do ciclo */
+.ev.ev-dem{border-left-width:3px!important;border-left-style:dashed!important}
+.ev.ev-dem .ev-tt::before{content:"+ ";opacity:.65;font-weight:800}
+.cel.fora{cursor:pointer}
+
 /* ===== mover ou copiar, e faxina de demandas ===== */
 .mv-modo{display:flex;gap:5px;margin:0 0 12px}
 .mv-m{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:var(--mut);
@@ -1363,7 +1368,7 @@ a.fd-c:hover{opacity:1;text-decoration:underline}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202608251720"></script>
-<script src="motor.js?v=202608251720"></script>
+<script src="dados.js?v=202608261400"></script>
+<script src="motor.js?v=202608261400"></script>
 </body>
 </html>
