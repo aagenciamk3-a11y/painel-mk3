@@ -311,6 +311,28 @@ try{ abrirEditor("naoexiste","x"); }catch(e){ erro=e.message; }
 __ok("cliente inexistente nao quebra", erro===null);
 ESTADO.demandas=[]; rebuild();
 
+/* --- concluir na data real --- */
+ESTADO.demandas=[]; ESTADO.concluidas={}; ESTADO.concluidas["_dem"]=[]; USUARIO="Guilherme"; rebuild();
+const ontem=addD(iso(HOJE),-2);
+addDemanda("Feita anteontem","mkt",addD(iso(HOJE),-5),"Carla","","");
+const idD=ESTADO.demandas[0].id;
+marcar("_dem",idD,ontem,"concluir");
+let td=TODAS.find(x=>x.clienteId==="_dem"&&x.id===idD);
+__ok("demanda conclui na data informada", td.st.k==="ok" && td.st.quando===ontem);
+__ok("e o atraso e contado pela data real", td.st.atraso===uteisEntre(addD(iso(HOJE),-5),ontem));
+marcar("_dem",idD,iso(HOJE),"concluir");
+td=TODAS.find(x=>x.clienteId==="_dem"&&x.id===idD);
+__ok("da para corrigir a data depois", td.st.quando===iso(HOJE));
+__ok("e nao duplica o registro", (ESTADO.concluidas["_dem"]||[]).filter(e=>e.id===idD).length===1);
+const ed=(function(){ try{ abrirEditorDemanda(idD); return ""; }catch(e){ return e.message; } })();
+__ok("o editor da demanda abre concluida", ed==="");
+/* tarefa de cliente tambem */
+const tq=TODAS.filter(x=>x.clienteId==="suelem" && x.st.k!=="ok" && x.data)[0];
+marcar("suelem",tq.id,ontem,"concluir");
+const tq2=TODAS.find(x=>x.clienteId==="suelem"&&x.id===tq.id);
+__ok("tarefa de cliente aceita data real", tq2.st.k==="ok" && tq2.st.quando===ontem);
+ESTADO.concluidas={}; ESTADO.demandas=[]; rebuild();
+
 /* --- faxina das demandas --- */
 USUARIO="Guilherme"; ESTADO.demandas=[]; ESTADO.concluidas["_dem"]=[];
 addDemanda("A","mkt",iso(HOJE),"Carla","","");
