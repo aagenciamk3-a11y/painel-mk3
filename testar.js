@@ -462,8 +462,39 @@ __ok("a aba lista as pessoas", /Chegaram este m\u00eas/.test(ht) && /Maria|maria
 __ok("tem botao de whatsapp", /Chamar no WhatsApp/.test(ht));
 __ok("tem a marcacao de contato", /data-contato="l1"/.test(ht));
 __ok("tem os quatro contadores", /tp-n leads/.test(ht) && /tp-n cont/.test(ht) && /tp-n venda/.test(ht) && /tp-n parc/.test(ht));
-__ok("mostra o mes e o total", /no total/.test(ht));
+__ok("mostra o mes e o acumulado", /desde o come\u00e7o/.test(ht));
 __ok("mostra o empreendimento do lead", /Pier Boulevard/.test(ht));
+/* escolher o mes muda os numeros e a lista */
+LEADS={a1:{nome:"Ana",tel:"p:27999990001",anuncio:"[LEADS] ATAIDE",quando:iso(HOJE)+"T09:00:00-03:00"},
+       a2:{nome:"Bia",tel:"p:27999990002",anuncio:"Casa - Rio Marinho",quando:"2026-05-10T09:00:00-03:00"},
+       a3:{nome:"Cida",tel:"p:27999990003",anuncio:"Casa - Rio Marinho",quando:"2026-05-11T09:00:00-03:00"}};
+CRM={a2:{contato:true,venda:true}};
+MESLEAD=null;
+let nAt=contarTrafego();
+__ok("sem escolher, conta o mes corrente", nAt.leadsMes===1);
+__ok("e o total continua sendo de todos", nAt.leadsTudo===3);
+const nMaio=contarTrafego("2026-05");
+__ok("escolhendo maio, conta maio", nMaio.leadsMes===2);
+__ok("as vendas de maio aparecem", nMaio.vendaMes===1);
+__ok("e o contato de maio tambem", nMaio.contatoMes===1);
+__ok("o mes corrente nao tem venda", contarTrafego(ymDe(0)).vendaMes===0);
+const ms=mesesComLead();
+__ok("lista os meses que tem lead", ms.indexOf("2026-05")>=0 && ms.indexOf(ymDe(0))>=0);
+__ok("do mais novo para o mais antigo", ms[0]>=ms[ms.length-1]);
+let ht2=trafegoHTML();
+__ok("mostra os botoes de mes", /data-meslead="2026-05"/.test(ht2));
+__ok("o mes corrente vem marcado", new RegExp('tp-mes on" data-meslead="'+ymDe(0)).test(ht2));
+MESLEAD="2026-05";
+ht2=trafegoHTML();
+__ok("escolhendo maio, o titulo vira maio", /Maio de 2026/.test(ht2));
+__ok("e a lista mostra os de maio", /Bia/.test(ht2) && /Cida/.test(ht2));
+__ok("sem misturar com os de agora", !/Ana/.test(ht2));
+__ok("os numeros do topo sao os de maio", ht2.indexOf(">2<")>0);
+MESLEAD="2026-05";
+LEADS={a1:{nome:"Ana",tel:"p:27999990001",anuncio:"x",quando:iso(HOJE)+"T09:00:00-03:00"}};
+__ok("mes escolhido que ficou sem lead volta para o corrente", /Chegaram este m\u00eas/.test(trafegoHTML()));
+MESLEAD=null; CRM={};
+
 /* separacao por mes */
 LEADS={a1:{nome:"Ana",tel:"p:27999990001",anuncio:"[LEADS] ATAIDE",quando:iso(HOJE)+"T09:00:00-03:00"},
        a2:{nome:"Bia",tel:"p:27999990002",anuncio:"Casa - Rio Marinho",quando:"2026-05-10T09:00:00-03:00"},
@@ -472,14 +503,10 @@ LEADS={a1:{nome:"Ana",tel:"p:27999990001",anuncio:"[LEADS] ATAIDE",quando:iso(HO
 CRM={};
 let hm=trafegoHTML();
 __ok("o mes corrente vem aberto e separado", /Chegaram este m\u00eas/.test(hm));
-__ok("os meses de antes ficam dobrados", /<details class="gm"/.test(hm));
-__ok("cada mes anterior vira um grupo", (hm.match(/<details class="gm"/g)||[]).length===2);
-__ok("o grupo diz quantas pessoas tem", /2 pessoas/.test(hm));
+__ok("os outros meses viram botao de escolha", /data-meslead=/.test(hm));
 __ok("o titulo dos numeros e o mes por extenso", hm.indexOf(mesRotulo(ymDe(0)))>0);
 __ok("so o lead do mes conta no contador", contarTrafego().leadsMes===1);
 __ok("o total conta todos", contarTrafego().leadsTudo===4);
-CRM={a2:{contato:true}};
-__ok("o grupo do mes antigo mostra quantas ja foram atendidas", /1 j\u00e1 atendida/.test(trafegoHTML()));
 CRM={};
 LEADS={a2:{nome:"Bia",tel:"p:27999990002",anuncio:"x",quando:"2026-05-10T09:00:00-03:00"}};
 __ok("mes corrente vazio avisa em vez de sumir", /Nenhuma pessoa nova este m\u00eas ainda/.test(trafegoHTML()));
@@ -575,7 +602,9 @@ let dj=detalheDia();
 __ok("o dia abre como janela sobre a tela", /dd-fundo/.test(dj) && /dd-box/.test(dj));
 __ok("a janela e acessivel", /role="dialog"/.test(dj) && /aria-modal="true"/.test(dj));
 __ok("o dia aberto fica marcado na grade", /cd-d[^"]*sel/.test(proximos()));
-__ok("diz de quem e a vez naquele dia", /dd-faixa/.test(dj) || /Nada marcado/.test(dj));
+__ok("a janela do dia sempre tem cabecalho com a data", /dd-h/.test(dj) && /dd-box/.test(dj));
+__ok("e mostra o conteudo do dia ou diz que nao tem",
+  /dd-lista/.test(dj) || /Nada marcado/.test(dj));
 __ok("tem botao de fechar", /data-pdia=""/.test(dj));
 PDIA="2030-01-01";
 __ok("dia sem nada diz que nao tem nada", /Nada marcado para este dia/.test(detalheDia()));
