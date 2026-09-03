@@ -313,13 +313,14 @@ body.travado{overflow:hidden}
 
 /* ===== tráfego pago ===== */
 .tp-sub{margin:0}
-.tp-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tp-nums{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 .tp-n{background:var(--panel2);border-radius:11px;padding:13px 12px;border-left:3px solid var(--mut)}
 .tp-n b{display:block;font-size:27px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
 .tp-n i{display:block;font-style:normal;font-size:12px;color:var(--mut);margin-top:3px;line-height:1.3}
 .tp-n span{display:block;font-size:11px;color:var(--mut);opacity:.65;margin-top:5px}
 .tp-n.leads{border-left-color:var(--mk3)}   .tp-n.leads b{color:#C4B5FD}
 .tp-n.cont{border-left-color:var(--umdia)}  .tp-n.cont b{color:var(--umdia)}
+.tp-n.visi{border-left-color:#38BDF8}       .tp-n.visi b{color:#7DD3FC}
 .tp-n.venda{border-left-color:var(--ok)}    .tp-n.venda b{color:var(--ok)}
 .tp-n.parc{border-left-color:var(--mk3o)}   .tp-n.parc b{color:var(--mk3o)}
 
@@ -336,6 +337,7 @@ body.travado{overflow:hidden}
 .ld-selo{display:inline-block;font-size:11px;font-weight:700;margin-top:8px;padding:3px 10px;border-radius:99px}
 .ld-selo.v{background:rgba(76,196,99,.2);color:#BFEBC7}
 .ld-selo.p{background:rgba(249,115,22,.2);color:#FFC79A}
+.ld-selo.m{background:rgba(56,189,248,.2);color:#A5E4FD}
 .ld-acoes{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:11px}
 .ld-zap{background:#25D366;color:#0b2f18;font-weight:700;font-size:12.5px;text-decoration:none;
   padding:8px 14px;border-radius:9px;display:inline-flex;align-items:center}
@@ -355,6 +357,7 @@ body.travado{overflow:hidden}
   padding:13px 16px;border-radius:10px;cursor:pointer;text-align:left}
 .fe-b:hover{border-color:var(--mut)}
 .fe-b.on{background:rgba(76,196,99,.16);border-color:rgba(76,196,99,.5);font-weight:650}
+.fe-b.vis.on{background:rgba(56,189,248,.16);border-color:rgba(56,189,248,.5)}
 @media(max-width:620px){
   .tp-nums{grid-template-columns:repeat(2,1fr)}
   .cli-abas{display:flex;width:100%}
@@ -786,7 +789,7 @@ $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-d
 
 /* ================== TRAFEGO PAGO ==================
    Os leads chegam da planilha do Meta pela ponte no Apps Script e ficam no
-   Firebase. O que a equipe marca aqui (contato, venda, parceria) vive num no
+   Firebase. O que a equipe marca aqui (contato, visita, venda, parceria) vive num no
    separado, para a proxima carga do Meta nunca sobrescrever o trabalho. */
 /* o rotulo vem do proprio nome do conjunto/anuncio no Meta.
    Sem lista fixa: cliente novo funciona sem eu mexer no codigo. */
@@ -855,12 +858,14 @@ function ymDeData(iso0){ return String(iso0||"").slice(0,7); }
 function contarTrafego(ymAlvo){
   const ym=ymAlvo||ymDe(0), l=listaLeads();
   const noMes=x=>ymDeData(x.quando)===ym;
+  const visi=x=>{ const c=crmDe(x._id); return !!c.visita; };
   const vend=x=>{ const c=crmDe(x._id); return !!c.venda; };
   const parc=x=>{ const c=crmDe(x._id); return !!c.parceria; };
   return {
     leadsMes:l.filter(noMes).length,       leadsTudo:l.length,
     contatoMes:l.filter(x=>noMes(x)&&crmDe(x._id).contato).length,
     contatoTudo:l.filter(x=>crmDe(x._id).contato).length,
+    visitaMes:l.filter(x=>noMes(x)&&visi(x)).length,  visitaTudo:l.filter(visi).length,
     vendaMes:l.filter(x=>noMes(x)&&vend(x)).length,   vendaTudo:l.filter(vend).length,
     parcMes:l.filter(x=>noMes(x)&&parc(x)).length,    parcTudo:l.filter(parc).length
   };
@@ -868,12 +873,13 @@ function contarTrafego(ymAlvo){
 function cardLead(l){
   const c=crmDe(l._id), emp=empreendimentoDe(l), zap=linkZap(l);
   const quando=l.quando?fmt(String(l.quando).slice(0,10)):"";
-  return '<div class="ld'+(c.contato?" feito":"")+(c.venda?" vendeu":"")+'">'+
+  return '<div class="ld'+(c.contato?" feito":"")+(c.visita?" visitou":"")+(c.venda?" vendeu":"")+'">'+
     '<div class="ld-topo">'+
       '<div class="ld-id"><b>'+esc(l.nome||"sem nome")+'</b>'+
         '<span>'+esc(telBonito(l.tel))+(quando?' · '+quando:'')+'</span></div>'+
       (emp?'<span class="ld-emp">'+esc(emp)+'</span>':'')+
     '</div>'+
+    (c.visita?'<div class="ld-selo m">Visita marcada</div>':'')+
     (c.venda?'<div class="ld-selo v">Venda concluída</div>':'')+
     (c.parceria?'<div class="ld-selo p">Parceria concluída</div>':'')+
     '<div class="ld-acoes">'+
@@ -881,7 +887,7 @@ function cardLead(l){
           :'<span class="ld-zap off" title="Telefone fora do padrão">Telefone inválido</span>')+
       '<button class="ld-chk'+(c.contato?" on":"")+'" data-contato="'+escAttr(l._id)+'">'+
         (c.contato?'&#10003; Falei com essa pessoa':'Entrei em contato?')+'</button>'+
-      '<button class="ld-mais" data-fechar="'+escAttr(l._id)+'" title="Registrar venda ou parceria">&#8942;</button>'+
+      '<button class="ld-mais" data-fechar="'+escAttr(l._id)+'" title="Registrar visita, venda ou parceria">&#8942;</button>'+
     '</div></div>';
 }
 function mesRotulo(ym){
@@ -922,6 +928,7 @@ function trafegoHTML(){
   const contas='<section class="bloco"><h2>'+esc(mesRotulo(ym))+'</h2><div class="tp-nums">'+
     num(n.leadsMes,   n.leadsTudo,   "pessoas chegaram", "leads")+
     num(n.contatoMes, n.contatoTudo, "já foram atendidas","cont")+
+    num(n.visitaMes,  n.visitaTudo,  "visitas marcadas", "visi")+
     num(n.vendaMes,   n.vendaTudo,   "vendas concluídas","venda")+
     num(n.parcMes,    n.parcTudo,    "parcerias fechadas","parc")+
     '</div></section>';
@@ -947,6 +954,7 @@ function abrirFechamento(id){
     '<div class="dd-h"><b>'+esc(l.nome||"Lead")+'</b><button data-fecharx="1" aria-label="Fechar">&times;</button></div>'+
     '<p class="dd-sub">'+esc(telBonito(l.tel))+(empreendimentoDe(l)?' · '+esc(empreendimentoDe(l)):'')+'</p>'+
     '<div class="fe-op">'+
+      '<button class="fe-b vis'+(c.visita?" on":"")+'" data-marcar="'+escAttr(id)+'|visita">Marcou visita</button>'+
       '<button class="fe-b'+(c.venda?" on":"")+'" data-marcar="'+escAttr(id)+'|venda">Venda concluída</button>'+
       '<button class="fe-b'+(c.parceria?" on":"")+'" data-marcar="'+escAttr(id)+'|parceria">Parceria concluída</button>'+
     '</div>'+
