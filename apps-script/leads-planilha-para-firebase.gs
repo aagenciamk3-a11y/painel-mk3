@@ -1,8 +1,9 @@
 /* =====================================================================
    PONTE: planilha de leads do Meta  ->  Firebase  ->  portal do cliente
 
-   Onde instalar: na PRÓPRIA planilha LEADS_SUELEM
-   (Extensões > Apps Script), não no projeto da agenda.
+   Onde instalar: na planilha LEADS_SUELEM (Extensões > Apps Script),
+   não no projeto da agenda. Um script só atende todos os clientes:
+   as outras planilhas são abertas pelo ID, na lista PLANILHAS abaixo.
 
    O que ela faz:
    - lê a aba de leads,
@@ -17,8 +18,14 @@
 
 /* ---------- CONFIGURAÇÃO ---------- */
 var DB      = "https://painel-mk3-default-rtdb.firebaseio.com";
-var CLIENTE = "suelem";        // id do cliente no painel
 var PULAR   = [];              // abas a ignorar, se um dia houver alguma de apoio
+
+/* Cliente do painel  ->  ID da planilha de leads dele.
+   Cliente novo: acrescente uma linha aqui e rode instalar() de novo. */
+var PLANILHAS = {
+  "suelem":  "1vfW01ZxJRoUabKWHL_kibO23H0O3JeBwO8ut0Iy6igw",
+  "cynthia": "1ejd6C0TfLHJ3LdSY5nv5ihuOT0cNw_TzbZtWtdlDLck"
+};
 
 /* O segredo do banco NÃO fica escrito aqui.
    Guarde uma vez em Configurações do projeto > Propriedades do script,
@@ -120,9 +127,9 @@ function lerAba_(sh, out){
   }
   return n;
 }
-function lerLeads_(){
+function lerLeads_(ss){
   var out = {};
-  SpreadsheetApp.getActive().getSheets().forEach(function(sh){
+  ss.getSheets().forEach(function(sh){
     if(PULAR.indexOf(sh.getName()) >= 0) return;
     var n = lerAba_(sh, out);
     Logger.log("Aba \"" + sh.getName() + "\": " + n + " leads.");
@@ -149,40 +156,47 @@ function fbPut_(caminho, obj){
 }
 
 /* qual é o link ativo do cliente agora */
-function tokenAtivo_(){
-  var p = fbGet_("painel/estado/portais/" + CLIENTE);
+function tokenAtivo_(cliente){
+  var p = fbGet_("painel/estado/portais/" + cliente);
   return (p && p.ativo) ? p.ativo : null;
 }
 
 /* ---------- ROTINA PRINCIPAL ---------- */
 function sincronizar(){
-  var leads = lerLeads_();
+  Object.keys(PLANILHAS).forEach(function(cliente){
+    try { sincronizarCliente_(cliente); }
+    catch(e){ Logger.log("Cliente " + cliente + " falhou: " + e.message); }
+  });
+}
+function sincronizarCliente_(cliente){
+  var ss;
+  try { ss = SpreadsheetApp.openById(PLANILHAS[cliente]); }
+  catch(e){ throw new Error("não consegui abrir a planilha (" + e.message + ")"); }
+
+  var leads = lerLeads_(ss);
   var n = Object.keys(leads).length;
 
   // cópia interna, sempre: é a fonte da verdade e não depende do link
-  fbPut_("painel/leads/" + CLIENTE, leads);
+  fbPut_("painel/leads/" + cliente, leads);
 
-  var tk = tokenAtivo_();
+  var tk = tokenAtivo_(cliente);
   if(!tk){
-    Logger.log("Li " + n + " leads e guardei em painel/leads/" + CLIENTE +
-               ". O cliente ainda não tem link gerado no painel, então não publiquei no portal.");
+    Logger.log(cliente + ": li " + n + " leads e guardei em painel/leads/" + cliente +
+               ". Ainda não há link gerado no painel, então não publiquei no portal.");
     return;
   }
   // só o nó de leads: não encosta em nada que o painel publica
   fbPut_("painel/publico/" + tk + "/leads", leads);
-  Logger.log("Publiquei " + n + " leads no portal do cliente " + CLIENTE + ".");
+  Logger.log(cliente + ": publiquei " + n + " leads no portal.");
 }
 
 /* ---------- CONFERÊNCIA (rode à mão para testar) ---------- */
 function conferir(){
-  var leads = lerLeads_();
-  var ks = Object.keys(leads);
-  var semTel = ks.filter(function(k){ return !leads[k].tel; });
-  var meses = {};
-  ks.forEach(function(k){ var m = String(leads[k].quando).slice(0,7) || "sem data"; meses[m] = (meses[m]||0)+1; });
-  Logger.log("Leads validos: " + ks.length);
-  Logger.log("Sem telefone aproveitavel: " + semTel.length);
-  Logger.log("Por mes: " + JSON.stringify(meses));
-  Logger.log("Link ativo do cliente: " + (tokenAtivo_() || "nenhum"));
-  if(ks.length) Logger.log("Exemplo de registro: " + JSON.stringify(leads[ks[0]]));
+  Object.keys(PLANILHAS).forEach(function(cliente){
+    var leads = lerLeads_(SpreadsheetApp.openById(PLANILHAS[cliente]));
+    var ks = Object.keys(leads);
+    var semTel = ks.filter(function(k){ return !leads[k].tel; });
+    Logger.log(cliente + ": " + ks.length + " leads, " + semTel.length + " sem telefone aproveitável.");
+    if(ks.length) Logger.log("  exemplo: " + JSON.stringify(leads[ks[ks.length-1]]));
+  });
 }
