@@ -62,20 +62,34 @@ function lerAba_(sh, out){
 
   var cab = val[0].map(function(c){ return String(c).trim().toLowerCase(); });
   var col = function(nome){ return cab.indexOf(nome); };
+  // o Meta exporta ora em portugues, ora em ingles: aceitamos os dois
+  var qualquer = function(lista){
+    for (var a = 0; a < lista.length; a++){ var p = col(lista[a]); if (p >= 0) return p; }
+    return -1;
+  };
 
-  var iId   = col("id"),
-      iQdo  = col("created_time"),
-      iAd   = col("ad_name"),
-      iSet  = col("adset_name"),
-      iPlat = col("platform"),
-      iNome = col("nome_completo"),
-      iTel  = col("número_de_telefone"),
-      iReg  = -1;
-  for(var k = 0; k < cab.length; k++){ if(cab[k].indexOf("regi") >= 0){ iReg = k; break; } }
+  var iId   = qualquer(["id"]),
+      iQdo  = qualquer(["created_time", "data_de_criação", "data_de_criacao"]),
+      iAd   = qualquer(["ad_name", "nome_do_anúncio", "nome_do_anuncio"]),
+      iSet  = qualquer(["adset_name", "nome_do_conjunto_de_anúncios", "nome_do_conjunto"]),
+      iPlat = qualquer(["platform", "plataforma"]),
+      iNome = qualquer(["nome_completo", "full_name", "nome"]),
+      iTel  = qualquer(["número_de_telefone", "numero_de_telefone", "phone_number", "telefone"]);
+
+  // a pergunta personalizada muda de campanha para campanha:
+  // e qualquer coluna que nao seja uma das conhecidas
+  var conhecidas = ["id","created_time","ad_id","ad_name","adset_id","adset_name",
+    "campaign_id","campaign_name","form_id","form_name","is_organic","platform",
+    "lead_status","nome_completo","full_name","nome","número_de_telefone",
+    "numero_de_telefone","phone_number","telefone","data_de_criação","data_de_criacao"];
+  var iResp = -1, rotuloResp = "";
+  for (var k = 0; k < cab.length; k++){
+    if (cab[k] && conhecidas.indexOf(cab[k]) < 0){ iResp = k; rotuloResp = String(val[0][k]); break; }
+  }
 
   // aba sem o cabecalho esperado e ignorada, em vez de derrubar a rotina inteira
   if(iId < 0 || iNome < 0 || iTel < 0){
-    Logger.log("Aba \"" + sh.getName() + "\" fora do padrao, ignorada.");
+    Logger.log("Aba \"" + sh.getName() + "\" fora do padrao, ignorada. Cabecalho lido: " + cab.join(", "));
     return 0;
   }
 
@@ -97,7 +111,8 @@ function lerAba_(sh, out){
       anuncio:   iAd  >= 0 ? String(L[iAd]  || "") : "",
       conjunto:  iSet >= 0 ? String(L[iSet] || "") : "",
       plataforma:iPlat>= 0 ? String(L[iPlat]|| "") : "",
-      regiao:    iReg >= 0 ? String(L[iReg] || "").slice(0,200) : "",
+      resposta:  iResp >= 0 ? String(L[iResp] || "").slice(0,200) : "",
+      pergunta:  rotuloResp,
       quando:    quando,
       aba:       sh.getName()
     };

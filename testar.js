@@ -122,7 +122,7 @@ __ok("menu Feed sem bolinha", !/Feed<\\/span><span class="snav-n"/.test(sidebarH
 
 bloco("Autor registrado em todas as acoes", M, limpar+`
 USUARIO="Carla";
-duplicarTarefa("suelem","midia_2026-08","2026-09-02");
+duplicarTarefa("suelem","midia_2026-08",addD(iso(HOJE),7));
 __ok("replanejar guarda o autor", (ESTADO.log[0]||{}).quem==="Carla");
 ESTADO.log=[]; setObsTarefa("suelem","midia_2026-08",iso(HOJE),"teste",false);
 __ok("observacao guarda o autor", (ESTADO.log[0]||{}).quem==="Carla");
@@ -372,9 +372,10 @@ ESTADO.demandas=[]; USUARIO="Guilherme";
 /* --- x para desfazer o remanejamento --- */
 ESTADO.dup=[]; rebuild();
 USUARIO="Carla";
-duplicarTarefa("suelem","midia_2026-08","2026-09-02");
+const alvoRem=addD(iso(HOJE),7);
+duplicarTarefa("suelem","midia_2026-08",alvoRem);
 const tr=TODAS.find(x=>x.clienteId==="suelem"&&x.id==="midia_2026-08");
-__ok("a tarefa aparece como remanejada", remanejadaDe(tr)==="2026-09-02");
+__ok("a tarefa aparece como remanejada", remanejadaDe(tr)===alvoRem);
 __ok("a linha ganha o x", /data-desrem="suelem\|midia_2026-08"/.test(linha(tr,false)));
 desfazerRemanejo("suelem","midia_2026-08");
 __ok("o x desfaz o remanejamento", (ESTADO.dup||[]).length===0);
@@ -428,11 +429,18 @@ __ok("telefone com espaco tambem", telLimpo("p:27 998887565")==="27998887565");
 __ok("telefone com + sem 55 tambem", telLimpo("p:+27998887565")==="27998887565");
 __ok("fixo de 10 digitos ganha o 9", telLimpo("p:2733334444")==="27933334444");
 __ok("telefone bonito sai formatado", telBonito("p:+5527998887565")==="(27) 99888-7565");
+__ok("a mensagem assina com o nome do dono do portal", mensagemDe({nome:"ana",tel:"p:27999990000"}).indexOf(primeiroNome(C.nome))>0);
 __ok("empreendimento sai do nome do anuncio",
   empreendimentoDe({anuncio:"Casa - Rio Marinho - Video"})==="Rio Marinho");
+__ok("prefere o conjunto ao anuncio",
+  empreendimentoDe({conjunto:"[LEADS] Cadastro - Pier Boulevard",anuncio:"x"})==="Pier Boulevard");
+__ok("funciona com campanha que eu nunca vi",
+  empreendimentoDe({conjunto:"[LEADS] Cadastro - Residencial Nova Era"})==="Residencial Nova Era");
 __ok("empreendimento aceita travessao",
   empreendimentoDe({anuncio:"Casa - Domingos Martins \u2014 V\u00eddeo V2"})==="Domingos Martins");
-__ok("anuncio desconhecido nao inventa empreendimento", empreendimentoDe({anuncio:"qualquer coisa"})==="");
+__ok("anuncio desconhecido vira rotulo mesmo assim", empreendimentoDe({anuncio:"Residencial Qualquer"})==="Residencial Qualquer");
+__ok("nome generico de campanha nao vira empreendimento", empreendimentoDe({anuncio:"[LEADS] Cadastro - Teste"})==="");
+__ok("sem conjunto e sem anuncio nao inventa", empreendimentoDe({})==="");
 __ok("reconhece o Ataide", empreendimentoDe({anuncio:"[LEADS] ATAIDE"})==="Ata\u00edde");
 __ok("reconhece o Ataide com acento", empreendimentoDe({conjunto:"[LEADS] Cadastro - Ata\u00edde"})==="Ata\u00edde");
 const l1={_id:"l1",nome:"maria de souza",tel:"p:+5527998887565",anuncio:"[LEADS] PIER BOULEVARD",quando:iso(HOJE)+"T10:00:00-03:00"};

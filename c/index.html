@@ -788,19 +788,29 @@ $("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-d
    Os leads chegam da planilha do Meta pela ponte no Apps Script e ficam no
    Firebase. O que a equipe marca aqui (contato, venda, parceria) vive num no
    separado, para a proxima carga do Meta nunca sobrescrever o trabalho. */
-const EMPRE = [
-  [/pier\s*boulevard/i, "Pier Boulevard"],
-  [/rio\s*marinho/i,    "Rio Marinho"],
-  [/domingos\s*martins/i,"Domingos Martins"],
-  [/fellini/i,          "Ed. Fellini"],
-  [/casa\s*amarela/i,   "Casa Amarela"],
-  [/ata(i|í)de/i,       "Ataíde"]
-];
+/* o rotulo vem do proprio nome do conjunto/anuncio no Meta.
+   Sem lista fixa: cliente novo funciona sem eu mexer no codigo. */
 function empreendimentoDe(l){
-  const txt=String((l&&l.anuncio)||"")+" "+String((l&&l.conjunto)||"");
-  for(const e of EMPRE) if(e[0].test(txt)) return e[1];
-  return "";
+  let t=String((l&&l.conjunto)||"") || String((l&&l.anuncio)||"");
+  if(!t) return "";
+  t=t.replace(/\[[^\]]*\]/g,"")
+     .replace(/^\s*cadastro\s*[-\u2013\u2014]\s*/i,"")
+     .replace(/^\s*casa\s*[-\u2013\u2014]\s*/i,"")
+     .replace(/\s*[-\u2013\u2014]\s*v[i\u00ed]deo.*$/i,"")
+     .replace(/\s{2,}/g," ").trim();
+  if(!t || t.length<2) return "";
+  t=t.split(" ").map(p=>p.length>2 ? p.charAt(0).toUpperCase()+p.slice(1).toLowerCase() : p).join(" ");
+  const chave=semAcento(t);
+  if(RUIDO.indexOf(chave)>=0) return "";   // nome de campanha generico nao vira empreendimento
+  return GRAFIA[chave] || t;
 }
+const semAcento = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+/* nomes de campanha que nao sao empreendimento: a mensagem cai no texto generico */
+const RUIDO = ["teste","test","geral","cadastro","leads","lead","publico frio","publico quente",
+  "lookalike","remarketing","interesse","trafego","conversao","captacao","novo","copia","padrao"];
+/* o Meta costuma vir sem acento; aqui so arrumo a grafia, nao filtro */
+const GRAFIA = { "ataide":"Ataíde", "jardim america":"Jardim América", "itapua":"Itapuã",
+  "vitoria":"Vitória", "sao torquato":"São Torquato", "morada de laranjeiras":"Morada de Laranjeiras" };
 /* o telefone vem em quatro formatos diferentes da planilha; aqui vira um so */
 function telLimpo(t){
   let n=String(t||"").replace(/^p:/,"").replace(/[^0-9]/g,"");
@@ -821,10 +831,12 @@ function primeiroNome(nome){
 }
 function mensagemDe(l){
   const nome=primeiroNome(l.nome), emp=empreendimentoDe(l);
+  const eu=primeiroNome((C&&C.nome)||"");          /* quem assina e o dono do portal */
   const ola = nome ? ("Oi, "+nome+"! ") : "Oi! ";
-  if(emp) return ola+"Aqui é a Suelem. Vi que você demonstrou interesse no "+emp+
+  const sou = eu ? ("Aqui é a "+eu+". ") : "";
+  if(emp) return ola+sou+"Vi que você demonstrou interesse no "+emp+
     ". Posso te mandar os valores e as condições, e tirar qualquer dúvida?";
-  return ola+"Aqui é a Suelem. Vi que você demonstrou interesse em um dos imóveis. "+
+  return ola+sou+"Vi que você demonstrou interesse em um dos nossos anúncios. "+
     "Posso te mandar os detalhes e tirar suas dúvidas?";
 }
 function linkZap(l){
