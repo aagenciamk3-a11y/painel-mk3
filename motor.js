@@ -3450,7 +3450,6 @@ function render(){
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
     else                          body = listaGlobalHTML();
     $("view").innerHTML = avisoGravacaoHTML()+body; animar(); gravarRota();
-    if(VISTA.modo==="funil" && typeof ligarArrastoCom==="function") ligarArrastoCom();
     return;
   }
 
