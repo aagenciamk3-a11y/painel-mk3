@@ -17,8 +17,9 @@
       },
 
       "autorizados": {
-        ".read": false,
-        ".write": false
+        ".read":  "auth != null && auth.token.email == 'aagencia.mk3@gmail.com'",
+        ".write": "auth != null && auth.token.email == 'aagencia.mk3@gmail.com'",
+        "$quem": { ".validate": "newData.isBoolean()" }
       },
 
       "publico": {
