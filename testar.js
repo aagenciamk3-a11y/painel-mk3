@@ -428,6 +428,137 @@ __ok("desfazer fica registrado no feed", ESTADO.log.some(x=>x.acao==="desremanej
   console.log(R.join("\n"));
 })();
 
+/* ---------------------------------------------------------------
+   FUNIL DE VENDAS. A base de leads e dado de terceiro e mora fora do
+   ESTADO de proposito. Os testes abaixo cobrem as regras e, no fim,
+   travam o que mais importa: que nada disso vaze para o lado publico.
+   --------------------------------------------------------------- */
+const CM = contexto(["comercial.js"], `
+  const HOJE=new Date("2026-09-15T12:00:00-03:00"); HOJE.setHours(0,0,0,0);
+  const d=s=>{const p=String(s).slice(0,10).split("-");return new Date(+p[0],+p[1]-1,+p[2]);};
+  const iso=x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");
+  const fmt=s=>s?String(s).slice(8,10)+"/"+String(s).slice(5,7):"";
+  const esc=s=>String(s==null?"":s), escAttr=esc, numBR=n=>String(n);
+  const toast=()=>{}, render=()=>{}, mostrarModal=()=>{}, fecharModal=()=>{};
+  let USUARIO="Marlon", ESTADO={pessoas:[{nome:"Marlon",areas:["com"]}]};
+  const ehAdmin=()=>false, cliente=()=>null;
+`);
+
+bloco("Funil: score, pipeline e gatilhos", CM, `
+const base={entrada:"2026-09-15", entradaEm:"2026-09-15T09:00:00-03:00", primeiro_contato:"2026-09-15T09:07:00-03:00",
+  desafio:"perde aluno na rematricula e nao sabe por que", decisor:"Sim",
+  investe_hoje:800, prazo:"1 a 3 meses", etapa:"novo", valor_mensal:2000};
+
+__ok("score cheio da 4", scoreCHAMP(base)===4);
+__ok("ficha vazia da 0", scoreCHAMP({})===0);
+__ok("desafio curto nao conta como dor", scoreCHAMP({desafio:"vender"})===0);
+__ok("quem nao investe hoje perde o ponto", scoreCHAMP({...base, investe_hoje:0})===3);
+__ok("sem prazo definido perde o ponto", scoreCHAMP({...base, prazo:"Sem prazo definido"})===3);
+__ok("dois envolvidos valem pelo decisor", scoreCHAMP({...base, decisor:"", envolvidos:2})===4);
+__ok("mas nao se ninguem sabe quem decide", scoreCHAMP({...base, decisor:"Não sei", envolvidos:2})===3);
+
+__ok("pipeline pondera pela etapa",
+  pipelinePonderado([{etapa:"novo",valor_mensal:2000},{etapa:"proposta",valor_mensal:3000}])===1900);
+__ok("ganho conta inteiro", pipelinePonderado([{etapa:"fechado",desfecho:"ganho",valor_mensal:2500}])===2500);
+__ok("perdido conta zero", pipelinePonderado([{etapa:"fechado",desfecho:"perdido",valor_mensal:2500}])===0);
+__ok("base vazia nao quebra", pipelinePonderado([])===0);
+
+/* cada etapa so avanca com prova no registro */
+__ok("nao sai de Novo sem primeiro contato", podeSair({etapa:"novo"},"contatado").ok===false);
+__ok("e diz o que falta", /primeiro contato/.test(podeSair({etapa:"novo"},"contatado").falta));
+__ok("com primeiro contato, sai", podeSair(base,"contatado").ok===true);
+__ok("nao chega em Proposta sem pacote e valor",
+  podeSair({etapa:"diag",desafio:"dor concreta aqui",primeiro_contato:"x"},"proposta").ok===false);
+__ok("voltar atras e sempre permitido", podeSair({etapa:"proposta"},"novo").ok===true);
+__ok("pular etapa cobra o que ficou pelo caminho",
+  podeSair({etapa:"novo",desafio:"dor concreta aqui"},"proposta").ok===false);
+
+/* a regra que protege a leitura de perda */
+const perdido={etapa:"proposta",desfecho:"perdido",primeiro_contato:"x",
+  desafio:"dor concreta aqui",pacote:"Essencial",valor_mensal:1000};
+__ok("perda sem motivo nao fecha", podeSair(perdido,"fechado").ok===false);
+__ok("perda com motivo mas sem frase nao fecha",
+  podeSair({...perdido,motivo_perda:"Sem dor real"},"fechado").ok===false);
+__ok("com motivo e frase, fecha",
+  podeSair({...perdido,motivo_perda:"Sem dor real",motivo_frase:"disse que resolve internamente"},"fechado").ok===true);
+__ok("preco nao esta na lista de motivos", LC.perda.indexOf("Preço")<0 && LC.perda.indexOf("Preco")<0);
+__ok("sao cinco etapas, nem mais nem menos", ETAPAS_COM.length===5);
+__ok("nao existe etapa-lixo de negociacao",
+  !ETAPAS_COM.some(e=>/negocia|aguardando/i.test(e.rot)));
+
+__ok("tempo ate o primeiro contato em minutos", minutosAteContato(base)===7);
+__ok("sem contato ainda, nao inventa numero", minutosAteContato({entradaEm:"2026-09-15T09:00:00-03:00"})===null);
+__ok("lead velho sem hora de chegada nao inventa numero",
+  minutosAteContato({entrada:"2026-09-15", primeiro_contato:"2026-09-15T09:07:00-03:00"})===null);
+__ok("mostra ha quanto tempo esta esperando",
+  minutosEsperando({entradaEm:"2026-09-15T09:00:00-03:00"}, new Date("2026-09-15T11:30:00-03:00"))===150);
+__ok("e nao conta espera de quem ja foi atendido",
+  minutosEsperando({entradaEm:"2026-09-15T09:00:00-03:00", primeiro_contato:"x"}, new Date())===null);
+
+/* os sinais do cartao existem para mudar a acao de quem olha */
+const sinAtras=sinaisCom({etapa:"contatado",proximo_followup:"2026-09-01",entradaEm:"2026-09-15T09:00:00-03:00"}, HOJE);
+__ok("follow-up vencido vira sinal", sinAtras.some(s=>s.k==="atrasado"));
+__ok("sem decisor vira cadeado", sinaisCom({etapa:"novo",decisor:"Não",entradaEm:"2026-09-15T09:00:00-03:00",primeiro_contato:"x"},HOJE).some(s=>s.k==="semdecisor"));
+__ok("lead fechado nao fica cobrando nada", sinaisCom({etapa:"fechado",proximo_followup:"2026-01-01"},HOJE).length===0);
+
+/* a mensagem do WhatsApp muda conforme a etapa */
+const lz={whatsapp:"27999887766",contato:"ana",empresa:"Escola X"};
+const m1=decodeURIComponent(zapCom({...lz,etapa:"novo"}));
+const m2=decodeURIComponent(zapCom({...lz,etapa:"proposta"}));
+__ok("mensagem cita o primeiro nome", m1.indexOf("Ana")>0);
+__ok("mensagem de lead novo e de proposta sao diferentes", m1!==m2);
+__ok("a de proposta fala da proposta", /proposta/i.test(m2));
+__ok("telefone invalido nao gera link", zapCom({whatsapp:"123"})==="");
+`);
+
+/* ---------------------------------------------------------------
+   A trava que mais importa no comercial: dado de lead e de terceiro.
+   Nao pode entrar no ESTADO (que vai inteiro para painel/estado,
+   publico), nao pode ir para o portal do cliente, e nao pode ficar
+   escrito no repositorio, que tambem e publico.
+   --------------------------------------------------------------- */
+(function(){
+  const R=[];
+  const ok=(n,c)=>{ R.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
+  console.log("\nBase de leads nao vaza");
+  try{
+    const com   = fs.readFileSync(path.join(raiz,"comercial.js"),"utf8");
+    const motor = fs.readFileSync(path.join(raiz,"motor.js"),"utf8");
+    const portal= fs.readFileSync(path.join(raiz,"portal.js"),"utf8");
+    const cli   = fs.readFileSync(path.join(raiz,"c/index.html"),"utf8");
+    const dados = fs.readFileSync(path.join(raiz,"dados.js"),"utf8");
+
+    ok("o funil guarda em no proprio, separado do estado", /painel\/comercial/.test(com));
+    ok("e nunca escreve lead dentro do ESTADO",
+       !/ESTADO\.(leads|leadsCom|comercial)\s*[=\[]/.test(com) && !/ESTADO\.leadsCom/.test(motor));
+    ok("o que sobe para painel/estado nao leva leads",
+       !/leadsCom|COM\.leads/.test(motor));
+    ok("o portal do cliente nao conhece o funil",
+       !/COM\.leads|painel\/comercial|scoreCHAMP/.test(portal));
+    ok("nem o portal ja gerado", !/painel\/comercial|scoreCHAMP/.test(cli));
+    ok("nenhum lead escrito no repositorio", !/scoreCHAMP|motivo_perda/.test(dados));
+
+    /* o publicarEspelho manda o espelho do cliente; conferir campo a campo */
+    const esp = motor.slice(motor.indexOf("function espelhoDe"), motor.indexOf("function espelhoDe")+1400);
+    ok("o espelho do cliente nao carrega nada do comercial",
+       !/com|lead|funil/i.test(esp.replace(/concluidas|comeca|comercial:false/gi,"")) || !/COM\./.test(esp));
+
+    /* login: a protecao tem que estar na regra, nao so na tela */
+    const regras=JSON.parse(fs.readFileSync(path.join(raiz,"firebase/regras.json"),"utf8"));
+    const nc=regras.rules.painel.comercial;
+    ok("existe regra propria para painel/comercial", !!nc);
+    if(nc){
+      ok("leitura exige estar logado", typeof nc[".read"]==="string" && /auth/.test(nc[".read"]));
+      ok("escrita exige estar logado", typeof nc[".write"]==="string" && /auth/.test(nc[".write"]));
+      ok("a regra confere o e-mail, nao so a presenca de login",
+         /email/.test(String(nc[".read"])) && /email/.test(String(nc[".write"])));
+      ok("nao e a regra aberta que o resto do painel usa",
+         nc[".read"]!==true && nc[".write"]!==true);
+    }
+  }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
+  console.log(R.join("\n"));
+})();
+
 bloco("Demanda do cliente nos filtros", M, limpar+`
 USUARIO="Guilherme";
 const dcDia=iso(HOJE);
