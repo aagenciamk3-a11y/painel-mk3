@@ -7,7 +7,7 @@ const $ = id => document.getElementById(id);
 const escAttr = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 let RESULTADOS=null, OBJETIVO="", META=null, RECADO="", PENDENCIAS=null, PLANO=null;
-let LEADS=null, CRM=null, MESLEAD=null;
+let LEADS=null, CRM=null, MESLEAD=null, EMPLEAD=null;
 let TEM_ESPELHO=false, FONTE=null, ULTIMO=null, DASH_ABERTO=false;
 let ABA="geral", ABAS=["geral","trafego"];
 
@@ -106,11 +106,24 @@ function listaLeads(){
     .filter(l=>l && l.nome && !l.teste)
     .sort((a,b)=>String(b.quando||"").localeCompare(String(a.quando||"")));
 }
+/* quando o contato nao acontece, o motivo importa: telefone ruim e problema
+   da campanha, nao do atendimento. */
+const MOTIVOS = [["errado","Número errado"],["semzap","Não tem WhatsApp"]];
+const motivoRot = k => (MOTIVOS.find(m=>m[0]===k)||["",""])[1];
+/* os empreendimentos que aparecem no mes escolhido, do mais frequente ao menos */
+function empsDoMes(lista){
+  const m={};
+  (lista||[]).forEach(x=>{ const e=empreendimentoDe(x); if(e) m[e]=(m[e]||0)+1; });
+  return Object.keys(m).sort((a,b)=>m[b]-m[a] || a.localeCompare(b)).map(k=>[k,m[k]]);
+}
 function crmDe(id){ return (CRM&&CRM[id])||{}; }
 function ymDeData(iso0){ return String(iso0||"").slice(0,7); }
-function contarTrafego(ymAlvo){
-  const ym=ymAlvo||ymDe(0), l=listaLeads();
+function contarTrafego(ymAlvo, emp){
+  const ym=ymAlvo||ymDe(0);
+  const todos=listaLeads();
+  const l = emp ? todos.filter(x=>empreendimentoDe(x)===emp) : todos;
   const noMes=x=>ymDeData(x.quando)===ym;
+  const sem =x=>{ const c=crmDe(x._id); return !!c.semContato; };
   const visi=x=>{ const c=crmDe(x._id); return !!c.visita; };
   const vend=x=>{ const c=crmDe(x._id); return !!c.venda; };
   const parc=x=>{ const c=crmDe(x._id); return !!c.parceria; };
@@ -118,6 +131,7 @@ function contarTrafego(ymAlvo){
     leadsMes:l.filter(noMes).length,       leadsTudo:l.length,
     contatoMes:l.filter(x=>noMes(x)&&crmDe(x._id).contato).length,
     contatoTudo:l.filter(x=>crmDe(x._id).contato).length,
+    semMes:l.filter(x=>noMes(x)&&sem(x)).length,      semTudo:l.filter(sem).length,
     visitaMes:l.filter(x=>noMes(x)&&visi(x)).length,  visitaTudo:l.filter(visi).length,
     vendaMes:l.filter(x=>noMes(x)&&vend(x)).length,   vendaTudo:l.filter(vend).length,
     parcMes:l.filter(x=>noMes(x)&&parc(x)).length,    parcTudo:l.filter(parc).length
@@ -126,12 +140,14 @@ function contarTrafego(ymAlvo){
 function cardLead(l){
   const c=crmDe(l._id), emp=empreendimentoDe(l), zap=linkZap(l);
   const quando=l.quando?fmt(String(l.quando).slice(0,10)):"";
-  return '<div class="ld'+(c.contato?" feito":"")+(c.visita?" visitou":"")+(c.venda?" vendeu":"")+'">'+
+  return '<div class="ld'+(c.contato?" feito":"")+(c.semContato?" semcontato":"")+
+      (c.visita?" visitou":"")+(c.venda?" vendeu":"")+'">'+
     '<div class="ld-topo">'+
       '<div class="ld-id"><b>'+esc(l.nome||"sem nome")+'</b>'+
         '<span>'+esc(telBonito(l.tel))+(quando?' · '+quando:'')+'</span></div>'+
       (emp?'<span class="ld-emp">'+esc(emp)+'</span>':'')+
     '</div>'+
+    (c.semContato?'<div class="ld-selo n">Não consegui contato'+(c.motivo?' · '+esc(motivoRot(c.motivo)):'')+'</div>':'')+
     (c.visita?'<div class="ld-selo m">Visita marcada</div>':'')+
     (c.venda?'<div class="ld-selo v">Venda concluída</div>':'')+
     (c.parceria?'<div class="ld-selo p">Parceria concluída</div>':'')+
@@ -140,6 +156,8 @@ function cardLead(l){
           :'<span class="ld-zap off" title="Telefone fora do padrão">Telefone inválido</span>')+
       '<button class="ld-chk'+(c.contato?" on":"")+'" data-contato="'+escAttr(l._id)+'">'+
         (c.contato?'&#10003; Falei com essa pessoa':'Entrei em contato?')+'</button>'+
+      '<button class="ld-chk nao'+(c.semContato?" on":"")+'" data-semcontato="'+escAttr(l._id)+'">'+
+        (c.semContato?'&#10007; Não consegui':'Não consegui contato')+'</button>'+
       '<button class="ld-mais" data-fechar="'+escAttr(l._id)+'" title="Registrar visita, venda ou parceria">&#8942;</button>'+
     '</div></div>';
 }
@@ -162,9 +180,14 @@ function trafegoHTML(){
   const meses=mesesComLead();
   const ym=(MESLEAD && meses.indexOf(MESLEAD)>=0) ? MESLEAD : ymDe(0);
   const ehAtual = ym===ymDe(0);
-  const n=contarTrafego(ym);
   const doMes=l.filter(x=>ymDeData(x.quando)===ym)
     .sort((a,b)=>String(b.quando||"").localeCompare(String(a.quando||"")));
+
+  /* filtro por empreendimento: as opcoes saem dos proprios leads do mes */
+  const emps=empsDoMes(doMes);
+  const emp = (EMPLEAD && emps.some(e=>e[0]===EMPLEAD)) ? EMPLEAD : null;
+  const lista0 = emp ? doMes.filter(x=>empreendimentoDe(x)===emp) : doMes;
+  const n=contarTrafego(ym, emp);
 
   const topo='<section class="bloco"><h2>Tráfego pago</h2>'+
     '<p class="tp-sub">Cada pessoa aqui preencheu o formulário do anúncio. '+
@@ -174,25 +197,37 @@ function trafegoHTML(){
           '<button class="tp-mes'+(m===ym?" on":"")+'" data-meslead="'+m+'">'+
           esc(mesRotulo(m))+'</button>').join("")+'</div>'
       : '')+
+    (emps.length>1
+      ? '<div class="tp-emps"><span class="tp-rot">Filtrar por empreendimento</span>'+
+        '<button class="tp-emp'+(!emp?" on":"")+'" data-emplead="">Todos <i>'+doMes.length+'</i></button>'+
+        emps.map(e=>'<button class="tp-emp'+(e[0]===emp?" on":"")+'" data-emplead="'+escAttr(e[0])+'">'+
+          esc(e[0])+' <i>'+e[1]+'</i></button>').join("")+'</div>'
+      : '')+
     '</section>';
 
   const num=(a,b,rot,cls)=>'<div class="tp-n '+cls+'"><b>'+a+'</b><i>'+rot+'</i>'+
     '<span>'+b+' desde o começo</span></div>';
-  const contas='<section class="bloco"><h2>'+esc(mesRotulo(ym))+'</h2><div class="tp-nums">'+
+  const contas='<section class="bloco"><h2>'+esc(mesRotulo(ym))+(emp?' · '+esc(emp):'')+'</h2><div class="tp-nums">'+
     num(n.leadsMes,   n.leadsTudo,   "pessoas chegaram", "leads")+
     num(n.contatoMes, n.contatoTudo, "já foram atendidas","cont")+
+    num(n.semMes,     n.semTudo,     "sem contato possível","nao")+
     num(n.visitaMes,  n.visitaTudo,  "visitas marcadas", "visi")+
     num(n.vendaMes,   n.vendaTudo,   "vendas concluídas","venda")+
     num(n.parcMes,    n.parcTudo,    "parcerias fechadas","parc")+
     '</div></section>';
 
-  const lista = doMes.length
-    ? '<section class="bloco"><h2>'+(ehAtual?'Chegaram este mês':'Chegaram em '+esc(mesRotulo(ym)))+
-      ' <span class="tp-qtd">'+doMes.length+'</span></h2>'+
-      '<div class="ld-lista">'+doMes.map(cardLead).join("")+'</div></section>'
-    : '<section class="bloco ok"><h2>'+(ehAtual?'Nenhuma pessoa nova este mês ainda':'Nada em '+esc(mesRotulo(ym)))+'</h2>'+
-      '<p>'+(ehAtual?'Assim que alguém preencher o formulário do anúncio, aparece aqui na hora.'
-                    :'Escolha outro mês acima.')+'</p></section>';
+  const tituloLista = emp
+    ? (esc(emp)+(ehAtual?' este mês':' em '+esc(mesRotulo(ym))))
+    : (ehAtual?'Chegaram este mês':'Chegaram em '+esc(mesRotulo(ym)));
+  const lista = lista0.length
+    ? '<section class="bloco"><h2>'+tituloLista+
+      ' <span class="tp-qtd">'+lista0.length+'</span></h2>'+
+      '<div class="ld-lista">'+lista0.map(cardLead).join("")+'</div></section>'
+    : '<section class="bloco ok"><h2>'+(emp?'Ninguém de '+esc(emp)+' neste mês'
+            :(ehAtual?'Nenhuma pessoa nova este mês ainda':'Nada em '+esc(mesRotulo(ym))))+'</h2>'+
+      '<p>'+(emp?'Escolha outro empreendimento ou volte para Todos.'
+            :(ehAtual?'Assim que alguém preencher o formulário do anúncio, aparece aqui na hora.'
+                    :'Escolha outro mês acima.'))+'</p></section>';
 
   if(!l.length) return topo+contas+
     '<section class="bloco ok"><h2>Nenhum lead ainda</h2><p>Assim que alguém preencher o formulário do anúncio, aparece aqui na hora.</p></section>';
@@ -211,24 +246,51 @@ function abrirFechamento(id){
       '<button class="fe-b'+(c.venda?" on":"")+'" data-marcar="'+escAttr(id)+'|venda">Venda concluída</button>'+
       '<button class="fe-b'+(c.parceria?" on":"")+'" data-marcar="'+escAttr(id)+'|parceria">Parceria concluída</button>'+
     '</div>'+
+    '<div class="fe-sep">Não deu para falar</div>'+
+    '<div class="fe-op">'+
+      MOTIVOS.map(m=>'<button class="fe-b mot'+((c.semContato&&c.motivo===m[0])?" on":"")+'" data-motivo="'+escAttr(id)+'|'+m[0]+'">'+m[1]+'</button>').join("")+
+      (c.semContato?'<button class="fe-b" data-motivo="'+escAttr(id)+'|">Consegui falar, desmarcar</button>':'')+
+    '</div>'+
     '<p class="dd-nota">Clique de novo para desmarcar. Fica registrado para a MK3 e para você, na hora.</p>'+
     '</div></div>';
   document.body.classList.add("travado");
 }
 /* escreve so no proprio no do link, um lead por vez */
-function gravarCRM(id, campo, valor){
+function gravarCampos(id, patch){
   const antes=crmDe(id);
-  CRM=CRM||{}; CRM[id]=Object.assign({}, antes);
-  CRM[id][campo]=valor;
-  CRM[id].por = valor ? "cliente" : (antes.por||"cliente");
+  CRM=CRM||{}; CRM[id]=Object.assign({}, antes, patch);
+  CRM[id].por = "cliente";
   CRM[id].ts  = new Date().toISOString();
   desenhar();
   const u=(typeof MK3_DB!=="undefined"&&MK3_DB)
     ? MK3_DB+"/painel/publico/"+MEU_TOKEN+"/crm/"+encodeURIComponent(id)+".json" : null;
   if(!u) return;
   fetch(u,{method:"PATCH",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({[campo]:valor, por:CRM[id].por, ts:CRM[id].ts})})
+    body:JSON.stringify(Object.assign({}, patch, {por:CRM[id].por, ts:CRM[id].ts}))})
     .catch(()=>{ /* sem rede: fica marcado na tela e a proxima leitura corrige */ });
+}
+function gravarCRM(id, campo, valor){
+  const patch={}; patch[campo]=valor;
+  /* falar com a pessoa desfaz o "nao consegui": os dois nao convivem */
+  if(campo==="contato" && valor){ patch.semContato=false; patch.motivo=null; }
+  gravarCampos(id, patch);
+}
+function marcarSemContato(id, motivo){
+  gravarCampos(id, {semContato:true, motivo:motivo, contato:false});
+}
+function abrirMotivo(id){
+  const l=listaLeads().find(x=>x._id===id); if(!l) return;
+  let cx=document.getElementById("diaModal");
+  if(!cx){ cx=document.createElement("div"); cx.id="diaModal"; document.body.appendChild(cx); }
+  cx.innerHTML='<div class="dd-fundo" data-fecharx="1"><div class="dd-box" role="dialog" aria-modal="true">'+
+    '<div class="dd-h"><b>'+esc(l.nome||"Lead")+'</b><button data-fecharx="1" aria-label="Fechar">&times;</button></div>'+
+    '<p class="dd-sub">'+esc(telBonito(l.tel))+' · por que não deu para falar?</p>'+
+    '<div class="fe-op">'+
+      MOTIVOS.map(m=>'<button class="fe-b mot" data-motivo="'+escAttr(id)+'|'+m[0]+'">'+m[1]+'</button>').join("")+
+    '</div>'+
+    '<p class="dd-nota">Fica registrado para a MK3 na hora. Telefone ruim é problema da campanha, não do seu atendimento.</p>'+
+    '</div></div>';
+  document.body.classList.add("travado");
 }
 function fecharModalLead(){
   const cx=document.getElementById("diaModal"); if(cx) cx.innerHTML="";
@@ -703,7 +765,7 @@ function desenhar(){
 }
 /* navegacao do calendario e troca de visao, sem recarregar a pagina */
 document.addEventListener("click", ev=>{
-  const a=ev.target.closest("[data-pmes],[data-pvisao],[data-pdia],[data-aba],[data-meslead],[data-contato],[data-fechar],[data-marcar],[data-fecharx]"); if(!a) return;
+  const a=ev.target.closest("[data-pmes],[data-pvisao],[data-pdia],[data-aba],[data-meslead],[data-emplead],[data-contato],[data-semcontato],[data-motivo],[data-fechar],[data-marcar],[data-fecharx]"); if(!a) return;
   ev.preventDefault();
   if(a.dataset.pmes!==undefined){ PMES=Number(a.dataset.pmes)||0; PDIA=null; }
   if(a.dataset.pdia!==undefined){
@@ -712,8 +774,16 @@ document.addEventListener("click", ev=>{
   }
   if(a.dataset.pvisao){ PVISAO=a.dataset.pvisao; PDIA=null; }
   if(a.dataset.aba){ ABA=a.dataset.aba; PDIA=null; }
-  if(a.dataset.meslead){ MESLEAD=a.dataset.meslead; }
+  if(a.dataset.meslead){ MESLEAD=a.dataset.meslead; EMPLEAD=null; }
+  if(a.dataset.emplead!==undefined){ EMPLEAD=a.dataset.emplead||null; }
   if(a.dataset.contato){ const id=a.dataset.contato; gravarCRM(id,"contato",!crmDe(id).contato); return; }
+  if(a.dataset.semcontato){ const id=a.dataset.semcontato;
+    if(crmDe(id).semContato) gravarCampos(id,{semContato:false, motivo:null});
+    else abrirMotivo(id);
+    return; }
+  if(a.dataset.motivo){ const p=a.dataset.motivo.split("|");
+    if(p[1]) marcarSemContato(p[0],p[1]); else gravarCampos(p[0],{semContato:false, motivo:null});
+    fecharModalLead(); return; }
   if(a.dataset.fechar){ abrirFechamento(a.dataset.fechar); return; }
   if(a.dataset.marcar){
     const p=a.dataset.marcar.split("|");
