@@ -1,4 +1,4 @@
-undefined/* ═══════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════
    COMERCIAL — funil de vendas da MK3.
 
    Por que este arquivo existe separado do motor.js:
