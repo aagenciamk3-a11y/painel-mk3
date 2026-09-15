@@ -395,7 +395,85 @@
   /* adicionador de demandas */
   .snav-add{color:var(--mk3o)}
   .demform{max-width:460px;max-height:86vh;display:flex;flex-direction:column;overflow:auto}
-  .demfeita{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:11px 12px;
+  /* ===== FUNIL DE VENDAS (comercial) ===== */
+.cm-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.cm-tit{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.cm-tit h2{margin:0}
+.cm-pipe{font-size:20px;font-weight:800;letter-spacing:-.02em;color:#C4B5FD}
+.cm-pipe i{font-style:normal;font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-left:5px}
+.cm-acoes{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.cm-av{font-size:12px;padding:5px 11px;border-radius:99px;background:var(--panel2);
+  border:1px solid var(--line);color:var(--mut)}
+.cm-av.urg{background:rgba(242,85,90,.14);border-color:rgba(242,85,90,.45);color:#FF9DA0;font-weight:650}
+.cm-novo{background:var(--mk3);border:0;color:#fff;font:inherit;font-size:13px;font-weight:650;
+  padding:8px 16px;border-radius:9px;cursor:pointer}
+.cm-novo:hover{filter:brightness(1.1)}
+.cm-eu{font-size:11.5px;color:var(--mut)}
+
+.cm-quadro{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:start}
+.cm-col{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;
+  display:flex;flex-direction:column;gap:8px;min-height:180px}
+.cm-col.alvo{border-color:var(--mk3);box-shadow:0 0 0 2px rgba(139,92,246,.25)}
+.cm-colh{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.cm-colh b{font-size:13px;font-weight:700}
+.cm-n{font-size:11px;color:var(--mut);background:var(--panel2);padding:1px 8px;border-radius:99px}
+.cm-soma{margin-left:auto;font-size:11.5px;color:#C4B5FD;font-variant-numeric:tabular-nums}
+.cm-lista{display:flex;flex-direction:column;gap:7px;min-height:60px}
+.cm-vazio{font-size:11.5px;color:var(--mut);opacity:.5;text-align:center;padding:16px 6px;
+  border:1px dashed var(--line);border-radius:9px}
+.cm-sai{font-size:10.5px;color:var(--mut);opacity:.6;font-style:italic;padding-top:4px;
+  border-top:1px dashed var(--line)}
+
+.cm-card{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--mk3);
+  border-radius:9px;padding:9px 10px;cursor:grab;display:flex;flex-direction:column;gap:5px}
+.cm-card:hover{border-color:var(--mut)}
+.cm-card.arrastando{opacity:.45}
+.cm-card.alerta{border-left-color:var(--atrasado);background:rgba(242,85,90,.08)}
+.cm-emp{font-size:13.5px;font-weight:650;line-height:1.25}
+.cm-quem{font-size:11.5px;color:var(--mut)}
+.cm-quem i{font-style:normal;opacity:.7}
+.cm-tags{display:flex;gap:4px;flex-wrap:wrap}
+.cm-tag{font-size:10px;font-weight:650;padding:2px 7px;border-radius:99px;white-space:nowrap}
+.cm-tag.pac{background:rgba(139,92,246,.22);color:#C4B5FD}
+.cm-tag.por{background:rgba(255,255,255,.08);color:var(--mut)}
+.cm-tag.val{background:rgba(76,196,99,.16);color:#BFEBC7}
+.cm-rodape{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.cm-est{font-size:11px;color:var(--umdia);letter-spacing:1px}
+.cm-resp{width:20px;height:20px;border-radius:50%;background:var(--mk3);color:#fff;font-size:10px;
+  font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+.cm-resp.vago{background:var(--line);color:var(--mut)}
+.cm-sinais{display:flex;flex-direction:column;gap:3px}
+.cm-sin{font-size:10.5px;line-height:1.3}
+.cm-sin.s-atrasado{color:#FF9DA0;font-weight:650}
+.cm-sin.s-espera{color:var(--hoje)}
+.cm-sin.s-semdecisor{color:var(--mut)}
+.cm-zap{align-self:flex-start;background:#25D366;color:#0b2f18;font-weight:700;font-size:11px;
+  text-decoration:none;padding:4px 10px;border-radius:7px}
+.cm-zap:hover{filter:brightness(1.08)}
+
+.cm-login{max-width:520px}
+.cm-entrar{background:var(--mk3);border:0;color:#fff;font:inherit;font-size:14px;font-weight:650;
+  padding:11px 22px;border-radius:10px;cursor:pointer;margin-top:12px}
+.cm-entrar:hover{filter:brightness(1.1)}
+.cm-dica{font-size:12px;color:var(--mut);margin-top:10px}
+.cm-dica.ok{color:#BFEBC7}
+
+.cmficha{max-width:760px}
+.cm-sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
+  font-weight:700;margin:18px 0 8px;padding-top:12px;border-top:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cm-sec:first-of-type{border-top:0;padding-top:0;margin-top:6px}
+.cm-scorebox{font-size:11px;color:var(--umdia);text-transform:none;letter-spacing:0}
+.cm-grade{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cm-grade.um{grid-template-columns:1fr}
+.cm-desf{display:flex;gap:8px}
+.cm-df{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);font:inherit;
+  font-size:14px;padding:12px;border-radius:10px;cursor:pointer}
+.cm-df.on.g{background:rgba(76,196,99,.18);border-color:rgba(76,196,99,.55);font-weight:700}
+.cm-df.on.p{background:rgba(242,85,90,.16);border-color:rgba(242,85,90,.55);font-weight:700}
+@media(max-width:1100px){ .cm-quadro{grid-template-columns:repeat(2,1fr)} .cm-grade{grid-template-columns:repeat(2,1fr)} }
+@media(max-width:700px){ .cm-quadro{grid-template-columns:1fr} .cm-grade{grid-template-columns:1fr} }
+.demfeita{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;padding:11px 12px;
   background:var(--panel2);border:1px solid var(--line);border-radius:9px}
 .mcheck{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;margin:0}
 .mcheck input{width:16px;height:16px;margin:0;accent-color:var(--mk3);cursor:pointer}
@@ -1386,6 +1464,7 @@ a.fd-c:hover{opacity:1;text-decoration:underline}
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
   window.MK3_FIREBASE = {
     apiKey: "AIzaSyCOqZXwvdvxYjADf5dECXW5CX1OB-KPdE0",
@@ -1397,7 +1476,8 @@ a.fd-c:hover{opacity:1;text-decoration:underline}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202609091616"></script>
-<script src="motor.js?v=202609091616"></script>
+<script src="dados.js?v=202609151456"></script>
+<script src="motor.js?v=202609151456"></script>
+<script src="comercial.js?v=202609151456"></script>
 </body>
 </html>
