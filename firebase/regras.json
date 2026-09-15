@@ -1,0 +1,40 @@
+{
+  "rules": {
+    "painel": {
+      "estado": {
+        ".read": true,
+        ".write": true
+      },
+
+      "leads": {
+        ".read": false,
+        ".write": false
+      },
+
+      "publico": {
+        "$token": {
+          ".read": true,
+          ".write": true,
+
+          "crm": {
+            "$lead": {
+              ".validate": "newData.hasChildren()",
+              "contato":    { ".validate": "newData.isBoolean()" },
+              "semContato": { ".validate": "newData.isBoolean()" },
+              "motivo":     { ".validate": "newData.isString() && newData.val().length <= 20" },
+              "visita":     { ".validate": "newData.isBoolean()" },
+              "venda":      { ".validate": "newData.isBoolean()" },
+              "parceria":   { ".validate": "newData.isBoolean()" },
+              "por":        { ".validate": "newData.isString() && newData.val().length <= 40" },
+              "ts":         { ".validate": "newData.isString() && newData.val().length <= 40" },
+              "$outro":     { ".validate": false }
+            }
+          }
+        }
+      }
+    },
+
+    ".read": false,
+    ".write": false
+  }
+}
