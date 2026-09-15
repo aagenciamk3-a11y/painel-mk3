@@ -11,6 +11,16 @@
         ".write": false
       },
 
+      "comercial": {
+        ".read":  "auth != null && auth.token.email_verified == true && root.child('painel/autorizados').child(auth.token.email.replace('.', ',').replace('@', '_')).val() == true",
+        ".write": "auth != null && auth.token.email_verified == true && root.child('painel/autorizados').child(auth.token.email.replace('.', ',').replace('@', '_')).val() == true"
+      },
+
+      "autorizados": {
+        ".read": false,
+        ".write": false
+      },
+
       "publico": {
         "$token": {
           ".read": true,
