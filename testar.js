@@ -442,6 +442,8 @@ const CM = contexto(["comercial.js"], `
   const toast=()=>{}, render=()=>{}, mostrarModal=()=>{}, fecharModal=()=>{};
   let USUARIO="Marlon", ESTADO={pessoas:[{nome:"Marlon",areas:["com"]}]};
   const ehAdmin=()=>false, cliente=()=>null;
+  const __el={innerHTML:"",value:"",focus(){},classList:{add(){},remove(){}}};
+  const $=()=>__el;
 `);
 
 bloco("Funil: score, pipeline e gatilhos", CM, `
@@ -509,6 +511,37 @@ __ok("mensagem cita o primeiro nome", m1.indexOf("Ana")>0);
 __ok("mensagem de lead novo e de proposta sao diferentes", m1!==m2);
 __ok("a de proposta fala da proposta", /proposta/i.test(m2));
 __ok("telefone invalido nao gera link", zapCom({whatsapp:"123"})==="");
+
+/* as telas precisam desenhar sem estourar, mesmo com base vazia */
+COM_LOGADO="marlon@mk3"; COM_PRONTO=true; COM_NEGADO=false; COM={leads:{},log:[]};
+__ok("com a base vazia a planilha explica em vez de quebrar", /A base está vazia/.test(planilhaHTML()));
+__ok("e a tela inteira desenha", funilHTML().indexOf("Base de leads")>0);
+COM.leads={z:{empresa:"Escola X",contato:"Ana",whatsapp:"27999887766",etapa:"contatado",
+  entrada:iso(HOJE),entradaEm:iso(HOJE)+"T09:00:00-03:00",primeiro_contato:iso(HOJE)+"T09:05",
+  valor_mensal:1500,proximo_followup:"2026-01-01",decisor:"Não",
+  historico:[{data:"2026-09-10",canal:"WhatsApp",oque:"mandei mensagem, nao respondeu",quem:"Marlon"}]}};
+const pl=planilhaHTML();
+__ok("a planilha lista o lead", pl.indexOf("Escola X")>0);
+__ok("mostra o sinal de follow-up vencido", /pl-sin s-atrasado/.test(pl));
+__ok("mostra o cadeado de quem nao decide", /pl-sin s-semdecisor/.test(pl));
+__ok("traz o botao de WhatsApp na linha", /pl-zap/.test(pl));
+__ok("mostra o ultimo toque", pl.indexOf("10/09")>0);
+__ok("a faixa de etapas conta por etapa", /data-cmfil="contatado"/.test(funilHTML()));
+
+/* historico */
+__ok("registra um toque", addToque("z","2026-09-15","Ligação","liguei, pediu para voltar terca")===true);
+__ok("toque sem texto nao entra", addToque("z","2026-09-15","Ligação","   ")===false);
+__ok("o mais recente vem primeiro", toquesDe(COM.leads.z)[0].canal==="Ligação");
+__ok("conta os toques", COM.leads.z.toques===2);
+const h=historicoHTML({...COM.leads.z, id:"z"});
+__ok("o historico sai na ficha", h.indexOf("liguei, pediu para voltar terca")>0);
+__ok("com campo para registrar o proximo", /data-cmtoque="z"/.test(h));
+removeToque("z",0);
+__ok("da para apagar um toque", COM.leads.z.toques===1);
+
+/* a ficha inteira */
+__ok("a ficha abre sem quebrar", (abrirLeadCom("z"), true));
+__ok("e a de lead novo tambem", (abrirLeadCom(null), true));
 `);
 
 /* ---------------------------------------------------------------
@@ -555,6 +588,17 @@ __ok("telefone invalido nao gera link", zapCom({whatsapp:"123"})==="");
       ok("nao e a regra aberta que o resto do painel usa",
          nc[".read"]!==true && nc[".write"]!==true);
     }
+    /* a lista de quem entra e o que a regra do comercial consulta:
+       se qualquer um pudesse escrever nela, o login nao valeria nada */
+    const na=regras.rules.painel.autorizados;
+    ok("a lista de autorizados existe", !!na);
+    if(na){
+      ok("so uma conta escreve nela", /aagencia\.mk3@gmail\.com/.test(String(na[".write"])));
+      ok("e ela nao e publica", na[".read"]!==true);
+      ok("so aceita sim ou nao como valor", na.$quem && /isBoolean/.test(String(na.$quem[".validate"])));
+    }
+    ok("a regra do comercial consulta essa mesma lista",
+       /painel\/autorizados/.test(String(nc && nc[".read"])));
   }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
   console.log(R.join("\n"));
 })();
