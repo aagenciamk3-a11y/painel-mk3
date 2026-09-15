@@ -541,6 +541,8 @@ function sidebarHTML(){
   h+='<button class="snav inicio" data-sair="1" title="Voltar para a escolha de perfil"><span class="snav-i">'+IC.inicio+'</span><span class="snav-t">Início</span></button>';
   h+='<div class="side-sec">Ver</div>';
   h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
+  /* o funil e da area comercial: quem so tem marketing nao ve */
+  if(podeComercial()) h+=navItem("funil","Funil de vendas",IC.com,"view",(!c&&VISTA.modo==="funil"),0);
   h+='<div class="side-sec">Demandas</div>';
   h+='<button class="snav snav-add" data-demanda="1" title="'+(ehAdmin()?'Nova demanda':'Nova demanda para você')+'"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
   if(ehAdmin()){
@@ -558,6 +560,11 @@ function sidebarHTML(){
 }
 
 let MOVERMODO = true;      /* arrastar e replanejar movem por padrao */
+/* comercial e area fechada: admin sempre, e quem tiver "com" nas areas */
+function podeComercial(){
+  if(ehAdmin()) return true;
+  const p=eu(); return !!p && (p.areas||[]).indexOf("com")>=0;
+}
 const VISTA  = { pinPara:null, area:"all", escopo:null, aba:"cal", modo:"cards", feedDias:7, mes:0, dia:null, filtro:null, verTudo:false, edit:false, pano:null, pmes:0, psem:null, side:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
 /* demanda com cliente mora no balde "_dem", mas pertence ao cliente:
@@ -3432,15 +3439,18 @@ function render(){
   if(!c){
     let body;
     if((VISTA.modo==="tend"||VISTA.modo==="equipe"||VISTA.modo==="portais") && !ehAdmin()) VISTA.modo="lista";
+    if(VISTA.modo==="funil" && !podeComercial()) VISTA.modo="lista";
     if(VISTA.modo==="equipe")     body = funcionariosHTML();
     else if(VISTA.modo==="tend")  body = tendenciaHTML();
     else if(VISTA.modo==="prio")  body = prioridadesHTML();
     else if(VISTA.modo==="cards") body = '<div class="cards">'+cardsHTML()+'</div>';
     else if(VISTA.modo==="feed")  body = feedHTML();
     else if(VISTA.modo==="portais") body = portaisHTML();
+    else if(VISTA.modo==="funil")   body = (typeof funilHTML==="function" ? funilHTML() : '');
     else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
     else                          body = listaGlobalHTML();
     $("view").innerHTML = avisoGravacaoHTML()+body; animar(); gravarRota();
+    if(VISTA.modo==="funil" && typeof ligarArrastoCom==="function") ligarArrastoCom();
     return;
   }
 
@@ -3497,7 +3507,7 @@ function aplicarRota(){
   if(!h) return false;
   const p=h.split("/").filter(Boolean).map(decodeURIComponent);
   const areas=["all","mkt","fin","com"];
-  const modos=["cards","feed","prio","equipe","lista","cal","tend","portais"];
+  const modos=["cards","feed","prio","equipe","lista","cal","tend","portais","funil"];
   const abas=["cal","tarefas","marca","tend","hist"];
   let mudou=false;
   if(p[0]==="cliente" && p[1]){
