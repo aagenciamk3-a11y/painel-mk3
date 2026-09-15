@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════════════════════════════
+undefined/* ═══════════════════════════════════════════════════════════════════
    COMERCIAL — funil de vendas da MK3.
 
    Por que este arquivo existe separado do motor.js:
@@ -19,6 +19,9 @@ let COM = { leads:{}, log:[] };
 let COM_LOGADO = null;      /* e-mail de quem entrou, ou null */
 let COM_PRONTO = false;     /* ja leu do banco pelo menos uma vez */
 let COM_NEGADO = false;     /* logou, mas o e-mail nao esta autorizado */
+let FILTRO_COM = "";        /* ver so uma etapa, vazio = todas */
+/* por onde o toque aconteceu. Serve para ver o que funciona com quem. */
+const CANAIS = ["WhatsApp","Ligação","E-mail","Reunião","Presencial","Instagram","Outro"];
 
 /* ---------------- ETAPAS ----------------
    Cinco, nao mais. Cada uma com gatilho de saida verificavel: a etapa
@@ -143,6 +146,52 @@ function telComBonito(t){
   return n ? "("+n.slice(0,2)+") "+n.slice(2,7)+"-"+n.slice(7) : (String(t||"")||"sem telefone");
 }
 
+/* ---------------- HISTORICO DE TOQUES ----------------
+   O funil diz onde a pessoa esta. O historico diz o que ja foi tentado
+   com ela, e e isso que evita repetir a mesma abordagem que nao colou. */
+const toquesDe = l => ((l&&l.historico)||[]).slice().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+function addToque(id, data, canal, oque){
+  const l=COM.leads[id]; if(!l) return false;
+  if(!String(oque||"").trim()) return false;
+  l.historico = l.historico || [];
+  l.historico.push({data:data||iso(HOJE), canal:canal||"Outro",
+                    oque:String(oque).trim().slice(0,400), quem:USUARIO||COM_LOGADO||null});
+  l.toques = l.historico.length;
+  /* o primeiro toque registrado e o primeiro contato, se ainda nao houver */
+  if(!l.primeiro_contato && data) l.primeiro_contato = data+"T12:00";
+  l.atualizadoEm=new Date().toISOString();
+  return true;
+}
+function removeToque(id, i){
+  const l=COM.leads[id]; if(!l || !l.historico) return;
+  const ord=toquesDe(l); const alvo=ord[i]; if(!alvo) return;
+  l.historico = l.historico.filter(x=>x!==alvo);
+  l.toques = l.historico.length;
+  l.atualizadoEm=new Date().toISOString();
+}
+function historicoHTML(l){
+  const ts=toquesDe(l);
+  return '<div class="cm-sec">Histórico'+(ts.length?' <span class="cm-cont">'+ts.length+
+      (ts.length>1?' toques':' toque')+'</span>':'')+'</div>'+
+    (ts.length
+      ? '<div class="hist">'+ts.map((t,i)=>
+          '<div class="hist-l"><span class="hist-d">'+esc(fmt(t.data))+'</span>'+
+          '<span class="hist-c">'+esc(t.canal||"")+'</span>'+
+          '<span class="hist-o">'+esc(t.oque||"")+
+            (t.quem?'<i>'+esc(t.quem)+'</i>':'')+'</span>'+
+          '<button class="hist-x" data-cmtoquex="'+escAttr((l.id||"")+"|"+i)+'" title="Apagar">&times;</button>'+
+          '</div>').join("")+'</div>'
+      : '<p class="cm-nota">Nada registrado ainda. Cada tentativa anotada aqui evita repetir o que já não funcionou.</p>')+
+    (l.id
+      ? '<div class="hist-novo">'+
+          '<input type="date" id="cmTqData" value="'+escAttr(iso(HOJE))+'" max="'+escAttr(iso(HOJE))+'">'+
+          selCom("cmTqCanal", CANAIS, "WhatsApp")+
+          '<input type="text" id="cmTqOque" placeholder="O que aconteceu? Ex.: mandei mensagem, não respondeu">'+
+          '<button data-cmtoque="'+escAttr(l.id)+'">Registrar</button>'+
+        '</div>'
+      : '<p class="cm-nota">Crie o lead primeiro para começar a registrar os toques.</p>');
+}
+
 /* ---------------- ACESSO AOS DADOS ---------------- */
 const listaCom = () => Object.keys(COM.leads||{})
   .map(k=>({...COM.leads[k], id:k}))
@@ -159,13 +208,16 @@ function sinaisCom(l, agora){
   const hoje=iso(agora||HOJE), s=[];
   if(l.etapa!=="fechado"){
     if(l.proximo_followup && l.proximo_followup<hoje)
-      s.push({k:"atrasado", txt:"follow-up venceu em "+fmt(l.proximo_followup), ico:"&#9650;"});
+      s.push({k:"atrasado", txt:"follow-up venceu em "+fmt(l.proximo_followup), ico:"&#9650;",
+              tit:"O follow-up era para "+fmt(l.proximo_followup)});
     const esp=minutosEsperando(l, agora?new Date(agora):new Date());
     if(esp!=null && esp>60)
-      s.push({k:"espera", txt:"esperando ha "+(esp<120?esp+" min":Math.round(esp/60)+"h")+" sem ninguem falar", ico:"&#9201;"});
+      s.push({k:"espera", txt:"esperando", ico:"&#9201;",
+              tit:"Chegou há "+(esp<120?esp+" min":Math.round(esp/60)+"h")+" e ninguém falou com essa pessoa"});
     /* sem decisor na conversa o negocio e 233% menos provavel de fechar (Gong) */
     if(l.decisor==="Não")
-      s.push({k:"semdecisor", txt:"quem decide ainda nao entrou na conversa", ico:"&#128274;"});
+      s.push({k:"semdecisor", txt:"sem o decisor", ico:"&#128274;",
+              tit:"Quem assina ainda não entrou na conversa. Sem ele, o negócio é 233% menos provável de fechar (Gong)"});
   }
   return s;
 }
@@ -196,29 +248,6 @@ function primeiroNomeCom(n){
   return p ? p.charAt(0).toUpperCase()+p.slice(1).toLowerCase() : "";
 }
 
-/* ---------------- CARTAO ---------------- */
-function cardCom(l){
-  const sc=scoreCHAMP(l), sin=sinaisCom(l), zap=zapCom(l);
-  const alerta=sin.find(x=>x.k==="atrasado")?" alerta":"";
-  return '<div class="cm-card'+alerta+'" draggable="true" data-cmlead="'+escAttr(l.id)+'">'+
-    '<div class="cm-emp">'+esc(l.empresa||"sem nome")+'</div>'+
-    '<div class="cm-quem">'+esc(l.contato||"—")+(l.cargo?' <i>'+esc(l.cargo)+'</i>':'')+'</div>'+
-    '<div class="cm-tags">'+
-      (l.pacote?'<span class="cm-tag pac">'+esc(l.pacote)+'</span>':'')+
-      (l.porte?'<span class="cm-tag por">'+esc(l.porte)+'</span>':'')+
-      (Number(l.valor_mensal)>0?'<span class="cm-tag val">R$ '+numBR(l.valor_mensal)+'/mês</span>':'')+
-    '</div>'+
-    '<div class="cm-rodape">'+estrelasCom(sc)+
-      (respCom(l)?'<span class="cm-resp" title="'+escAttr(respCom(l))+'">'+esc(respCom(l).slice(0,1))+'</span>'
-                 :'<span class="cm-resp vago" title="ninguém pegou este lead">?</span>')+
-    '</div>'+
-    (sin.length?'<div class="cm-sinais">'+sin.map(s=>
-      '<span class="cm-sin s-'+s.k+'">'+s.ico+' '+esc(s.txt)+'</span>').join("")+'</div>':'')+
-    (zap?'<a class="cm-zap" href="'+escAttr(zap)+'" target="_blank" rel="noopener" data-cmzap="1">WhatsApp</a>':'')+
-  '</div>';
-}
-
-/* ---------------- QUADRO ---------------- */
 function funilHTML(){
   if(!COM_LOGADO) return loginComHTML();
   if(COM_NEGADO) return '<section class="bloco cm-login"><h2>Acesso negado</h2>'+
@@ -226,49 +255,46 @@ function funilHTML(){
     'de quem pode ver a base de leads. Peça ao Guilherme para incluir, ou entre com outra conta.</p>'+
     '<button class="cm-entrar" data-cmsair="1">Entrar com outra conta</button></section>';
   if(!COM_PRONTO) return '<section class="bloco"><h2>Funil</h2><p>Carregando a base…</p></section>';
+
   const todos=listaCom();
   const abertos=todos.filter(l=>l.etapa!=="fechado");
-  const colunas=ETAPAS_COM.map(e=>{
-    const ls=daEtapa(e.k).sort((a,b)=>{
-      const fa=a.proximo_followup||"9999", fb=b.proximo_followup||"9999";
-      return fa.localeCompare(fb);
-    });
-    const soma=pipelinePonderado(ls);
-    return '<div class="cm-col" data-cmcol="'+e.k+'">'+
-      '<div class="cm-colh"><b>'+esc(e.rot)+'</b>'+
-        '<span class="cm-n">'+ls.length+'</span>'+
-        (soma>0?'<span class="cm-soma">R$ '+numBR(Math.round(soma))+'</span>':'')+
-      '</div>'+
-      '<div class="cm-lista">'+(ls.length?ls.map(cardCom).join("")
-        :'<div class="cm-vazio">Solte um cartão aqui</div>')+'</div>'+
-      '<div class="cm-sai">sai quando '+esc(e.sai)+'</div>'+
-    '</div>';
-  }).join("");
-
   const semContato=abertos.filter(l=>!l.primeiro_contato);
   const vencidos=abertos.filter(l=>l.proximo_followup && l.proximo_followup<iso(HOJE));
+
   const avisos=[];
   if(semContato.length) avisos.push('<span class="cm-av urg">'+semContato.length+
-    (semContato.length>1?' leads esperando':' lead esperando')+' o primeiro contato</span>');
+    (semContato.length>1?' esperando':' esperando')+' o primeiro contato</span>');
   if(vencidos.length) avisos.push('<span class="cm-av">'+vencidos.length+
     ' com follow-up vencido</span>');
 
+  /* quantos em cada etapa, para ler o funil sem precisar de quadro */
+  const resumo='<div class="cm-etapas">'+ETAPAS_COM.map(e=>{
+    const n=daEtapa(e.k).length;
+    return '<button class="cm-et'+(FILTRO_COM===e.k?" on":"")+(n?"":" zero")+'" data-cmfil="'+e.k+'"'+
+      ' title="Sai desta etapa quando '+escAttr(e.sai)+'">'+
+      '<b>'+n+'</b><span>'+esc(e.rot)+'</span></button>';
+  }).join("")+
+    (FILTRO_COM?'<button class="cm-et limpa" data-cmfil="">ver todos</button>':'')+'</div>';
+
   return '<div class="cm-topo">'+
-      '<div class="cm-tit"><h2>Funil</h2>'+
+      '<div class="cm-tit"><h2>Base de leads</h2>'+
         '<span class="cm-pipe">R$ '+numBR(Math.round(pipelinePonderado(abertos)))+
         ' <i>pipeline ponderado</i></span></div>'+
       '<div class="cm-acoes">'+avisos.join("")+
         '<button class="cm-novo" data-cmnovo="1">+ Novo lead</button>'+
-        '<span class="cm-eu">'+esc(COM_LOGADO)+'</span></div>'+
+        (COM_LOGADO===DONO_COM
+          ? '<button class="cm-quem" data-cmquem="1" title="Quem pode abrir o funil">Quem pode entrar</button>' : '')+
+        '<span class="cm-eu" title="Você entrou como '+escAttr(COM_LOGADO)+'">'+esc(COM_LOGADO)+'</span></div>'+
     '</div>'+
-    '<div class="cm-quadro">'+colunas+'</div>'+
+    resumo+
+    planilhaHTML()+
     (todos.length?'':'<p class="cm-dica">A base está vazia. Clique em <b>+ Novo lead</b> para começar, '+
       'ou me peça para importar a planilha que já existe.</p>');
 }
 
-/* ---------------- FICHA DO LEAD ----------------
-   Tres blocos, na ordem em que a conversa acontece: quem e, o que
-   doi, e quanto custa resolver. */
+/* ---------------- PECAS DA FICHA ----------------
+   Lista fechada vira <select>: valor fora da lista nao existe, entao
+   nao ha como digitar errado. */
 function selCom(id, lista, valor, vazio){
   return '<select id="'+id+'"><option value="">'+(vazio||"—")+'</option>'+
     lista.map(v=>'<option'+(v===valor?' selected':'')+'>'+esc(v)+'</option>').join("")+'</select>';
@@ -276,61 +302,161 @@ function selCom(id, lista, valor, vazio){
 function campoCom(rot, dentro, dica){
   return '<label class="mlab">'+esc(rot)+dentro+(dica?'<span class="mhint">'+esc(dica)+'</span>':'')+'</label>';
 }
+function mesRotuloCom(ym){
+  if(!ym) return "";
+  const d0=new Date(+ym.slice(0,4), +ym.slice(5,7)-1, 1);
+  const s0=d0.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  return s0.charAt(0).toUpperCase()+s0.slice(1);
+}
+
+/* ---------------- PLANILHA ----------------
+   O quadro responde "onde cada um esta". A planilha responde "o que ja
+   fizemos com cada um", que e outra pergunta e pede outra tela. */
+const COLS_COM = [
+  ["sinais","!"], ["empresa","Empresa"], ["contato","Contato"], ["cargo","Cargo"],
+  ["origem","De onde veio"], ["whatsapp","WhatsApp"], ["etapa","Etapa"],
+  ["score","Diag."], ["toques","Toques"], ["ultimo","Último toque"],
+  ["primeiro_contato","1º contato"], ["proximo_followup","Próximo"],
+  ["valor_mensal","Mensalidade"], ["responsavel","Responsável"], ["zap",""]
+];
+let ORD_COM = {col:"ultimo", desc:true};
+function valCol(l, c){
+  if(c==="sinais")  return sinaisCom(l).length;
+  if(c==="zap")     return "";
+  if(c==="score")   return scoreCHAMP(l);
+  if(c==="toques")  return (l.historico||[]).length;
+  if(c==="ultimo")  { const t=toquesDe(l)[0]; return t?t.data:""; }
+  if(c==="etapa")   return ordemEtapa(l.etapa);
+  if(c==="valor_mensal") return Number(l.valor_mensal)||0;
+  return l[c]||"";
+}
+function celCom(l, c){
+  if(c==="sinais"){
+    const sin=sinaisCom(l);
+    return sin.length
+      ? sin.map(x=>'<span class="pl-sin s-'+x.k+'" title="'+escAttr(x.tit||x.txt)+'">'+x.ico+'</span>').join("")
+      : '<span class="pl-ok" title="nada pendente">·</span>';
+  }
+  if(c==="zap"){
+    const z=zapCom(l);
+    return z ? '<a class="pl-zap" href="'+escAttr(z)+'" target="_blank" rel="noopener" data-cmzap="1"'+
+               ' title="Abrir conversa com a mensagem pronta desta etapa">WhatsApp</a>'
+             : '<span class="pl-zap off" title="telefone fora do padrão">—</span>';
+  }
+  if(c==="etapa")   return '<span class="pl-et e-'+l.etapa+'">'+esc(etapaCom(l.etapa).rot)+'</span>';
+  if(c==="score")   return estrelasCom(scoreCHAMP(l));
+  if(c==="toques")  return String((l.historico||[]).length||"—");
+  if(c==="ultimo")  { const t=toquesDe(l)[0];
+                      return t ? '<span title="'+escAttr(t.canal+": "+t.oque)+'">'+esc(fmt(t.data))+
+                                 ' <i>'+esc(t.canal)+'</i></span>' : "—"; }
+  if(c==="whatsapp")return esc(telComBonito(l.whatsapp));
+  if(c==="valor_mensal") return Number(l.valor_mensal)>0 ? "R$ "+numBR(l.valor_mensal) : "—";
+  if(c==="primeiro_contato") return l.primeiro_contato ? esc(fmt(String(l.primeiro_contato).slice(0,10))) : "—";
+  if(c==="proximo_followup"){
+    if(!l.proximo_followup) return "—";
+    const venceu = l.proximo_followup<iso(HOJE) && l.etapa!=="fechado";
+    return '<span class="'+(venceu?"pl-venc":"")+'">'+esc(fmt(l.proximo_followup))+'</span>';
+  }
+  return esc(l[c]||"—");
+}
+function planilhaHTML(){
+  const base = FILTRO_COM ? listaCom().filter(l=>l.etapa===FILTRO_COM) : listaCom();
+  const ls=base.slice().sort((a,b)=>{
+    const x=valCol(a,ORD_COM.col), y=valCol(b,ORD_COM.col);
+    const n = (typeof x==="number"&&typeof y==="number") ? (x-y) : String(x).localeCompare(String(y));
+    return ORD_COM.desc ? -n : n;
+  });
+  if(!ls.length) return '<div class="cm-vaziopl">'+(FILTRO_COM
+    ? 'Ninguém em '+esc(etapaCom(FILTRO_COM).rot)+' agora.'
+    : 'A base está vazia. Crie o primeiro lead no botão acima.')+'</div>';
+  return '<div class="pl-rolo"><table class="pl"><thead><tr>'+
+    COLS_COM.map(c=>'<th data-cmord="'+c[0]+'" class="'+(ORD_COM.col===c[0]?"ord":"")+'">'+
+      esc(c[1])+(ORD_COM.col===c[0]?(ORD_COM.desc?" &#9662;":" &#9652;"):"")+'</th>').join("")+
+    '</tr></thead><tbody>'+
+    ls.map(l=>'<tr data-cmlead="'+escAttr(l.id)+'">'+
+      COLS_COM.map(c=>'<td class="c-'+c[0]+'">'+celCom(l,c[0])+'</td>').join("")+'</tr>').join("")+
+    '</tbody></table></div>'+
+    '<p class="cm-nota">Clique em qualquer linha para abrir a ficha. Clique no título da coluna para ordenar.</p>';
+}
+
 function abrirLeadCom(id){
   const l = id ? leadCom(id) : {etapa:"novo", entrada:iso(HOJE), responsavel:USUARIO||""};
   if(id && !l){ toast("Lead não encontrado",false); return; }
   const novo=!id, sc=scoreCHAMP(l), min=minutosAteContato(l);
   const pessoas=(ESTADO.pessoas||[]).filter(p=>(p.areas||[]).indexOf("com")>=0||(p.areas||[]).indexOf("all")>=0).map(p=>p.nome);
+  const et=etapaCom(l.etapa);
   const mm=$("modal");
-  mm.innerHTML='<div class="mbox cmficha"><h3>'+(novo?"Novo lead":esc(l.empresa||"Lead"))+'</h3>'+
 
-    '<div class="cm-sec">Quem é</div>'+
-    '<div class="cm-grade">'+
-      campoCom("Empresa",'<input type="text" id="cmEmpresa" value="'+escAttr(l.empresa||"")+'" data-focar>')+
-      campoCom("Contato",'<input type="text" id="cmContato" value="'+escAttr(l.contato||"")+'">')+
-      campoCom("Cargo", selCom("cmCargo", LC.cargo, l.cargo))+
-      campoCom("É quem decide?", selCom("cmDecisor", LC.decisor, l.decisor),
-        "A pergunta certa não é “você decide?”, é “além de você, quem mais assina?”")+
-      campoCom("WhatsApp",'<input type="text" id="cmZap" value="'+escAttr(l.whatsapp||"")+'" placeholder="(27) 99999-0000">')+
-      campoCom("E-mail",'<input type="text" id="cmEmail" value="'+escAttr(l.email||"")+'">')+
-      campoCom("Origem", selCom("cmOrigem", LC.origem, l.origem))+
-      campoCom("Segmento", selCom("cmSegmento", LC.segmento, l.segmento))+
-      campoCom("Porte", selCom("cmPorte", LC.porte, l.porte))+
-      campoCom("Cidade",'<input type="text" id="cmCidade" value="'+escAttr(l.cidade||"")+'" placeholder="Cariacica/ES">')+
-      campoCom("Instagram",'<input type="text" id="cmInsta" value="'+escAttr(l.instagram||"")+'">')+
-      campoCom("Entrada",'<input type="date" id="cmEntrada" value="'+escAttr((l.entrada||"").slice(0,10))+'">')+
+  /* cabecalho e rodape ficam presos; so o miolo rola. Sem isto a ficha
+     passa da altura da tela e o botao de salvar some. */
+  mm.innerHTML='<div class="mbox cmficha">'+
+
+    '<div class="cm-fh">'+
+      '<div class="cm-fht">'+
+        '<h3>'+(novo?"Novo lead":esc(l.empresa||l.contato||"Lead"))+'</h3>'+
+        '<span class="cm-chip e-'+l.etapa+'">'+esc(et.rot)+'</span>'+
+      '</div>'+
+      '<div class="cm-fhs">'+estrelasCom(sc)+'<span>'+sc+' de 4 no diagnóstico</span>'+
+        (min!=null?'<span class="cm-fhm">respondido em '+(min<120?min+" min":Math.round(min/60)+"h")+'</span>':'')+
+      '</div>'+
     '</div>'+
 
-    '<div class="cm-sec">Diagnóstico <span class="cm-scorebox">'+estrelasCom(sc)+' '+sc+' de 4</span></div>'+
-    '<div class="cm-grade um">'+
-      campoCom("O desafio, na frase dele",'<textarea id="cmDesafio" rows="2" placeholder="Ex.: perde aluno na rematrícula e não sabe por quê">'+esc(l.desafio||"")+'</textarea>')+
-      campoCom("A meta, em número, para 90 dias",'<input type="text" id="cmMeta" value="'+escAttr(l.meta||"")+'" placeholder="Ex.: 40 matrículas novas até dezembro">')+
-    '</div>'+
-    '<div class="cm-grade">'+
-      campoCom("Quantas pessoas decidem",'<input type="number" id="cmEnvolvidos" min="0" value="'+escAttr(l.envolvidos!=null?l.envolvidos:"")+'">')+
-      campoCom("Já investe por mês (R$)",'<input type="number" id="cmInveste" min="0" value="'+escAttr(l.investe_hoje!=null?l.investe_hoje:"")+'">',"0 = não investe nada hoje")+
-      campoCom("Prazo de decisão", selCom("cmPrazo", LC.prazo, l.prazo))+
-      campoCom("Responsável", selCom("cmResp", pessoas, l.responsavel))+
+    '<div class="cm-fb">'+
+      '<div class="cm-sec">Quem é</div>'+
+      '<div class="cm-grade">'+
+        campoCom("Empresa",'<input type="text" id="cmEmpresa" value="'+escAttr(l.empresa||"")+'" placeholder="Nome da empresa" data-focar>')+
+        campoCom("Contato",'<input type="text" id="cmContato" value="'+escAttr(l.contato||"")+'" placeholder="Nome da pessoa">')+
+        campoCom("Cargo", selCom("cmCargo", LC.cargo, l.cargo))+
+        campoCom("WhatsApp",'<input type="text" id="cmZap" value="'+escAttr(l.whatsapp||"")+'" placeholder="(27) 99999-0000">')+
+        campoCom("E-mail",'<input type="text" id="cmEmail" value="'+escAttr(l.email||"")+'" placeholder="opcional">')+
+        campoCom("Instagram",'<input type="text" id="cmInsta" value="'+escAttr(l.instagram||"")+'" placeholder="@ ou site">')+
+        campoCom("Quem decide?", selCom("cmDecisor", LC.decisor, l.decisor))+
+        campoCom("De onde veio", selCom("cmOrigem", LC.origem, l.origem))+
+        campoCom("Segmento", selCom("cmSegmento", LC.segmento, l.segmento))+
+        campoCom("Porte", selCom("cmPorte", LC.porte, l.porte))+
+        campoCom("Cidade",'<input type="text" id="cmCidade" value="'+escAttr(l.cidade||"")+'" placeholder="Cariacica/ES">')+
+        campoCom("Chegou em",'<input type="date" id="cmEntrada" value="'+escAttr((l.entrada||"").slice(0,10))+'">')+
+        campoCom("Etapa",
+          '<select id="cmEtapa">'+ETAPAS_COM.map(e=>'<option value="'+e.k+'"'+(e.k===l.etapa?' selected':'')+'>'+
+            esc(e.rot)+'</option>').join("")+'</select>',
+          "Sai daqui quando "+et.sai)+
+      '</div>'+
+      '<p class="cm-nota">A pergunta certa nunca é \u201cvocê decide?\u201d. É \u201calém de você, quem mais assina?\u201d</p>'+
+
+      '<div class="cm-sec">Diagnóstico</div>'+
+      '<div class="cm-grade um">'+
+        campoCom("O desafio, na frase dele",'<textarea id="cmDesafio" rows="2" placeholder="Ex.: perde aluno na rematrícula e não sabe por quê">'+esc(l.desafio||"")+'</textarea>')+
+        campoCom("A meta em 90 dias",'<input type="text" id="cmMeta" value="'+escAttr(l.meta||"")+'" placeholder="Ex.: 40 matrículas novas até dezembro">')+
+      '</div>'+
+      '<div class="cm-grade">'+
+        campoCom("Pessoas na decisão",'<input type="number" id="cmEnvolvidos" min="0" placeholder="0" value="'+escAttr(l.envolvidos!=null?l.envolvidos:"")+'">')+
+        campoCom("Investe hoje (R$/mês)",'<input type="number" id="cmInveste" min="0" placeholder="0" value="'+escAttr(l.investe_hoje!=null?l.investe_hoje:"")+'">')+
+        campoCom("Prazo de decisão", selCom("cmPrazo", LC.prazo, l.prazo))+
+        campoCom("Responsável", selCom("cmResp", pessoas, l.responsavel))+
+      '</div>'+
+
+      '<div class="cm-sec">Negócio</div>'+
+      '<div class="cm-grade">'+
+        campoCom("Pacote", selCom("cmPacote", LC.pacote, l.pacote))+
+        campoCom("Mensalidade (R$)",'<input type="number" id="cmValor" min="0" placeholder="0" value="'+escAttr(l.valor_mensal!=null?l.valor_mensal:"")+'">')+
+        campoCom("Entrada (R$)",'<input type="number" id="cmSetup" min="0" placeholder="0" value="'+escAttr(l.setup!=null?l.setup:"")+'">')+
+        campoCom("Proposta enviada em",'<input type="date" id="cmDataProp" value="'+escAttr(l.data_proposta||"")+'">')+
+        campoCom("Primeiro contato",'<input type="datetime-local" id="cmPrimeiro" value="'+escAttr((l.primeiro_contato||"").slice(0,16))+'">')+
+        campoCom("Próximo toque",'<input type="date" id="cmFollow" value="'+escAttr(l.proximo_followup||"")+'">')+
+        campoCom("Reunião",'<input type="datetime-local" id="cmReuniao" value="'+escAttr((l.reuniao||"").slice(0,16))+'">')+
+        campoCom("Como foi a reunião", selCom("cmResultado", LC.reuniao, l.resultado_reuniao))+
+      '</div>'+
+      (l.porte&&MULT_PORTE[l.porte]
+        ? '<p class="cm-nota">Porte '+esc(l.porte)+': o manual de preços usa multiplicador '+MULT_PORTE[l.porte]+'x.</p>' : '')+
+      '<div class="cm-grade um">'+
+        campoCom("Observações",'<textarea id="cmObs" rows="2" placeholder="opcional">'+esc(l.obs||"")+'</textarea>')+
+      '</div>'+
+
+      (l.etapa==="fechado"?fechamentoComHTML(l):'')+
+      historicoHTML(l)+
     '</div>'+
 
-    '<div class="cm-sec">Negócio</div>'+
-    '<div class="cm-grade">'+
-      campoCom("Pacote", selCom("cmPacote", LC.pacote, l.pacote))+
-      campoCom("Mensalidade (R$)",'<input type="number" id="cmValor" min="0" value="'+escAttr(l.valor_mensal!=null?l.valor_mensal:"")+'">'+
-        (l.porte&&MULT_PORTE[l.porte]?'<span class="mhint">Porte '+esc(l.porte)+': multiplicador '+MULT_PORTE[l.porte]+'x</span>':''))+
-      campoCom("Setup / entrada (R$)",'<input type="number" id="cmSetup" min="0" value="'+escAttr(l.setup!=null?l.setup:"")+'">')+
-      campoCom("Data da proposta",'<input type="date" id="cmDataProp" value="'+escAttr(l.data_proposta||"")+'">')+
-      campoCom("Primeiro contato",'<input type="datetime-local" id="cmPrimeiro" value="'+escAttr((l.primeiro_contato||"").slice(0,16))+'">',
-        min!=null?("levou "+(min<120?min+" min":Math.round(min/60)+"h")+" desde a entrada"):"quanto antes, melhor: 5 min contra 30 muda tudo")+
-      campoCom("Próximo follow-up",'<input type="date" id="cmFollow" value="'+escAttr(l.proximo_followup||"")+'">')+
-      campoCom("Reunião",'<input type="datetime-local" id="cmReuniao" value="'+escAttr((l.reuniao||"").slice(0,16))+'">')+
-      campoCom("Resultado da reunião", selCom("cmResultado", LC.reuniao, l.resultado_reuniao))+
-    '</div>'+
-    campoCom("Observações",'<textarea id="cmObs" rows="2">'+esc(l.obs||"")+'</textarea>')+
-
-    (l.etapa==="fechado"?fechamentoComHTML(l):'')+
-
-    '<div class="mbtns">'+
+    '<div class="cm-ff">'+
       '<button data-cmsalvar="'+escAttr(l.id||"")+'">'+(novo?"Criar lead":"Salvar")+'</button>'+
       (novo?'':'<button class="sec" data-cmexcluir="'+escAttr(l.id)+'">Excluir</button>')+
       '<button class="sec" data-macao="fechar">Fechar</button>'+
@@ -385,10 +511,20 @@ function coletarLeadCom(id){
     resultado_reuniao:vCom("cmResultado"), obs:vCom("cmObs")
   });
 }
+const antesEtapa = id => ((COM.leads[id]||{}).etapa)||"novo";
 function salvarLeadCom(id){
   const novo = coletarLeadCom(id);
   if($("cmMotivo")) novo.motivo_perda=vCom("cmMotivo");
   if($("cmFrase"))  novo.motivo_frase=vCom("cmFrase");
+  /* mudou de etapa na ficha: o gatilho de saida vale igual */
+  const etDestino = vCom("cmEtapa");
+  if(id && etDestino && etDestino!==novo.etapa){
+    const prova = Object.assign({}, novo, {etapa:antesEtapa(id)});
+    const r = podeSair(prova, etDestino);
+    if(!r.ok){ toast("Para mover para "+etapaCom(etDestino).rot+", falta "+r.falta, false); return; }
+    novo.etapa = etDestino;
+    if(etDestino==="fechado" && !novo.fechamento) novo.fechamento=iso(HOJE);
+  }
   if(!novo.empresa && !novo.contato){ toast("Precisa pelo menos da empresa ou do contato",false); return; }
   novo.score=scoreCHAMP(novo);
   novo.atualizadoEm=new Date().toISOString();
@@ -475,6 +611,14 @@ function logCom(acao, id, nome){
    conferindo o e-mail do Google contra a lista de autorizados.
    ═══════════════════════════════════════════════════════════════════ */
 const NO_COM = "painel/comercial";
+const NO_AUT = "painel/autorizados";
+/* quem administra a lista de acesso. Uma conta so, de proposito: se
+   qualquer autorizado pudesse remover os outros, daria para se trancar
+   fora sozinho. */
+const DONO_COM = "aagencia.mk3@gmail.com";
+/* o Firebase nao aceita . nem @ em nome de chave */
+const chaveEmail = e => String(e||"").trim().toLowerCase().replace(/\./g,",").replace(/@/g,"_");
+const deChave    = k => String(k||"").replace(/_/g,"@").replace(/,/g,".");
 
 function loginComHTML(){
   return '<section class="bloco cm-login"><h2>Funil de vendas</h2>'+
@@ -533,6 +677,59 @@ function salvarCom(){
   }, 400);
 }
 
+/* ---------------- QUEM PODE ENTRAR ----------------
+   A lista vive no banco, nao no codigo: o repositorio e publico e uma
+   lista de e-mails ali dentro seria um convite. Quem manda e a REGRA
+   do Firebase, que le esta mesma lista antes de liberar. */
+let AUT = null;
+function abrirAutorizados(){
+  if(COM_LOGADO!==DONO_COM){ toast("Só a conta da MK3 mexe nessa lista", false); return; }
+  const mm=$("modal");
+  const linhas = AUT===null
+    ? '<p class="cm-nota">Carregando…</p>'
+    : (Object.keys(AUT).filter(k=>AUT[k]===true).sort().map(k=>{
+        const mail=deChave(k), eu=(mail===DONO_COM);
+        return '<div class="aut-l"><span class="aut-m">'+esc(mail)+
+          (eu?' <i>você, não dá para remover</i>':'')+'</span>'+
+          (eu?'':'<button class="aut-x" data-cmautx="'+escAttr(k)+'" title="Tirar o acesso">&times;</button>')+
+        '</div>';
+      }).join("") || '<p class="cm-nota">Ninguém além de você ainda.</p>');
+
+  mm.innerHTML='<div class="mbox autbox"><h3>Quem pode entrar no funil</h3>'+
+    '<p class="msub">Só estes e-mails conseguem abrir a base de leads. Quem não está aqui '+
+    'não lê nem uma linha, mesmo com o link do banco na mão.</p>'+
+    '<div class="aut-lista">'+linhas+'</div>'+
+    '<label class="mlab">Adicionar e-mail do Google'+
+      '<input type="email" id="autNovo" placeholder="nome@gmail.com" autocomplete="off" data-focar></label>'+
+    '<p class="cm-nota">Precisa ser a conta Google que a pessoa usa para entrar. '+
+    'E-mail de outro provedor não funciona no login.</p>'+
+    '<div class="mbtns"><button data-cmautadd="1">Adicionar</button>'+
+    '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
+  if(AUT===null) lerAutorizados();
+}
+function lerAutorizados(){
+  if(!window.firebase || !firebase.database) return;
+  firebase.database().ref(NO_AUT).once("value")
+    .then(s=>{ AUT=s.val()||{}; if($("modal") && $("modal").innerHTML.indexOf("aut-lista")>0) abrirAutorizados(); })
+    .catch(()=>{ AUT={}; toast("Não consegui ler a lista de acesso", false); });
+}
+function addAutorizado(){
+  const v=(($("autNovo")&&$("autNovo").value)||"").trim().toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ toast("Escreva um e-mail válido", false); return; }
+  const k=chaveEmail(v);
+  firebase.database().ref(NO_AUT+"/"+k).set(true)
+    .then(()=>{ AUT=AUT||{}; AUT[k]=true; abrirAutorizados(); toast(v+" agora pode entrar"); })
+    .catch(()=>toast("Não consegui salvar. Confira se você entrou com a conta da MK3.", false));
+}
+function tirarAutorizado(k){
+  if(deChave(k)===DONO_COM) return;
+  if(!confirm("Tirar o acesso de "+deChave(k)+"?")) return;
+  firebase.database().ref(NO_AUT+"/"+k).remove()
+    .then(()=>{ if(AUT) delete AUT[k]; abrirAutorizados(); })
+    .catch(()=>toast("Não consegui remover", false));
+}
+
 /* ---------------- LEAD GANHO VIRA CLIENTE ----------------
    O funil termina onde o painel comeca: cliente novo entra com as 14
    etapas de onboarding, sem redigitar nada. */
@@ -551,43 +748,11 @@ function leadViraCliente(id){
   };
 }
 
-/* ---------------- ARRASTAR ENTRE COLUNAS ----------------
-   Mesmo mecanismo que ja move tarefa entre datas no calendario. */
-function ligarArrastoCom(){
-  const q=document.querySelector(".cm-quadro"); if(!q) return;
-  let pegando=null;
-  q.addEventListener("dragstart", e=>{
-    const c=e.target.closest("[data-cmlead]"); if(!c) return;
-    pegando=c.dataset.cmlead;
-    c.classList.add("arrastando");
-    if(e.dataTransfer){ e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",pegando);}catch(x){} }
-  });
-  q.addEventListener("dragend", e=>{
-    const c=e.target.closest("[data-cmlead]"); if(c) c.classList.remove("arrastando");
-    q.querySelectorAll(".cm-col.alvo").forEach(x=>x.classList.remove("alvo"));
-    pegando=null;
-  });
-  q.addEventListener("dragover", e=>{
-    const col=e.target.closest("[data-cmcol]"); if(!col) return;
-    e.preventDefault();
-    if(e.dataTransfer) e.dataTransfer.dropEffect="move";
-    q.querySelectorAll(".cm-col.alvo").forEach(x=>{ if(x!==col) x.classList.remove("alvo"); });
-    col.classList.add("alvo");
-  });
-  q.addEventListener("drop", e=>{
-    const col=e.target.closest("[data-cmcol]"); if(!col) return;
-    e.preventDefault();
-    col.classList.remove("alvo");
-    const id = pegando || (e.dataTransfer && e.dataTransfer.getData("text/plain"));
-    if(id) moverEtapaCom(id, col.dataset.cmcol);
-  });
-}
-
 /* ---------------- CLIQUES ----------------
    O painel delega tudo num ouvinte so. Aqui o funil registra os seus,
    sem mexer na lista gigante do motor. */
 document.addEventListener("click", ev=>{
-  const a=ev.target.closest("[data-cmlead],[data-cmnovo],[data-cmsalvar],[data-cmexcluir],[data-cmdesf],[data-cmentrar],[data-cmsair]");
+  const a=ev.target.closest("[data-cmlead],[data-cmnovo],[data-cmsalvar],[data-cmexcluir],[data-cmdesf],[data-cmentrar],[data-cmsair],[data-cmquem],[data-cmautadd],[data-cmautx],[data-cmfil],[data-cmord],[data-cmtoque],[data-cmtoquex]");
   if(!a) return;
   if(ev.target.closest("[data-cmzap]")) return;        /* o botao de WhatsApp e link, deixa passar */
   ev.preventDefault(); ev.stopPropagation();
@@ -595,6 +760,21 @@ document.addEventListener("click", ev=>{
   if(d.cmentrar!==undefined){ entrarCom(); return; }
   if(d.cmsair!==undefined){ sairCom(); return; }
   if(d.cmnovo!==undefined){ abrirLeadCom(null); return; }
+  if(d.cmfil!==undefined){ FILTRO_COM=d.cmfil||""; render(); return; }
+  if(d.cmord!==undefined){
+    if(ORD_COM.col===d.cmord) ORD_COM.desc=!ORD_COM.desc; else ORD_COM={col:d.cmord, desc:true};
+    render(); return; }
+  if(d.cmtoque!==undefined){
+    const ok=addToque(d.cmtoque, vCom("cmTqData"), vCom("cmTqCanal"), vCom("cmTqOque"));
+    if(!ok){ toast("Escreva o que aconteceu", false); return; }
+    logCom("registrou um toque em", d.cmtoque, (COM.leads[d.cmtoque]||{}).empresa);
+    salvarCom(); abrirLeadCom(d.cmtoque); render(); return; }
+  if(d.cmtoquex!==undefined){
+    const p=d.cmtoquex.split("|"); removeToque(p[0], Number(p[1]));
+    salvarCom(); abrirLeadCom(p[0]); render(); return; }
+  if(d.cmquem!==undefined){ abrirAutorizados(); return; }
+  if(d.cmautadd!==undefined){ addAutorizado(); return; }
+  if(d.cmautx!==undefined){ tirarAutorizado(d.cmautx); return; }
   if(d.cmsalvar!==undefined){ salvarLeadCom(d.cmsalvar||null); return; }
   if(d.cmexcluir!==undefined){ excluirLeadCom(d.cmexcluir); return; }
   if(d.cmdesf!==undefined){
