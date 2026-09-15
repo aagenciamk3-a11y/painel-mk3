@@ -560,7 +560,10 @@ function sidebarHTML(){
 let MOVERMODO = true;      /* arrastar e replanejar movem por padrao */
 const VISTA  = { pinPara:null, area:"all", escopo:null, aba:"cal", modo:"cards", feedDias:7, mes:0, dia:null, filtro:null, verTudo:false, edit:false, pano:null, pmes:0, psem:null, side:false };
 const cliente = id => CLIENTES.find(c=>c.id===id);
-const tarefasCli  = c => TODAS.filter(t=>t.clienteId===c.id && areaMatch(t));
+/* demanda com cliente mora no balde "_dem", mas pertence ao cliente:
+   sem isto ela some quando a equipe filtra por um cliente so */
+const ehDoCliente = (t,cid) => t.clienteId===cid || t.cliDem===cid;
+const tarefasCli  = c => TODAS.filter(t=>ehDoCliente(t,c.id) && areaMatch(t));
 const tarefasArea = () => TODAS.filter(areaMatch);
 
 /* ================= EDIÇÃO LOCAL (sem token; salva neste navegador) ================= */
@@ -1488,7 +1491,7 @@ function diaItem(t,showCli){
 function abrirDia(dayIso){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
   const showCli=!c;
-  const base=(c?TODAS.filter(t=>t.clienteId===c.id):tarefasArea()).filter(t=>t.data===dayIso)
+  const base=(c?TODAS.filter(t=>ehDoCliente(t,c.id)):tarefasArea()).filter(t=>t.data===dayIso)
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
   const mks=marcosDaArea((c?c.marcos:CLIENTES.flatMap(x=>x.marcos)).filter(m=>m.data===dayIso));
   const ags=(VISTA.area==="all"||VISTA.area==="mkt") ? (c?agendaCli(c.id):(ESTADO.agenda||[])).filter(e=>e.dia===dayIso) : [];
