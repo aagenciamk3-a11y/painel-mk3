@@ -650,6 +650,15 @@ function sairCom(){
 /* liga o funil ao banco. Chamado uma vez, na subida do painel. */
 function ligarCom(){
   if(!window.firebase || !firebase.auth || !firebase.database) return;
+  /* o motor sobe o Firebase dentro de um init() assincrono, entao quando
+     esta funcao roda a conexao pode ainda nao existir. Subir aqui tambem
+     e seguro: initializeApp so vale a primeira vez. */
+  try{
+    if(!(firebase.apps && firebase.apps.length)){
+      if(!window.MK3_FIREBASE) return;
+      firebase.initializeApp(window.MK3_FIREBASE);
+    }
+  }catch(e){ return; }
   firebase.auth().onAuthStateChanged(u=>{
     if(!u){ COM_LOGADO=null; COM_PRONTO=false; COM={leads:{},log:[]}; if(VISTA.modo==="funil") render(); return; }
     COM_LOGADO=u.email||""; COM_NEGADO=false;
