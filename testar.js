@@ -542,6 +542,22 @@ __ok("da para apagar um toque", COM.leads.z.toques===1);
 /* a ficha inteira */
 __ok("a ficha abre sem quebrar", (abrirLeadCom("z"), true));
 __ok("e a de lead novo tambem", (abrirLeadCom(null), true));
+
+/* o motor liga o Firebase dentro de um init() assincrono: quando o funil
+   entra, a conexao pode nao existir ainda. Ele tem que subir sozinho. */
+let __subiu=0, __ouviu=0;
+globalThis.MK3_FIREBASE={apiKey:"x"};
+globalThis.firebase={
+  apps:[],
+  initializeApp(){ __subiu++; this.apps.push({}); return {}; },
+  auth(){ if(!this.apps.length) throw new Error("No Firebase App"); return {onAuthStateChanged(){ __ouviu++; }}; },
+  database(){ if(!this.apps.length) throw new Error("No Firebase App"); return {ref(){ return {on(){},once(){ return {then(){ return {catch(){}}; }}; }}; }}; }
+};
+__ok("o funil sobe o Firebase quando o motor ainda nao subiu", (ligarCom(), __subiu===1));
+__ok("e so entao escuta o login", __ouviu===1);
+ligarCom();
+__ok("chamado de novo, nao sobe duas vezes", __subiu===1);
+globalThis.firebase=undefined; globalThis.MK3_FIREBASE=undefined;
 `);
 
 /* ---------------------------------------------------------------
