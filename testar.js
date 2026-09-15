@@ -385,6 +385,77 @@ __ok("tarefa sem remanejamento nao mostra o x", remanejadaDe(tr2)===null);
 __ok("desfazer fica registrado no feed", ESTADO.log.some(x=>x.acao==="desremanejar"));
 `);
 
+/* ---------------------------------------------------------------
+   As regras do Firebase tem lista fechada de campos no CRM: um campo
+   novo no portal que nao esteja la e recusado com 401, e a marcacao
+   some na atualizacao seguinte, sem erro na tela. Foi assim que o
+   "marcou visita" ficou uma semana sem gravar. Esta trava compara os
+   dois lados.
+   --------------------------------------------------------------- */
+(function(){
+  const R=[];
+  const ok=(n,c)=>{ R.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
+  console.log("\nRegras do Firebase x campos do portal");
+  try{
+    const regras=JSON.parse(fs.readFileSync(path.join(raiz,"firebase/regras.json"),"utf8"));
+    const crm=regras.rules.painel.publico.$token.crm.$lead;
+    const liberados=Object.keys(crm).filter(k=>k[0]!=="." && k[0]!=="$");
+    const src=fs.readFileSync(path.join(raiz,"portal.js"),"utf8");
+
+    /* campos que o portal escreve, tirados do proprio codigo */
+    const escritos=new Set(["por","ts"]);
+    (src.match(/gravarCRM\([^,]+,\s*"([a-zA-Z]+)"/g)||[])
+      .forEach(m=>escritos.add(m.match(/"([a-zA-Z]+)"/)[1]));
+    (src.match(/gravarCampos\([^,]+,\s*\{([^}]*)\}/g)||[]).forEach(m=>{
+      (m.match(/([a-zA-Z]+)\s*:/g)||[]).forEach(k=>escritos.add(k.replace(/\s*:/,"")));
+    });
+    (src.match(/patch\.([a-zA-Z]+)\s*=/g)||[])
+      .forEach(m=>escritos.add(m.match(/patch\.([a-zA-Z]+)/)[1]));
+    /* visita, venda e parceria chegam por variavel (data-marcar="id|campo"),
+       entao o nome do campo so aparece no HTML do botao */
+    (src.match(/data-marcar="[^"]*\|([a-zA-Z]+)"/g)||[])
+      .forEach(m=>{ const k=m.match(/\|([a-zA-Z]+)"$/); if(k) escritos.add(k[1]); });
+
+    ok("achou a lista de campos liberados", liberados.length>0);
+    ok("achou os campos que o portal escreve", escritos.size>2);
+    const faltando=[...escritos].filter(k=>liberados.indexOf(k)<0);
+    ok("todo campo escrito pelo portal esta liberado"+(faltando.length?" (faltam: "+faltando.join(", ")+")":""),
+       faltando.length===0);
+    ok("a lista continua fechada para o resto", crm.$outro && crm.$outro[".validate"]===false);
+    ["contato","semContato","motivo","visita","venda","parceria"].forEach(k=>
+      ok("campo "+k+" liberado", liberados.indexOf(k)>=0));
+  }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
+  console.log(R.join("\n"));
+})();
+
+bloco("Demanda do cliente nos filtros", M, limpar+`
+USUARIO="Guilherme";
+const dcDia=iso(HOJE);
+const dcId=addDemanda("Planejamento de Setembro","mkt",dcDia,"Carla","","leonardo");
+const dcT=TODAS.find(x=>x.id===dcId);
+__ok("a demanda guarda o cliente", dcT && dcT.cliDem==="leonardo");
+__ok("mas continua no balde das demandas", dcT.clienteId==="_dem");
+__ok("aparece no calendario geral", tarefasArea().some(x=>x.id===dcId));
+__ok("e tambem ao filtrar pelo cliente", tarefasCli(cliente("leonardo")).some(x=>x.id===dcId));
+__ok("nao vaza para outro cliente", !tarefasCli(cliente("suelem")).some(x=>x.id===dcId));
+
+/* era exatamente este o furo: aparecia no dia, sumia no filtro.
+   abrirDia monta a lista do dia a partir deste mesmo recorte. */
+const doDiaCli = TODAS.filter(x=>ehDoCliente(x,"leonardo")).filter(x=>x.data===dcDia);
+__ok("a janela do dia do cliente inclui a demanda", doDiaCli.some(x=>x.id===dcId));
+const doDiaGeral = tarefasArea().filter(x=>x.data===dcDia);
+__ok("e a janela do dia geral continua incluindo", doDiaGeral.some(x=>x.id===dcId));
+__ok("o recorte antigo era o que perdia", !TODAS.filter(x=>x.clienteId==="leonardo").some(x=>x.id===dcId));
+
+const dcInt=addDemanda("Reuniao interna","mkt",dcDia,"Carla","","");
+const dcTi=TODAS.find(x=>x.id===dcInt);
+__ok("demanda sem cliente nao ganha dono", dcTi && !dcTi.cliDem);
+__ok("e nao entra no filtro de cliente nenhum",
+  !tarefasCli(cliente("leonardo")).some(x=>x.id===dcInt) &&
+  !tarefasCli(cliente("suelem")).some(x=>x.id===dcInt));
+__ok("mas segue visivel na visao geral", tarefasArea().some(x=>x.id===dcInt));
+`);
+
 bloco("Arquivar e reativar cliente", M, limpar+`
 USUARIO="Guilherme";
 const arqId="suelem";
@@ -602,6 +673,55 @@ __ok("o titulo dos numeros e o mes por extenso", hm.indexOf(mesRotulo(ymDe(0)))>
 __ok("so o lead do mes conta no contador", contarTrafego().leadsMes===1);
 __ok("o total conta todos", contarTrafego().leadsTudo===4);
 CRM={};
+
+/* ---- filtro por empreendimento ---- */
+const hojeLd=iso(HOJE)+"T09:00:00-03:00";
+LEADS={
+  e1:{nome:"Ana",  tel:"p:27999990001",conjunto:"[LEADS] Cadastro - Domingos Martins",quando:hojeLd},
+  e2:{nome:"Bruno",tel:"p:27999990002",conjunto:"[LEADS] Cadastro - Domingos Martins",quando:hojeLd},
+  e3:{nome:"Caio", tel:"p:27999990003",conjunto:"[LEADS] Cadastro - Pier Boulevard",  quando:hojeLd},
+  e4:{nome:"Duda", tel:"p:27999990004",conjunto:"[LEADS] Cadastro - Domingos Martins",quando:"2020-01-01T09:00:00-03:00"}
+};
+CRM={}; EMPLEAD=null; MESLEAD=null;
+const empsAgora=empsDoMes(listaLeads().filter(x=>String(x.quando).slice(0,7)===ymDe(0)));
+__ok("lista os empreendimentos do mes", empsAgora.length===2);
+__ok("conta quantos leads em cada um", empsAgora[0][0]==="Domingos Martins" && empsAgora[0][1]===2);
+__ok("ordena do mais frequente para o menos", empsAgora[1][0]==="Pier Boulevard");
+__ok("sem lead nenhum nao inventa opcao", empsDoMes([]).length===0);
+__ok("lead sem empreendimento nao vira opcao", empsDoMes([{nome:"x"}]).length===0);
+
+const semFiltro=trafegoHTML();
+__ok("os chips aparecem quando ha mais de um empreendimento", /tp-emps/.test(semFiltro));
+__ok("tem a opcao Todos", /data-emplead=""/.test(semFiltro));
+__ok("sem filtro, mostra os tres do mes", contarTrafego(ymDe(0)).leadsMes===3);
+
+EMPLEAD="Domingos Martins";
+__ok("com filtro, conta so o empreendimento", contarTrafego(ymDe(0),"Domingos Martins").leadsMes===2);
+__ok("e o total do filtro conta os de outros meses tambem", contarTrafego(ymDe(0),"Domingos Martins").leadsTudo===3);
+const comFiltro=trafegoHTML();
+__ok("o titulo diz qual empreendimento", comFiltro.indexOf("Domingos Martins este m\u00eas")>0);
+__ok("a lista filtrada deixa o Caio de fora", comFiltro.indexOf("Caio")<0 && comFiltro.indexOf("Ana")>0);
+__ok("o chip escolhido fica ligado", /tp-emp on" data-emplead="Domingos Martins/.test(comFiltro));
+
+EMPLEAD="Empreendimento Que Nao Existe";
+__ok("filtro de um empreendimento ausente volta para todos", trafegoHTML().indexOf("Caio")>0);
+EMPLEAD=null;
+
+/* ---- nao consegui entrar em contato ---- */
+CRM={e1:{semContato:true, motivo:"errado"}};
+__ok("o motivo vira texto legivel", motivoRot("errado")==="N\u00famero errado");
+__ok("motivo desconhecido nao quebra", motivoRot("xpto")==="");
+__ok("tem contador proprio", contarTrafego(ymDe(0)).semMes===1);
+__ok("nao entra em ja foram atendidas", contarTrafego(ymDe(0)).contatoMes===0);
+const cardSem=cardLead({...LEADS.e1,_id:"e1"});
+__ok("o card ganha o selo com o motivo", /N\u00e3o consegui contato · N\u00famero errado/.test(cardSem));
+__ok("o card fica marcado", /class="ld[^"]*semcontato/.test(cardSem));
+__ok("o botao fica ligado", /ld-chk nao on/.test(cardSem));
+CRM={e2:{contato:true}};
+__ok("quem foi atendido nao conta como sem contato", contarTrafego(ymDe(0)).semMes===0 && contarTrafego(ymDe(0)).contatoMes===1);
+__ok("e o botao de nao consegui fica desligado", !/ld-chk nao on/.test(cardLead({...LEADS.e2,_id:"e2"})));
+CRM={};
+
 LEADS={a2:{nome:"Bia",tel:"p:27999990002",anuncio:"x",quando:"2026-05-10T09:00:00-03:00"}};
 __ok("mes corrente vazio avisa em vez de sumir", /Nenhuma pessoa nova este m\u00eas ainda/.test(trafegoHTML()));
 
