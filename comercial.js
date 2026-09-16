@@ -668,6 +668,7 @@ function ligarCom(){
       COM={leads:v.leads||{}, log:v.log||[], entrada:v.entrada||{}};
       COM_PRONTO=true;
       absorverEntrada();
+      completarOrigem();
       if(VISTA.modo==="funil") render();
     }, err=>{
       /* a regra recusou: e-mail fora da lista. Dizer isso na cara, em
@@ -719,6 +720,9 @@ function absorverEntrada(){
         empresa:  d.empresa||"",
         contato:  d.contato||"",
         whatsapp: d.whatsapp||"",
+        /* quando a planilha tiver a coluna, vem escrito daqui e o
+           deduzir nem chega a rodar */
+        origem:   d.origem||"",
         etapa:    d.ganho ? "fechado" : "novo",
         desfecho: d.ganho ? "ganho"   : "",
         /* sem data na planilha, o lead entra hoje, e a observacao diz
@@ -767,6 +771,48 @@ function absorverEntrada(){
 function tirarDaEntrada(k){
   if(!window.firebase || !firebase.database) return;
   try{ firebase.database().ref(NO_COM+"/entrada/"+k).remove().catch(()=>{}); }catch(e){}
+}
+
+/* ---------------- DE ONDE VEIO ----------------
+   Nenhuma das planilhas de prospeccao tem uma coluna de origem, entao o
+   campo chegava vazio. O que dá para saber com honestidade está escrito
+   no proprio historico, e é só isso que usamos aqui:
+
+   - "o cliente procurou a MK3" (coluna CLIENTE FEZ O 1º CONTATO da
+     planilha de 2025): foi o lead que veio. O canal a planilha nao diz;
+     a MK3 informou que em 2025 esse caminho era o Instagram organico,
+     entao e isso que entra, marcado como suposicao na observacao.
+   - "Oferecemos nossos servicos" como primeiro toque: prospeccao ativa,
+     e isso esta escrito com todas as letras.
+   - lista fria de empresas (sem data e sem toque nenhum): prospeccao ativa.
+   - qualquer outro caso: fica em branco. Chutar aqui estragaria a leitura
+     de qual canal traz cliente.
+
+   Lead criado na mao nao passa por aqui: so quem tem "chave", que e a
+   marca de quem veio da planilha. E quem ja tem origem escolhida nunca
+   e sobrescrito. */
+const ORIGEM_INBOUND = "Instagram orgânico";
+function origemDeduzida(l){
+  const h = l.historico || [];
+  if(h.some(t=>/cliente procurou a mk3/i.test(t.oque||""))) return [ORIGEM_INBOUND, true];
+  if(h.length && /oferecemos nossos servi/i.test(h[0].oque||""))  return ["Prospecção ativa", false];
+  if(!h.length && /sem data de entrada na planilha/.test(l.obs||"")) return ["Prospecção ativa", false];
+  return [null, false];
+}
+function completarOrigem(){
+  let mudou=false;
+  Object.keys(COM.leads).forEach(id=>{
+    const l=COM.leads[id];
+    if(!l.chave || l.origem) return;
+    const [org, suposta] = origemDeduzida(l);
+    if(!org) return;
+    l.origem = org;
+    if(suposta && !/origem suposta/.test(l.obs||""))
+      l.obs = [l.obs, "origem suposta"].filter(Boolean).join(" · ");
+    mudou=true;
+  });
+  if(mudou) salvarCom();
+  return mudou;
 }
 
 /* ---------------- QUEM PODE ENTRAR ----------------
