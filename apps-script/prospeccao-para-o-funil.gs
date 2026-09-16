@@ -48,8 +48,9 @@ function semAcento_(s){
 function pedaco_(s, n){
   return semAcento_(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, n || 40);
 }
-/* chave de banco: Firebase recusa . $ # [ ] / e espaços atrapalham a URL */
-function chaveOk_(s){ return String(s).replace(/[.$#\[\]\/\s]+/g, "_").slice(0, 200); }
+/* Chave de banco. O Firebase recusa . $ # [ ] / e o UrlFetchApp recusa
+   | e espaço na URL, entao tudo isso vira _. Sobra [a-z0-9_-]. */
+function chaveOk_(s){ return String(s).replace(/[.$#\[\]\/\s|]+/g, "_").slice(0, 200); }
 
 /* "25/02" -> 2026-02-25 · "05/2025" -> 2025-05-01 · "13/01/2026" -> 2026-01-13
    Data de verdade vinda da célula tem prioridade. Formato que não
