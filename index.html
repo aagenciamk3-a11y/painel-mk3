@@ -480,6 +480,40 @@
 .hist-novo button{flex:none;background:var(--mk3);border:0;color:#fff;font:inherit;font-size:13px;
   font-weight:650;padding:8px 16px;border-radius:8px;cursor:pointer}
 
+/* ---- abas de quem é o dono do lead ---- */
+.cm-donos{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;
+  border-bottom:1px solid var(--line);padding-bottom:10px}
+.cm-dono{background:transparent;border:1px solid var(--line);color:var(--mut);font:inherit;
+  font-size:13px;font-weight:600;padding:7px 14px;border-radius:99px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px}
+.cm-dono:hover{color:var(--txt);border-color:var(--mut)}
+.cm-dono i{font-style:normal;font-size:11px;font-weight:700;background:var(--panel2);
+  color:var(--mut);padding:1px 7px;border-radius:99px}
+.cm-dono.on{background:var(--mk3);border-color:var(--mk3);color:#fff}
+.cm-dono.on i{background:rgba(255,255,255,.22);color:#fff}
+.cm-dono-nota{font-size:11px;color:var(--mut);opacity:.6;margin-left:auto}
+
+/* ---- caixa de filtros ---- */
+.cm-filtros{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;margin-bottom:14px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+.cm-f{display:flex;flex-direction:column;gap:4px;min-width:150px}
+.cm-f>span{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);font-weight:700}
+.cm-f.busca{flex:1 1 240px}
+.cm-f input,.cm-f select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;color-scheme:dark;width:100%}
+.cm-f input:focus,.cm-f select:focus{outline:2px solid rgba(139,92,246,.5);outline-offset:-1px}
+.cm-f-acao,.cm-f-limpa{background:transparent;border:1px solid var(--line);color:var(--mut);
+  font:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.cm-f-acao:hover,.cm-f-limpa:hover{color:var(--txt);border-color:var(--mut)}
+.cm-f-acao.on{background:rgba(242,85,90,.16);border-color:rgba(242,85,90,.55);color:#FF9DA0;font-weight:650}
+.cm-f-limpa{border-style:dashed}
+
+/* situação dos leads de anúncio */
+.pl-et.s-venda,.pl-et.s-parceria{background:rgba(76,196,99,.18);color:#BFEBC7}
+.pl-et.s-visita{background:rgba(255,196,84,.18);color:#FFD79A}
+.pl-et.s-semctt{background:rgba(242,85,90,.14);color:#FF9DA0}
+.pl-et.s-novo{background:rgba(255,255,255,.07);color:var(--mut)}
+
 /* ---- planilha ---- */
 .cm-abas{display:inline-flex;gap:3px;background:var(--panel2);border:1px solid var(--line);
   border-radius:99px;padding:3px}
@@ -1544,8 +1578,8 @@ a.fd-c:hover{opacity:1;text-decoration:underline}
     appId: "1:435924911878:web:19d0e8e836131d6d29c087"
   };
 </script>
-<script src="dados.js?v=202609161710"></script>
-<script src="motor.js?v=202609161710"></script>
-<script src="comercial.js?v=202609161710"></script>
+<script src="dados.js?v=202609161940"></script>
+<script src="motor.js?v=202609161940"></script>
+<script src="comercial.js?v=202609161940"></script>
 </body>
 </html>
