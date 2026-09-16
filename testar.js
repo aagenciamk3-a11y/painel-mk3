@@ -543,6 +543,47 @@ __ok("da para apagar um toque", COM.leads.z.toques===1);
 __ok("a ficha abre sem quebrar", (abrirLeadCom("z"), true));
 __ok("e a de lead novo tambem", (abrirLeadCom(null), true));
 
+/* ---- a caixa de entrada vira lead sem ninguem digitar ---- */
+COM={leads:{},log:[],entrada:{}};
+COM.entrada={
+  "t1_lead": {k:"t1_lead", tipo:"lead", lead:"t27999144189", fonte:"PROSPECÇÃO 2026 · Página1",
+    dados:{empresa:"Cantor", contato:"Romulo", whatsapp:"27999144189", entrada:"2026-02-25", ganho:false, nota:""}},
+  "t1_tq_b": {k:"t1_tq_b", tipo:"toque", lead:"t27999144189",
+    dados:{data:"2026-03-10", oque:"mandamos msg novamente"}},
+  "t1_tq_a": {k:"t1_tq_a", tipo:"toque", lead:"t27999144189",
+    dados:{data:"2026-02-25", oque:"marcamos a reuniao para 04/03"}},
+  "t2_lead": {k:"t2_lead", tipo:"lead", lead:"t27998887565", fonte:"PROSPECÇÃO · Aba1",
+    dados:{empresa:"Corretora", contato:"Suelem Gomes", whatsapp:"27998887565", entrada:"2025-06-01", ganho:true, nota:""}},
+  "t3_orfao": {k:"t3_orfao", tipo:"toque", lead:"t00000000000",
+    dados:{data:"2026-01-01", oque:"toque de um lead que ninguem cadastrou"}}
+};
+__ok("a caixa de entrada virou lead", (absorverEntrada(), Object.keys(COM.leads).length===2));
+const _imp = Object.keys(COM.leads).map(i=>COM.leads[i]);
+const _rom = _imp.find(l=>l.contato==="Romulo");
+const _sue = _imp.find(l=>l.contato==="Suelem Gomes");
+__ok("com a chave da planilha guardada", _rom.chave==="t27999144189");
+__ok("os toques entraram no lead certo", _rom.toques===2);
+__ok("e em ordem de data", _rom.historico[0].data==="2026-02-25");
+__ok("o primeiro contato veio do toque mais antigo", _rom.primeiro_contato.slice(0,10)==="2026-02-25");
+__ok("a observacao diz de onde veio", /PROSPEC/.test(_rom.obs));
+__ok("sem hora na planilha, nao inventa entradaEm", _rom.entradaEm===null);
+__ok("quem converteu entra como ganho", _sue.etapa==="fechado" && _sue.desfecho==="ganho");
+__ok("a caixa fica vazia depois", Object.keys(COM.entrada).length===0);
+__ok("toque sem dono nao cria lead do nada", _imp.length===2);
+
+/* a ponte pode reenviar o mesmo item; absorver duas vezes nao pode duplicar */
+COM.entrada={
+  "t1_lead": {k:"t1_lead", tipo:"lead", lead:"t27999144189", fonte:"PROSPECÇÃO 2026 · Página1",
+    dados:{empresa:"Cantor", contato:"Romulo", whatsapp:"27999144189", entrada:"2026-02-25"}},
+  "t1_tq_b": {k:"t1_tq_b", tipo:"toque", lead:"t27999144189",
+    dados:{data:"2026-03-10", oque:"mandamos msg novamente"}}
+};
+absorverEntrada();
+__ok("item repetido nao cria lead de novo", Object.keys(COM.leads).length===2);
+__ok("nem toque repetido", COM.leads[Object.keys(COM.leads).find(i=>COM.leads[i].contato==="Romulo")].toques===2);
+__ok("caixa vazia nao faz nada", absorverEntrada()===false);
+COM={leads:{},log:[],entrada:{}};
+
 /* o motor liga o Firebase dentro de um init() assincrono: quando o funil
    entra, a conexao pode nao existir ainda. Ele tem que subir sozinho. */
 let __subiu=0, __ouviu=0;
