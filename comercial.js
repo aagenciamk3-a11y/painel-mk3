@@ -339,7 +339,9 @@ function clientesComLeads(){
     if(!cfg.ativo || cfg.desligado) return null;
     if(typeof clienteArquivado==="function" && clienteArquivado(cid)) return null;
     const c=(typeof cliente==="function") ? cliente(cid) : null;
-    return { id:cid, token:cfg.ativo, nome:(c&&(c.marca||c.nome))||cid };
+    /* o nome curto, nao a marca: "Cynthia Carvalho" cabe na aba,
+       "Cynthia Carvalho — Corretora de Imóveis" nao */
+    return { id:cid, token:cfg.ativo, nome:(c&&(c.nome||c.marca))||cid };
   }).filter(Boolean);
 }
 function carregarLeadsClientes(){
@@ -350,8 +352,10 @@ function carregarLeadsClientes(){
     LEADS_CLI[c.id] = LEADS_CLI[c.id] || {leads:{}, crm:{}, nome:c.nome};
     const base = firebase.database().ref("painel/publico/"+c.token);
     base.child("leads").once("value")
-      .then(s=>{ LEADS_CLI[c.id].leads = s.val()||{}; if(VISTA.modo==="funil") render(); })
-      .catch(e=>{ LEADS_CLI[c.id].erro = (e&&e.message)||"não consegui ler"; });
+      .then(s=>{ LEADS_CLI[c.id].leads = s.val()||{}; LEADS_CLI[c.id].carregado=true;
+                 if(VISTA.modo==="funil") render(); })
+      .catch(e=>{ LEADS_CLI[c.id].erro = (e&&e.message)||"não consegui ler";
+                  LEADS_CLI[c.id].carregado=true; if(VISTA.modo==="funil") render(); });
     base.child("crm").once("value")
       .then(s=>{ LEADS_CLI[c.id].crm = s.val()||{}; if(VISTA.modo==="funil") render(); })
       .catch(()=>{});
@@ -443,8 +447,13 @@ function filtrosHTML(){
   '</div>';
 }
 function donosHTML(){
-  const abas=[{id:"mk3", rot:"MK3", n:listaCom().length}].concat(
-    clientesComLeads().map(c=>({id:c.id, rot:c.nome, n:listaCli(c.id).length})));
+  /* "Nossos leads" e nao "MK3" de proposito: existe um cliente chamado MK3
+     no painel, e duas abas com o mesmo nome seriam uma armadilha. */
+  const abas=[{id:"mk3", rot:"Nossos leads", n:listaCom().length}].concat(
+    clientesComLeads().map(c=>({id:c.id, rot:c.nome, n:listaCli(c.id).length,
+                                carregado:(LEADS_CLI[c.id]||{}).carregado}))
+      /* cliente sem lead nenhum vira ruido; enquanto carrega, aparece */
+      .filter(a=>a.n>0 || !a.carregado || a.id===DONO_SEL));
   return '<div class="cm-donos" role="tablist">'+abas.map(a=>
     '<button class="cm-dono'+(DONO_SEL===a.id?" on":"")+'" data-cmdono="'+escAttr(a.id)+'" role="tab">'+
       esc(a.rot)+'<i>'+a.n+'</i></button>').join("")+
