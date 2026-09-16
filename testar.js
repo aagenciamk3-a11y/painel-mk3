@@ -584,6 +584,34 @@ __ok("nem toque repetido", COM.leads[Object.keys(COM.leads).find(i=>COM.leads[i]
 __ok("caixa vazia nao faz nada", absorverEntrada()===false);
 COM={leads:{},log:[],entrada:{}};
 
+/* ---- de onde veio: so o que da para saber pelo proprio historico ---- */
+COM={leads:{},log:[],entrada:{}};
+COM.leads={
+  a:{chave:"t1", obs:"veio de PROSPECÇÃO · Inbound",
+     historico:[{data:"2025-05-01",oque:"o cliente procurou a MK3"}]},
+  b:{chave:"t2", obs:"veio de PROSPECÇÃO 2026 · 2026",
+     historico:[{data:"2026-03-05",oque:"Oferecemos nossos serviços"},
+                {data:"2026-03-10",oque:"Cobramos um posicionamento"}]},
+  c:{chave:"t3", obs:"veio de PROSPECÇÃO · Ativa · sem data de entrada na planilha", historico:[]},
+  d:{chave:"t4", obs:"veio de PROSPECÇÃO 2026 · 2026",
+     historico:[{data:"2026-02-26",oque:"Pediu orçamento"}]},
+  e:{chave:"t5", origem:"Indicação", obs:"veio de PROSPECÇÃO · Inbound",
+     historico:[{data:"2025-05-01",oque:"o cliente procurou a MK3"}]},
+  f:{obs:"", historico:[], empresa:"cadastrado na mão"}
+};
+completarOrigem();
+__ok("quem procurou a MK3 entra como Instagram orgânico", COM.leads.a.origem==="Instagram orgânico");
+__ok("e a ficha avisa que foi suposicao", /origem suposta/.test(COM.leads.a.obs));
+__ok("oferecemos nossos servicos e prospeccao ativa", COM.leads.b.origem==="Prospecção ativa");
+__ok("isso nao e suposicao, esta escrito", !/origem suposta/.test(COM.leads.b.obs));
+__ok("lista fria sem toque tambem e prospeccao ativa", COM.leads.c.origem==="Prospecção ativa");
+__ok("caso ambiguo fica em branco em vez de chute", !COM.leads.d.origem);
+__ok("origem escolhida na mao nao e sobrescrita", COM.leads.e.origem==="Indicação");
+__ok("lead cadastrado na mao nao e mexido", !COM.leads.f.origem);
+__ok("rodar de novo nao muda mais nada", completarOrigem()===false);
+COM={leads:{},log:[],entrada:{}};
+
+
 /* o motor liga o Firebase dentro de um init() assincrono: quando o funil
    entra, a conexao pode nao existir ainda. Ele tem que subir sozinho. */
 let __subiu=0, __ouviu=0;
