@@ -646,6 +646,8 @@ FILTRO_COM="";
 __ok("a caixa de filtros desenha", /cm-filtros/.test(filtrosHTML()));
 __ok("com campo de busca", /id="cmBusca"/.test(filtrosHTML()));
 __ok("e as abas de dono tambem", /data-cmdono="mk3"/.test(donosHTML()));
+__ok("a nossa aba nao se chama MK3, para nao colidir com o cliente MK3",
+     /Nossos leads/.test(donosHTML()));
 
 /* leads de cliente: outra lista, outras colunas */
 LEADS_CLI={ suelem:{ nome:"Suelem", crm:{ a1:{contato:true}, a3:{venda:true} }, leads:{
@@ -654,6 +656,10 @@ LEADS_CLI={ suelem:{ nome:"Suelem", crm:{ a1:{contato:true}, a3:{venda:true} }, 
   a3:{nome:"Elisa Pinto", tel:"27999005566", conjunto:"Domingos Martins", quando:"2026-09-12"}
 }}};
 __ok("o cliente aparece com os leads dele", listaCli("suelem").length===3);
+LEADS_CLI.vazio={nome:"Sem Leads", leads:{}, crm:{}, carregado:true};
+__ok("cliente ja carregado e sem lead nenhum nao vira aba",
+     !/Sem Leads/.test(donosHTML()) || !(typeof ESTADO!=="undefined" && ESTADO.portais));
+delete LEADS_CLI.vazio;
 __ok("o empreendimento sai do nome do conjunto", empCom(listaCli("suelem")[0])==="Ataide");
 __ok("quem ninguem tocou aparece como nao falamos", situacaoCli("suelem",{_id:"a2"}).k==="novo");
 __ok("quem foi contatado aparece contatado", situacaoCli("suelem",{_id:"a1"}).k==="contatado");
