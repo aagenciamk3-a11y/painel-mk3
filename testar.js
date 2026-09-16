@@ -612,6 +612,72 @@ __ok("rodar de novo nao muda mais nada", completarOrigem()===false);
 COM={leads:{},log:[],entrada:{}};
 
 
+/* ---- caixa de filtros e separacao por dono ---- */
+COM={leads:{},log:[],entrada:{}};
+COM.leads={
+  x:{id:"x", empresa:"Escola Alfa", contato:"Ana", whatsapp:"27999887766", etapa:"contatado",
+     origem:"Instagram orgânico", segmento:"Escola particular", responsavel:"Marlon",
+     entrada:iso(HOJE), historico:[], proximo_followup:"2020-01-01"},
+  y:{id:"y", empresa:"Beta Imóveis", contato:"Bruno", whatsapp:"27999112233", etapa:"novo",
+     origem:"Prospecção ativa", segmento:"Imobiliária/Corretor", responsavel:"Alda",
+     entrada:iso(HOJE), historico:[]}
+};
+DONO_SEL="mk3"; FILTRO_COM=""; FIL={busca:"",origem:"",segmento:"",resp:"",acao:false};
+__ok("sem filtro, mostra os dois", listaCom().filter(passaMK3).length===2);
+__ok("e a caixa se diz limpa", filtroLimpo()===true);
+FIL.busca="alfa";
+__ok("busca acha pelo nome da empresa", listaCom().filter(passaMK3).length===1);
+FIL.busca="27999112233";
+__ok("busca acha pelo telefone", listaCom().filter(passaMK3)[0].contato==="Bruno");
+FIL.busca="";
+FIL.origem="Prospecção ativa";
+__ok("filtra por de onde veio", listaCom().filter(passaMK3).length===1);
+FIL.origem=""; FIL.resp="Marlon";
+__ok("filtra por responsável", listaCom().filter(passaMK3)[0].empresa==="Escola Alfa");
+FIL.resp=""; FIL.segmento="Imobiliária/Corretor";
+__ok("filtra por segmento", listaCom().filter(passaMK3).length===1);
+FIL.segmento=""; FIL.acao=true;
+__ok("precisa de ação pega só quem tem sinal", listaCom().filter(passaMK3).length===1);
+__ok("e o sinal é o follow-up vencido", listaCom().filter(passaMK3)[0].empresa==="Escola Alfa");
+FIL.acao=false; FILTRO_COM="novo";
+__ok("a faixa de etapas filtra junto", listaCom().filter(passaMK3)[0].etapa==="novo");
+__ok("com qualquer filtro, a caixa nao se diz limpa", filtroLimpo()===false);
+FILTRO_COM="";
+__ok("a caixa de filtros desenha", /cm-filtros/.test(filtrosHTML()));
+__ok("com campo de busca", /id="cmBusca"/.test(filtrosHTML()));
+__ok("e as abas de dono tambem", /data-cmdono="mk3"/.test(donosHTML()));
+
+/* leads de cliente: outra lista, outras colunas */
+LEADS_CLI={ suelem:{ nome:"Suelem", crm:{ a1:{contato:true}, a3:{venda:true} }, leads:{
+  a1:{nome:"Carla Souza", tel:"27999001122", conjunto:"[LEADS] Cadastro - Ataide", quando:"2026-09-01"},
+  a2:{nome:"Diego Alves", tel:"27999003344", conjunto:"Domingos Martins", quando:"2026-09-10"},
+  a3:{nome:"Elisa Pinto", tel:"27999005566", conjunto:"Domingos Martins", quando:"2026-09-12"}
+}}};
+__ok("o cliente aparece com os leads dele", listaCli("suelem").length===3);
+__ok("o empreendimento sai do nome do conjunto", empCom(listaCli("suelem")[0])==="Ataide");
+__ok("quem ninguem tocou aparece como nao falamos", situacaoCli("suelem",{_id:"a2"}).k==="novo");
+__ok("quem foi contatado aparece contatado", situacaoCli("suelem",{_id:"a1"}).k==="contatado");
+__ok("venda ganha destaque proprio", situacaoCli("suelem",{_id:"a3"}).k==="venda");
+DONO_SEL="suelem"; FIL={busca:"",origem:"",segmento:"",resp:"",acao:false}; FILTRO_COM="";
+__ok("sem filtro, os tres leads do cliente", listaCli("suelem").filter(l=>passaCli("suelem",l)).length===3);
+FIL.origem="Domingos Martins";
+__ok("filtra por empreendimento", listaCli("suelem").filter(l=>passaCli("suelem",l)).length===2);
+FIL.origem=""; FIL.acao=true;
+__ok("ninguem falou ainda pega so um", listaCli("suelem").filter(l=>passaCli("suelem",l)).length===1);
+FIL.acao=false; FIL.busca="carla";
+__ok("busca tambem vale na lista do cliente", listaCli("suelem").filter(l=>passaCli("suelem",l)).length===1);
+FIL.busca="";
+const _pc=planilhaCliHTML("suelem");
+__ok("a planilha do cliente desenha", /Elisa Pinto/.test(_pc));
+__ok("com coluna de situacao", /Venda fechada/.test(_pc));
+__ok("e sem coluna de proposta", !/Mensalidade/.test(_pc));
+COM_LOGADO="marlon@mk3"; COM_PRONTO=true; COM_NEGADO=false;
+const _tc=funilClienteHTML(donosHTML());
+__ok("a tela do cliente desenha inteira", /Leads de Suelem/.test(_tc));
+__ok("com a caixa de filtros junto", /cm-filtros/.test(_tc));
+__ok("e conta quem ninguem falou ainda", /sem ninguém ter falado/.test(_tc));
+DONO_SEL="mk3"; LEADS_CLI={}; COM={leads:{},log:[],entrada:{}};
+
 /* o motor liga o Firebase dentro de um init() assincrono: quando o funil
    entra, a conexao pode nao existir ainda. Ele tem que subir sozinho. */
 let __subiu=0, __ouviu=0;
