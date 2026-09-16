@@ -20,6 +20,18 @@ let COM_LOGADO = null;      /* e-mail de quem entrou, ou null */
 let COM_PRONTO = false;     /* ja leu do banco pelo menos uma vez */
 let COM_NEGADO = false;     /* logou, mas o e-mail nao esta autorizado */
 let FILTRO_COM = "";        /* ver so uma etapa, vazio = todas */
+
+/* De quem e o lead. "mk3" e a prospeccao da propria agencia; os outros
+   sao os clientes, cujos leads de anuncio ja vivem no portal de cada um.
+   Abre na MK3 de proposito: a Suelem sozinha tem centenas de leads e
+   afogaria os nossos quarenta se tudo viesse junto. */
+let DONO_SEL  = "mk3";
+let LEADS_CLI = {};          /* {clienteId:{leads:{},crm:{},nome:"",erro:""}} */
+let CLI_PRONTO = false;
+
+/* A caixa de filtros. Vazio = nao filtra. */
+let FIL = { busca:"", origem:"", segmento:"", resp:"", acao:false };
+const filtroLimpo = () => !FIL.busca && !FIL.origem && !FIL.segmento && !FIL.resp && !FIL.acao && !FILTRO_COM;
 /* por onde o toque aconteceu. Serve para ver o que funciona com quem. */
 const CANAIS = ["WhatsApp","Ligação","E-mail","Reunião","Presencial","Instagram","Outro"];
 
@@ -256,6 +268,10 @@ function funilHTML(){
     '<button class="cm-entrar" data-cmsair="1">Entrar com outra conta</button></section>';
   if(!COM_PRONTO) return '<section class="bloco"><h2>Funil</h2><p>Carregando a base…</p></section>';
 
+  carregarLeadsClientes();
+  const donos=donosHTML();
+  if(DONO_SEL!=="mk3") return funilClienteHTML(donos);
+
   const todos=listaCom();
   const abertos=todos.filter(l=>l.etapa!=="fechado");
   const semContato=abertos.filter(l=>!l.primeiro_contato);
@@ -286,7 +302,9 @@ function funilHTML(){
           ? '<button class="cm-quem" data-cmquem="1" title="Quem pode abrir o funil">Quem pode entrar</button>' : '')+
         '<span class="cm-eu" title="Você entrou como '+escAttr(COM_LOGADO)+'">'+esc(COM_LOGADO)+'</span></div>'+
     '</div>'+
+    donos+
     resumo+
+    filtrosHTML()+
     planilhaHTML()+
     (todos.length?'':'<p class="cm-dica">A base está vazia. As planilhas de prospecção entram sozinhas de hora em hora; '+
       'se quiser adiantar, clique em <b>+ Novo lead</b>.</p>');
@@ -307,6 +325,153 @@ function mesRotuloCom(ym){
   const d0=new Date(+ym.slice(0,4), +ym.slice(5,7)-1, 1);
   const s0=d0.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
   return s0.charAt(0).toUpperCase()+s0.slice(1);
+}
+
+/* ---------------- DE QUEM E O LEAD ----------------
+   Os leads de anuncio dos clientes ja estao publicados em
+   painel/publico/<token>/leads, que e o mesmo lugar que o portal do
+   cliente le. Aproveitamos esse no: nada de regra nova e nada de copia.
+   Cliente sem link gerado simplesmente nao aparece como aba. */
+function clientesComLeads(){
+  const ps=(typeof ESTADO!=="undefined" && ESTADO.portais) || {};
+  return Object.keys(ps).map(cid=>{
+    const cfg=ps[cid]||{};
+    if(!cfg.ativo || cfg.desligado) return null;
+    if(typeof clienteArquivado==="function" && clienteArquivado(cid)) return null;
+    const c=(typeof cliente==="function") ? cliente(cid) : null;
+    return { id:cid, token:cfg.ativo, nome:(c&&(c.marca||c.nome))||cid };
+  }).filter(Boolean);
+}
+function carregarLeadsClientes(){
+  if(CLI_PRONTO) return;
+  CLI_PRONTO = true;                       /* uma vez por abertura da tela */
+  if(!window.firebase || !firebase.database) return;
+  clientesComLeads().forEach(c=>{
+    LEADS_CLI[c.id] = LEADS_CLI[c.id] || {leads:{}, crm:{}, nome:c.nome};
+    const base = firebase.database().ref("painel/publico/"+c.token);
+    base.child("leads").once("value")
+      .then(s=>{ LEADS_CLI[c.id].leads = s.val()||{}; if(VISTA.modo==="funil") render(); })
+      .catch(e=>{ LEADS_CLI[c.id].erro = (e&&e.message)||"n\u00e3o consegui ler"; });
+    base.child("crm").once("value")
+      .then(s=>{ LEADS_CLI[c.id].crm = s.val()||{}; if(VISTA.modo==="funil") render(); })
+      .catch(()=>{});
+  });
+}
+/* o rotulo do empreendimento sai do nome do conjunto do Meta, igual ao portal */
+function empCom(l){
+  let t=String((l&&l.conjunto)||"") || String((l&&l.anuncio)||"");
+  if(!t) return "";
+  t=t.replace(/\[[^\]]*\]/g,"")
+     .replace(/^\s*cadastro\s*[-\u2013\u2014]\s*/i,"")
+     .replace(/^\s*casa\s*[-\u2013\u2014]\s*/i,"")
+     .replace(/\s*[-\u2013\u2014]\s*v[i\u00ed]deo.*$/i,"")
+     .replace(/\s{2,}/g," ").trim();
+  if(!t || t.length<2) return "";
+  return t.split(" ").map(x=>x.length>2 ? x.charAt(0).toUpperCase()+x.slice(1).toLowerCase() : x).join(" ");
+}
+function listaCli(cid){
+  const d=LEADS_CLI[cid]||{leads:{}};
+  return Object.keys(d.leads||{}).map(k=>Object.assign({}, d.leads[k], {_id:k}))
+    .filter(l=>l && l.nome);
+}
+const crmDoCli = (cid,id) => ((LEADS_CLI[cid]||{}).crm||{})[id] || {};
+/* uma frase so para a coluna Situacao: o que ja aconteceu com essa pessoa */
+function situacaoCli(cid, l){
+  const c=crmDoCli(cid, l._id);
+  if(c.venda)      return {k:"venda",    rot:"Venda fechada"};
+  if(c.parceria)   return {k:"parceria", rot:"Parceria fechada"};
+  if(c.visita)     return {k:"visita",   rot:"Marcou visita"};
+  if(c.semContato) return {k:"semctt",   rot:"N\u00e3o consegui falar"+(c.motivo?" ("+(c.motivo==="errado"?"n\u00famero errado":"n\u00e3o tem WhatsApp")+")":"")};
+  if(c.contato)    return {k:"contatado",rot:"Contatado"};
+  return {k:"novo", rot:"Ainda n\u00e3o falamos"};
+}
+const SIT_CLI = [["novo","Ainda n\u00e3o falamos"],["contatado","Contatado"],["visita","Marcou visita"],
+                 ["venda","Venda fechada"],["parceria","Parceria fechada"],["semctt","N\u00e3o consegui falar"]];
+
+/* ---------------- CAIXA DE FILTROS ----------------
+   Uma caixa so, igual para os dois tipos de lista. Campo vazio nao
+   filtra, entao o estado normal da tela e "mostrando tudo". */
+function opcoesCom(lista, campo){
+  const vistos={};
+  lista.forEach(l=>{ const v=String(l[campo]||"").trim(); if(v) vistos[v]=1; });
+  return Object.keys(vistos).sort((a,b)=>a.localeCompare(b));
+}
+function selFil(id, rot, lista, valor){
+  return '<label class="cm-f"><span>'+esc(rot)+'</span><select id="'+id+'" data-cmfilc="'+id+'">'+
+    '<option value="">todos</option>'+
+    lista.map(v=>'<option'+(v===valor?' selected':'')+'>'+esc(v)+'</option>').join("")+
+    '</select></label>';
+}
+function bateBusca(txt){
+  const q=FIL.busca.trim().toLowerCase();
+  if(!q) return true;
+  return String(txt||"").toLowerCase().indexOf(q)>=0;
+}
+function passaMK3(l){
+  if(FILTRO_COM && l.etapa!==FILTRO_COM) return false;
+  if(FIL.origem && l.origem!==FIL.origem) return false;
+  if(FIL.segmento && l.segmento!==FIL.segmento) return false;
+  if(FIL.resp && l.responsavel!==FIL.resp) return false;
+  if(FIL.acao && !sinaisCom(l).length) return false;
+  return bateBusca([l.empresa,l.contato,l.whatsapp,l.email].join(" "));
+}
+function passaCli(cid, l){
+  const sit=situacaoCli(cid,l);
+  if(FILTRO_COM && sit.k!==FILTRO_COM) return false;
+  if(FIL.origem && empCom(l)!==FIL.origem) return false;
+  if(FIL.acao && sit.k!=="novo") return false;
+  return bateBusca([l.nome,l.tel,l.telBruto,empCom(l)].join(" "));
+}
+function filtrosHTML(){
+  const mk3 = DONO_SEL==="mk3";
+  const base = mk3 ? listaCom() : listaCli(DONO_SEL);
+  const pessoas = mk3 ? opcoesCom(base,"responsavel") : [];
+  const origens = mk3 ? opcoesCom(base,"origem")
+                      : Object.keys(base.reduce((m,l)=>{const e=empCom(l); if(e)m[e]=1; return m;},{})).sort();
+  return '<div class="cm-filtros">'+
+    '<label class="cm-f busca"><span>Buscar</span>'+
+      '<input type="search" id="cmBusca" data-cmfilb="1" value="'+escAttr(FIL.busca)+'" '+
+      'placeholder="'+(mk3?"empresa, contato ou telefone":"nome ou telefone")+'"></label>'+
+    selFil("cmFilOrigem", mk3?"De onde veio":"Empreendimento", origens, FIL.origem)+
+    (mk3 ? selFil("cmFilSeg","Segmento", LC.segmento, FIL.segmento) : "")+
+    (mk3 && pessoas.length ? selFil("cmFilResp","Respons\u00e1vel", pessoas, FIL.resp) : "")+
+    '<button class="cm-f-acao'+(FIL.acao?" on":"")+'" data-cmacao="1" '+
+      'title="'+(mk3?"Follow-up vencido, sem primeiro contato ou sem o decisor na conversa"
+                   :"Ningu\u00e9m falou com essa pessoa ainda")+'">'+
+      (mk3?"Precisa de a\u00e7\u00e3o":"Ningu\u00e9m falou ainda")+'</button>'+
+    (filtroLimpo() ? '' : '<button class="cm-f-limpa" data-cmlimpa="1">limpar filtros</button>')+
+  '</div>';
+}
+function donosHTML(){
+  const abas=[{id:"mk3", rot:"MK3", n:listaCom().length}].concat(
+    clientesComLeads().map(c=>({id:c.id, rot:c.nome, n:listaCli(c.id).length})));
+  return '<div class="cm-donos" role="tablist">'+abas.map(a=>
+    '<button class="cm-dono'+(DONO_SEL===a.id?" on":"")+'" data-cmdono="'+escAttr(a.id)+'" role="tab">'+
+      esc(a.rot)+'<i>'+a.n+'</i></button>').join("")+
+    '<span class="cm-dono-nota">de quem \u00e9 o lead</span></div>';
+}
+
+/* A mesma tela, com a roupa dos leads de anuncio: sem pipeline, sem
+   etapas do funil, e a faixa de cima conta situacao em vez de etapa. */
+function funilClienteHTML(donos){
+  const cid=DONO_SEL, d=LEADS_CLI[cid]||{};
+  const todos=listaCli(cid);
+  const conta = k => todos.filter(l=>situacaoCli(cid,l).k===k).length;
+  const semFalar = conta("novo");
+  const resumo='<div class="cm-etapas">'+SIT_CLI.map(sv=>{
+    const n=conta(sv[0]);
+    return '<button class="cm-et'+(FILTRO_COM===sv[0]?" on":"")+(n?"":" zero")+'" data-cmfil="'+sv[0]+'">'+
+      '<b>'+n+'</b><span>'+esc(sv[1])+'</span></button>';
+  }).join("")+(FILTRO_COM?'<button class="cm-et limpa" data-cmfil="">ver todos</button>':'')+'</div>';
+
+  return '<div class="cm-topo">'+
+      '<div class="cm-tit"><h2>Leads de '+esc(d.nome||cid)+'</h2>'+
+        '<span class="cm-pipe">'+todos.length+' <i>leads de an\u00fancio</i></span></div>'+
+      '<div class="cm-acoes">'+
+        (semFalar?'<span class="cm-av urg">'+semFalar+' sem ningu\u00e9m ter falado</span>':'')+
+        '<span class="cm-eu" title="Voc\u00ea entrou como '+escAttr(COM_LOGADO)+'">'+esc(COM_LOGADO)+'</span></div>'+
+    '</div>'+
+    donos+ resumo+ filtrosHTML()+ planilhaCliHTML(cid);
 }
 
 /* ---------------- PLANILHA ----------------
@@ -360,15 +525,15 @@ function celCom(l, c){
   return esc(l[c]||"—");
 }
 function planilhaHTML(){
-  const base = FILTRO_COM ? listaCom().filter(l=>l.etapa===FILTRO_COM) : listaCom();
+  const base = listaCom().filter(passaMK3);
   const ls=base.slice().sort((a,b)=>{
     const x=valCol(a,ORD_COM.col), y=valCol(b,ORD_COM.col);
     const n = (typeof x==="number"&&typeof y==="number") ? (x-y) : String(x).localeCompare(String(y));
     return ORD_COM.desc ? -n : n;
   });
-  if(!ls.length) return '<div class="cm-vaziopl">'+(FILTRO_COM
-    ? 'Ninguém em '+esc(etapaCom(FILTRO_COM).rot)+' agora.'
-    : 'A base está vazia. Crie o primeiro lead no botão acima.')+'</div>';
+  if(!ls.length) return '<div class="cm-vaziopl">'+(filtroLimpo()
+    ? 'A base está vazia. Crie o primeiro lead no botão acima.'
+    : 'Nenhum lead com esses filtros. <button class="cm-f-limpa" data-cmlimpa="1">limpar filtros</button>')+'</div>';
   return '<div class="pl-rolo"><table class="pl"><thead><tr>'+
     COLS_COM.map(c=>'<th data-cmord="'+c[0]+'" class="'+(ORD_COM.col===c[0]?"ord":"")+'">'+
       esc(c[1])+(ORD_COM.col===c[0]?(ORD_COM.desc?" &#9662;":" &#9652;"):"")+'</th>').join("")+
@@ -377,6 +542,58 @@ function planilhaHTML(){
       COLS_COM.map(c=>'<td class="c-'+c[0]+'">'+celCom(l,c[0])+'</td>').join("")+'</tr>').join("")+
     '</tbody></table></div>'+
     '<p class="cm-nota">Clique em qualquer linha para abrir a ficha. Clique no título da coluna para ordenar.</p>';
+}
+
+/* ---------------- PLANILHA DOS LEADS DE CLIENTE ----------------
+   Outro tipo de lead, outra vida: aqui nao existe proposta nem CHAMP.
+   O que importa e se alguem ja falou com a pessoa e no que deu. Por isso
+   a tabela e menor e a coluna do meio e a Situacao, nao a etapa. */
+const COLS_CLI = [["nome","Nome"], ["tel","WhatsApp"], ["emp","Empreendimento"],
+                  ["quando","Chegou"], ["situacao","Situa\u00e7\u00e3o"], ["zapc",""]];
+let ORD_CLI = {col:"quando", desc:true};
+function valColCli(cid, l, c){
+  if(c==="emp")      return empCom(l);
+  if(c==="quando")   return String(l.quando||"").slice(0,10);
+  if(c==="situacao") return situacaoCli(cid,l).rot;
+  if(c==="tel")      return String(l.tel||"");
+  if(c==="zapc")     return "";
+  return l[c]||"";
+}
+function celColCli(cid, l, c){
+  if(c==="tel")      return esc(telComBonito(l.tel));
+  if(c==="emp")      return esc(empCom(l)||"\u2014");
+  if(c==="quando")   return l.quando ? esc(fmt(String(l.quando).slice(0,10))) : "\u2014";
+  if(c==="situacao"){ const st=situacaoCli(cid,l);
+                      return '<span class="pl-et s-'+st.k+'">'+esc(st.rot)+'</span>'; }
+  if(c==="zapc"){
+    const n=String(l.tel||"").replace(/[^0-9]/g,"").replace(/^55/,"");
+    return n.length===11
+      ? '<a class="pl-zap" href="https://wa.me/55'+n+'" target="_blank" rel="noopener" data-cmzap="1">WhatsApp</a>'
+      : '<span class="pl-zap off" title="telefone fora do padr\u00e3o">\u2014</span>';
+  }
+  return esc(l[c]||"\u2014");
+}
+function planilhaCliHTML(cid){
+  const d=LEADS_CLI[cid];
+  if(!d) return '<div class="cm-vaziopl">Esse cliente n\u00e3o tem link de portal gerado, ent\u00e3o n\u00e3o h\u00e1 leads publicados.</div>';
+  if(d.erro) return '<div class="cm-vaziopl">N\u00e3o consegui ler os leads deste cliente: '+esc(d.erro)+'</div>';
+  const todos=listaCli(cid);
+  if(!todos.length) return '<div class="cm-vaziopl">Nenhum lead publicado para este cliente ainda.</div>';
+  const ls=todos.filter(l=>passaCli(cid,l)).sort((a,b)=>{
+    const x=valColCli(cid,a,ORD_CLI.col), y=valColCli(cid,b,ORD_CLI.col);
+    const n=String(x).localeCompare(String(y));
+    return ORD_CLI.desc ? -n : n;
+  });
+  if(!ls.length) return '<div class="cm-vaziopl">Nenhum lead com esses filtros. '+
+    '<button class="cm-f-limpa" data-cmlimpa="1">limpar filtros</button></div>';
+  return '<div class="pl-rolo"><table class="pl"><thead><tr>'+
+    COLS_CLI.map(c=>'<th data-cmordc="'+c[0]+'" class="'+(ORD_CLI.col===c[0]?"ord":"")+'">'+
+      esc(c[1])+(ORD_CLI.col===c[0]?(ORD_CLI.desc?" &#9662;":" &#9652;"):"")+'</th>').join("")+
+    '</tr></thead><tbody>'+
+    ls.map(l=>'<tr>'+COLS_CLI.map(c=>'<td class="c-'+c[0]+'">'+celColCli(cid,l,c[0])+'</td>').join("")+'</tr>').join("")+
+    '</tbody></table></div>'+
+    '<p class="cm-nota">'+ls.length+' de '+todos.length+' leads. Quem marca contato, visita e venda \u00e9 o '+
+    'portal do cliente; aqui a MK3 enxerga o mesmo quadro, sem precisar do link.</p>';
 }
 
 function abrirLeadCom(id){
@@ -899,6 +1116,17 @@ document.addEventListener("click", ev=>{
   if(d.cmsair!==undefined){ sairCom(); return; }
   if(d.cmnovo!==undefined){ abrirLeadCom(null); return; }
   if(d.cmfil!==undefined){ FILTRO_COM=d.cmfil||""; render(); return; }
+  if(d.cmdono!==undefined){
+    /* trocar de dono zera os filtros: as listas nao tem as mesmas colunas,
+       e filtro herdado esconderia tudo sem explicar por que */
+    DONO_SEL=d.cmdono; FILTRO_COM=""; FIL={busca:"",origem:"",segmento:"",resp:"",acao:false};
+    render(); return; }
+  if(d.cmacao!==undefined){ FIL.acao=!FIL.acao; render(); return; }
+  if(d.cmlimpa!==undefined){
+    FILTRO_COM=""; FIL={busca:"",origem:"",segmento:"",resp:"",acao:false}; render(); return; }
+  if(d.cmordc!==undefined){
+    if(ORD_CLI.col===d.cmordc) ORD_CLI.desc=!ORD_CLI.desc; else ORD_CLI={col:d.cmordc, desc:true};
+    render(); return; }
   if(d.cmord!==undefined){
     if(ORD_COM.col===d.cmord) ORD_COM.desc=!ORD_COM.desc; else ORD_COM={col:d.cmord, desc:true};
     render(); return; }
@@ -921,6 +1149,28 @@ document.addEventListener("click", ev=>{
   }
   if(d.cmlead!==undefined){ abrirLeadCom(d.cmlead); return; }
 }, true);
+
+/* A busca e os seletores nao sao clique, sao digitacao. Como a tela toda
+   se redesenha a cada tecla, devolvemos o cursor para o campo depois:
+   sem isso da para escrever uma letra so. */
+document.addEventListener("input", ev=>{
+  const el=ev.target;
+  if(!el || !el.dataset) return;
+  if(el.dataset.cmfilb!==undefined){
+    FIL.busca=el.value;
+    render();
+    const novo=document.getElementById("cmBusca");
+    if(novo){ novo.focus(); const n=novo.value.length; try{ novo.setSelectionRange(n,n); }catch(e){} }
+  }
+});
+document.addEventListener("change", ev=>{
+  const el=ev.target;
+  if(!el || !el.dataset || el.dataset.cmfilc===undefined) return;
+  if(el.id==="cmFilOrigem") FIL.origem=el.value;
+  if(el.id==="cmFilSeg")    FIL.segmento=el.value;
+  if(el.id==="cmFilResp")   FIL.resp=el.value;
+  render();
+});
 
 /* o motor sobe primeiro; este arquivo entra depois e so se pendura no
    banco quando o Firebase ja existe na pagina */
