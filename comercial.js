@@ -351,7 +351,7 @@ function carregarLeadsClientes(){
     const base = firebase.database().ref("painel/publico/"+c.token);
     base.child("leads").once("value")
       .then(s=>{ LEADS_CLI[c.id].leads = s.val()||{}; if(VISTA.modo==="funil") render(); })
-      .catch(e=>{ LEADS_CLI[c.id].erro = (e&&e.message)||"n\u00e3o consegui ler"; });
+      .catch(e=>{ LEADS_CLI[c.id].erro = (e&&e.message)||"não consegui ler"; });
     base.child("crm").once("value")
       .then(s=>{ LEADS_CLI[c.id].crm = s.val()||{}; if(VISTA.modo==="funil") render(); })
       .catch(()=>{});
@@ -362,9 +362,9 @@ function empCom(l){
   let t=String((l&&l.conjunto)||"") || String((l&&l.anuncio)||"");
   if(!t) return "";
   t=t.replace(/\[[^\]]*\]/g,"")
-     .replace(/^\s*cadastro\s*[-\u2013\u2014]\s*/i,"")
-     .replace(/^\s*casa\s*[-\u2013\u2014]\s*/i,"")
-     .replace(/\s*[-\u2013\u2014]\s*v[i\u00ed]deo.*$/i,"")
+     .replace(/^\s*cadastro\s*[-–—]\s*/i,"")
+     .replace(/^\s*casa\s*[-–—]\s*/i,"")
+     .replace(/\s*[-–—]\s*v[ií]deo.*$/i,"")
      .replace(/\s{2,}/g," ").trim();
   if(!t || t.length<2) return "";
   return t.split(" ").map(x=>x.length>2 ? x.charAt(0).toUpperCase()+x.slice(1).toLowerCase() : x).join(" ");
@@ -381,12 +381,12 @@ function situacaoCli(cid, l){
   if(c.venda)      return {k:"venda",    rot:"Venda fechada"};
   if(c.parceria)   return {k:"parceria", rot:"Parceria fechada"};
   if(c.visita)     return {k:"visita",   rot:"Marcou visita"};
-  if(c.semContato) return {k:"semctt",   rot:"N\u00e3o consegui falar"+(c.motivo?" ("+(c.motivo==="errado"?"n\u00famero errado":"n\u00e3o tem WhatsApp")+")":"")};
+  if(c.semContato) return {k:"semctt",   rot:"Não consegui falar"+(c.motivo?" ("+(c.motivo==="errado"?"número errado":"não tem WhatsApp")+")":"")};
   if(c.contato)    return {k:"contatado",rot:"Contatado"};
-  return {k:"novo", rot:"Ainda n\u00e3o falamos"};
+  return {k:"novo", rot:"Ainda não falamos"};
 }
-const SIT_CLI = [["novo","Ainda n\u00e3o falamos"],["contatado","Contatado"],["visita","Marcou visita"],
-                 ["venda","Venda fechada"],["parceria","Parceria fechada"],["semctt","N\u00e3o consegui falar"]];
+const SIT_CLI = [["novo","Ainda não falamos"],["contatado","Contatado"],["visita","Marcou visita"],
+                 ["venda","Venda fechada"],["parceria","Parceria fechada"],["semctt","Não consegui falar"]];
 
 /* ---------------- CAIXA DE FILTROS ----------------
    Uma caixa so, igual para os dois tipos de lista. Campo vazio nao
@@ -434,11 +434,11 @@ function filtrosHTML(){
       'placeholder="'+(mk3?"empresa, contato ou telefone":"nome ou telefone")+'"></label>'+
     selFil("cmFilOrigem", mk3?"De onde veio":"Empreendimento", origens, FIL.origem)+
     (mk3 ? selFil("cmFilSeg","Segmento", LC.segmento, FIL.segmento) : "")+
-    (mk3 && pessoas.length ? selFil("cmFilResp","Respons\u00e1vel", pessoas, FIL.resp) : "")+
+    (mk3 && pessoas.length ? selFil("cmFilResp","Responsável", pessoas, FIL.resp) : "")+
     '<button class="cm-f-acao'+(FIL.acao?" on":"")+'" data-cmacao="1" '+
       'title="'+(mk3?"Follow-up vencido, sem primeiro contato ou sem o decisor na conversa"
-                   :"Ningu\u00e9m falou com essa pessoa ainda")+'">'+
-      (mk3?"Precisa de a\u00e7\u00e3o":"Ningu\u00e9m falou ainda")+'</button>'+
+                   :"Ninguém falou com essa pessoa ainda")+'">'+
+      (mk3?"Precisa de ação":"Ninguém falou ainda")+'</button>'+
     (filtroLimpo() ? '' : '<button class="cm-f-limpa" data-cmlimpa="1">limpar filtros</button>')+
   '</div>';
 }
@@ -448,7 +448,7 @@ function donosHTML(){
   return '<div class="cm-donos" role="tablist">'+abas.map(a=>
     '<button class="cm-dono'+(DONO_SEL===a.id?" on":"")+'" data-cmdono="'+escAttr(a.id)+'" role="tab">'+
       esc(a.rot)+'<i>'+a.n+'</i></button>').join("")+
-    '<span class="cm-dono-nota">de quem \u00e9 o lead</span></div>';
+    '<span class="cm-dono-nota">de quem é o lead</span></div>';
 }
 
 /* A mesma tela, com a roupa dos leads de anuncio: sem pipeline, sem
@@ -466,10 +466,10 @@ function funilClienteHTML(donos){
 
   return '<div class="cm-topo">'+
       '<div class="cm-tit"><h2>Leads de '+esc(d.nome||cid)+'</h2>'+
-        '<span class="cm-pipe">'+todos.length+' <i>leads de an\u00fancio</i></span></div>'+
+        '<span class="cm-pipe">'+todos.length+' <i>leads de anúncio</i></span></div>'+
       '<div class="cm-acoes">'+
-        (semFalar?'<span class="cm-av urg">'+semFalar+' sem ningu\u00e9m ter falado</span>':'')+
-        '<span class="cm-eu" title="Voc\u00ea entrou como '+escAttr(COM_LOGADO)+'">'+esc(COM_LOGADO)+'</span></div>'+
+        (semFalar?'<span class="cm-av urg">'+semFalar+' sem ninguém ter falado</span>':'')+
+        '<span class="cm-eu" title="Você entrou como '+escAttr(COM_LOGADO)+'">'+esc(COM_LOGADO)+'</span></div>'+
     '</div>'+
     donos+ resumo+ filtrosHTML()+ planilhaCliHTML(cid);
 }
@@ -549,7 +549,7 @@ function planilhaHTML(){
    O que importa e se alguem ja falou com a pessoa e no que deu. Por isso
    a tabela e menor e a coluna do meio e a Situacao, nao a etapa. */
 const COLS_CLI = [["nome","Nome"], ["tel","WhatsApp"], ["emp","Empreendimento"],
-                  ["quando","Chegou"], ["situacao","Situa\u00e7\u00e3o"], ["zapc",""]];
+                  ["quando","Chegou"], ["situacao","Situação"], ["zapc",""]];
 let ORD_CLI = {col:"quando", desc:true};
 function valColCli(cid, l, c){
   if(c==="emp")      return empCom(l);
@@ -561,22 +561,22 @@ function valColCli(cid, l, c){
 }
 function celColCli(cid, l, c){
   if(c==="tel")      return esc(telComBonito(l.tel));
-  if(c==="emp")      return esc(empCom(l)||"\u2014");
-  if(c==="quando")   return l.quando ? esc(fmt(String(l.quando).slice(0,10))) : "\u2014";
+  if(c==="emp")      return esc(empCom(l)||"—");
+  if(c==="quando")   return l.quando ? esc(fmt(String(l.quando).slice(0,10))) : "—";
   if(c==="situacao"){ const st=situacaoCli(cid,l);
                       return '<span class="pl-et s-'+st.k+'">'+esc(st.rot)+'</span>'; }
   if(c==="zapc"){
     const n=String(l.tel||"").replace(/[^0-9]/g,"").replace(/^55/,"");
     return n.length===11
       ? '<a class="pl-zap" href="https://wa.me/55'+n+'" target="_blank" rel="noopener" data-cmzap="1">WhatsApp</a>'
-      : '<span class="pl-zap off" title="telefone fora do padr\u00e3o">\u2014</span>';
+      : '<span class="pl-zap off" title="telefone fora do padrão">—</span>';
   }
-  return esc(l[c]||"\u2014");
+  return esc(l[c]||"—");
 }
 function planilhaCliHTML(cid){
   const d=LEADS_CLI[cid];
-  if(!d) return '<div class="cm-vaziopl">Esse cliente n\u00e3o tem link de portal gerado, ent\u00e3o n\u00e3o h\u00e1 leads publicados.</div>';
-  if(d.erro) return '<div class="cm-vaziopl">N\u00e3o consegui ler os leads deste cliente: '+esc(d.erro)+'</div>';
+  if(!d) return '<div class="cm-vaziopl">Esse cliente não tem link de portal gerado, então não há leads publicados.</div>';
+  if(d.erro) return '<div class="cm-vaziopl">Não consegui ler os leads deste cliente: '+esc(d.erro)+'</div>';
   const todos=listaCli(cid);
   if(!todos.length) return '<div class="cm-vaziopl">Nenhum lead publicado para este cliente ainda.</div>';
   const ls=todos.filter(l=>passaCli(cid,l)).sort((a,b)=>{
@@ -592,7 +592,7 @@ function planilhaCliHTML(cid){
     '</tr></thead><tbody>'+
     ls.map(l=>'<tr>'+COLS_CLI.map(c=>'<td class="c-'+c[0]+'">'+celColCli(cid,l,c[0])+'</td>').join("")+'</tr>').join("")+
     '</tbody></table></div>'+
-    '<p class="cm-nota">'+ls.length+' de '+todos.length+' leads. Quem marca contato, visita e venda \u00e9 o '+
+    '<p class="cm-nota">'+ls.length+' de '+todos.length+' leads. Quem marca contato, visita e venda é o '+
     'portal do cliente; aqui a MK3 enxerga o mesmo quadro, sem precisar do link.</p>';
 }
 
