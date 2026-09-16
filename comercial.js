@@ -288,8 +288,8 @@ function funilHTML(){
     '</div>'+
     resumo+
     planilhaHTML()+
-    (todos.length?'':'<p class="cm-dica">A base está vazia. Clique em <b>+ Novo lead</b> para começar, '+
-      'ou me peça para importar a planilha que já existe.</p>');
+    (todos.length?'':'<p class="cm-dica">A base está vazia. As planilhas de prospecção entram sozinhas de hora em hora; '+
+      'se quiser adiantar, clique em <b>+ Novo lead</b>.</p>');
 }
 
 /* ---------------- PECAS DA FICHA ----------------
@@ -644,7 +644,7 @@ function entrarCom(){
 }
 function sairCom(){
   if(window.firebase && firebase.auth) firebase.auth().signOut();
-  COM_LOGADO=null; COM_PRONTO=false; COM={leads:{},log:[]};
+  COM_LOGADO=null; COM_PRONTO=false; COM={leads:{},log:[],entrada:{}};
   render();
 }
 /* liga o funil ao banco. Chamado uma vez, na subida do painel. */
@@ -660,18 +660,19 @@ function ligarCom(){
     }
   }catch(e){ return; }
   firebase.auth().onAuthStateChanged(u=>{
-    if(!u){ COM_LOGADO=null; COM_PRONTO=false; COM={leads:{},log:[]}; if(VISTA.modo==="funil") render(); return; }
+    if(!u){ COM_LOGADO=null; COM_PRONTO=false; COM={leads:{},log:[],entrada:{}}; if(VISTA.modo==="funil") render(); return; }
     COM_LOGADO=u.email||""; COM_NEGADO=false;
     const ref=firebase.database().ref(NO_COM);
     ref.on("value", s=>{
       const v=s.val()||{};
-      COM={leads:v.leads||{}, log:v.log||[]};
+      COM={leads:v.leads||{}, log:v.log||[], entrada:v.entrada||{}};
       COM_PRONTO=true;
+      absorverEntrada();
       if(VISTA.modo==="funil") render();
     }, err=>{
       /* a regra recusou: e-mail fora da lista. Dizer isso na cara, em
          vez de deixar a tela girando para sempre. */
-      COM_PRONTO=true; COM_NEGADO=true; COM={leads:{},log:[]};
+      COM_PRONTO=true; COM_NEGADO=true; COM={leads:{},log:[],entrada:{}};
       if(VISTA.modo==="funil") render();
     });
   });
@@ -684,6 +685,88 @@ function salvarCom(){
     firebase.database().ref(NO_COM).update({leads:COM.leads, log:COM.log})
       .catch(()=>toast("Não consegui salvar no servidor. Sua alteração está só nesta tela.", false));
   }, 400);
+}
+
+/* ---------------- CAIXA DE ENTRADA ----------------
+   A ponte do Apps Script le as planilhas de prospeccao e larga o que e
+   novidade em painel/comercial/entrada. Quem transforma isso em lead e
+   o painel, aqui. Assim a base tem UM dono so, esta tela, e nenhuma
+   sincronizacao passa por cima do que a equipe editou na mao.
+
+   A ponte nunca manda o mesmo item duas vezes (guarda as chaves em
+   /vistos), entao lead apagado aqui nao volta sozinho depois. */
+function absorverEntrada(){
+  const ent = COM.entrada || {};
+  const ks  = Object.keys(ent);
+  if(!ks.length) return false;
+
+  /* lead antes de toque: o toque precisa achar o dono dele */
+  ks.sort((a,b)=> (ent[a]&&ent[a].tipo==="lead"?0:1) - (ent[b]&&ent[b].tipo==="lead"?0:1));
+
+  const porChave={};
+  Object.keys(COM.leads).forEach(id=>{
+    const c=COM.leads[id].chave; if(c && !porChave[c]) porChave[c]=id;
+  });
+
+  let mudou=false;
+  ks.forEach(k=>{
+    const it=ent[k]||{}, d=it.dados||{};
+
+    if(it.tipo==="lead" && it.lead && !porChave[it.lead]){
+      const id=novoIdCom();
+      const l={
+        chave:    it.lead,
+        empresa:  d.empresa||"",
+        contato:  d.contato||"",
+        whatsapp: d.whatsapp||"",
+        etapa:    d.ganho ? "fechado" : "novo",
+        desfecho: d.ganho ? "ganho"   : "",
+        /* sem data na planilha, o lead entra hoje, e a observacao diz
+           isso: melhor do que fingir que sabemos quando ele chegou */
+        entrada:  d.entrada || iso(HOJE),
+        /* a planilha guarda o dia, nao a hora: sem entradaEm o painel
+           deixa de medir tempo de resposta em vez de inventar um numero */
+        entradaEm: null,
+        obs:      [d.nota, "veio de "+(it.fonte||"planilha de prospecção"),
+                   d.entrada ? "" : "sem data de entrada na planilha"].filter(Boolean).join(" · "),
+        historico:[], toques:0,
+        criadoEm: new Date().toISOString()
+      };
+      l.score=scoreCHAMP(l);
+      COM.leads[id]=l; porChave[it.lead]=id;
+      logCom("importou", id, l.empresa||l.contato);
+      mudou=true;
+    }
+
+    if(it.tipo==="toque" && it.lead && porChave[it.lead]){
+      const l=COM.leads[porChave[it.lead]];
+      l.historico=l.historico||[];
+      if(!l.historico.some(h=>h.k===it.k)){
+        l.historico.push({k:it.k, data:d.data||"", canal:"Planilha",
+                          oque:String(d.oque||"").slice(0,400), quem:null});
+        l.historico.sort((a,b)=>String(a.data||"").localeCompare(String(b.data||"")));
+        l.toques=l.historico.length;
+        /* o primeiro contato e o toque mais antigo que se conhece, venha
+           ele da planilha ou da mao. A caixa nao chega em ordem. */
+        const velho=l.historico.find(h=>h.data);
+        if(velho && (!l.primeiro_contato || velho.data < String(l.primeiro_contato).slice(0,10)))
+          l.primeiro_contato = velho.data+"T12:00";
+        mudou=true;
+      }
+    }
+
+    /* consumida. Some da caixa mesmo quando nao virou nada, senao seria
+       reprocessada para sempre a cada abertura da tela. */
+    tirarDaEntrada(k);
+    delete COM.entrada[k];
+  });
+
+  if(mudou) salvarCom();
+  return mudou;
+}
+function tirarDaEntrada(k){
+  if(!window.firebase || !firebase.database) return;
+  try{ firebase.database().ref(NO_COM+"/entrada/"+k).remove().catch(()=>{}); }catch(e){}
 }
 
 /* ---------------- QUEM PODE ENTRAR ----------------
