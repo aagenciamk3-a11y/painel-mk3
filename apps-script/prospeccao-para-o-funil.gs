@@ -91,6 +91,7 @@ function colunas_(linha){
     if(c.contato1 == null && /1º contato|1o contato|primeiro contato/.test(h)) c.contato1 = i;
     if(c.contato2 == null && /2º contato|2o contato|2° contato|segundo contato/.test(h)) c.contato2 = i;
     if(c.conv     == null && /conversao/.test(h))                          c.conv = i;
+    if(c.origem   == null && /de onde veio|^origem$/.test(h))              c.origem = i;
   }
   return c;
 }
@@ -118,6 +119,7 @@ function lerProspAba_(sh, ano, fonte, acc){
     var emp  = celula_(L, col.empresa) || celula_(L, col.quemE) || celula_(L, col.segmento);
     var tel  = telLimpo_(celula_(L, col.tel));
     var seg  = (col.segmento != null && col.segmento !== col.empresa) ? celula_(L, col.segmento) : "";
+    var org  = celula_(L, col.origem);
 
     if(nome || emp || tel){
       var chave = tel ? ("t" + tel) : ("n" + pedaco_(emp || nome, 48));
@@ -129,6 +131,7 @@ function lerProspAba_(sh, ano, fonte, acc){
           empresa:  emp || nome,
           whatsapp: tel,
           nota:     (seg && seg !== emp) ? seg : "",
+          origem:   org,
           entrada:  "",
           ganho:    false,
           fonte:    fonte + " · " + sh.getName()
@@ -137,6 +140,7 @@ function lerProspAba_(sh, ano, fonte, acc){
       atual = acc.leads[chave];
       if(!atual.contato && nome) atual.contato = nome;
       if(!atual.whatsapp && tel) atual.whatsapp = tel;
+      if(!atual.origem   && org) atual.origem   = org;
     }
     if(!atual) continue;
 
@@ -191,6 +195,7 @@ function sincronizarProspeccao(){
         empresa:  L.empresa,
         contato:  L.contato,
         whatsapp: L.whatsapp,
+        origem:   L.origem,
         entrada:  L.entrada,
         ganho:    L.ganho,
         nota:     L.nota
@@ -213,6 +218,54 @@ function sincronizarProspeccao(){
   Logger.log("Prospecção: li " + Object.keys(acc.leads).length + " pessoas e " +
              acc.toques.length + " toques. Novidade mandada: " +
              novosL + " leads e " + novosT + " toques.");
+}
+
+/* ---------- CRIAR A COLUNA "DE ONDE VEIO" (rode uma vez) ----------
+   Enquanto a planilha não disser de onde o lead veio, o painel só
+   consegue deduzir pelo texto do primeiro toque, e deduzir estraga a
+   leitura de qual canal traz cliente. Esta função acrescenta a coluna
+   no fim de cada aba, com lista suspensa fechada, sem encostar em nada
+   que já existe. Aba que já tiver a coluna é pulada. */
+var ORIGENS = ["Indicação", "Instagram orgânico", "Meta Ads", "Google Ads", "Busca Google",
+               "Site/Formulário", "Prospecção ativa", "Evento/Networking",
+               "Carteira antiga (reativação)"];
+
+function criarColunaOrigem(){
+  PROSPECCAO.forEach(function(p){
+    var ss;
+    try { ss = SpreadsheetApp.openById(p.id); }
+    catch(e){ Logger.log("Não consegui abrir " + p.nome + ": " + e.message); return; }
+
+    ss.getSheets().forEach(function(sh){
+      var val = sh.getDataRange().getValues();
+      if(val.length < 2) return;
+
+      var hi = -1, col = null;
+      for(var r = 0; r < Math.min(val.length, 12); r++){
+        var c = colunas_(val[r]);
+        if(temCabecalho_(c)){ hi = r; col = c; break; }
+      }
+      if(hi < 0){ Logger.log('Pulei "' + sh.getName() + '": sem cabeçalho reconhecível.'); return; }
+      if(col.origem != null){ Logger.log('Pulei "' + sh.getName() + '": já tem a coluna.'); return; }
+
+      var c1 = sh.getLastColumn() + 1;
+      var ultima = sh.getLastRow();
+      if(ultima <= hi) return;
+
+      sh.getRange(hi + 1, c1).setValue("DE ONDE VEIO")
+        .setFontWeight("bold").setHorizontalAlignment("center");
+
+      var regra = SpreadsheetApp.newDataValidation()
+        .requireValueInList(ORIGENS, true)
+        .setAllowInvalid(false)
+        .setHelpText("Escolha na lista. É isso que o painel mostra em \"De onde veio\".")
+        .build();
+      sh.getRange(hi + 2, c1, ultima - hi - 1, 1).setDataValidation(regra);
+
+      Logger.log('Coluna criada em "' + p.nome + ' · ' + sh.getName() + '", coluna ' + c1 + ".");
+    });
+  });
+  Logger.log("Pronto. Quem preencher a coluna manda a origem exata para o painel.");
 }
 
 /* ---------- CONFERÊNCIA (rode à mão, não escreve nada) ---------- */
