@@ -286,4 +286,58 @@ const CLIENTES = [
       {data:"2026-02-12", titulo:"Entrada do cliente", detalhe:"Contrato CS00016/2026 · Escola Oceanus (Serra/ES)"}
     ]
   }
+
+  /* ─────────────── A MARROQUINA · COSMÉTICOS PARA UNHAS ─────────────── */
+  {
+    id: "marroquina",
+    nome: "A Marroquina",
+    marca: "Marroquina Profissional",
+
+    segmento: "Cosméticos",                 // unha em gel e henna · venda nacional
+    plano: "Presença — R$ 3.800/mês (5% de desconto por 12 meses: R$ 3.610)",
+    entrada: "2026-09-28",                  // assinatura + reunião de imersão
+
+    /* CONTRATO CS00008/2026 — vigência 01/10/2026 a 01/10/2027 (12 meses) */
+    contrato: "CS00008/2026",
+    inicioContrato: "2026-10-01",
+    vencimentoContrato: "2027-10-01",
+    mensalidade: {valorPix: 3610, valorPermuta: 0, diaVencimento: 1},
+
+    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:true},
+
+    imersao: "2026-09-28",
+    reuniaoPlanejamentoEntrada: "2026-09-30",
+
+    /* datas REAIS — a cadeia se re-ancora a partir delas */
+    envioPlanejamento:     null,
+    aprovacaoPlanejamento: null,
+    envioMidia:            null,
+    aprovacaoMidia:        null,
+
+    gravacao: null,
+    artesDependemDaGravacao: false,
+
+    /* 1º ciclo rodando em outubro; ciclo padrão começa em novembro */
+    inicioCicloPadrao: "2026-11",
+
+    justificados: [],
+
+    /* pendências que estão do lado do cliente e travam a produção */
+    tarefasExtras: [
+      {id:"preparadores", fase:"1º ciclo", tarefa:"Alterar arte dos 5 preparadores", detalhe:"Aguardando do cliente: faca, arte antiga, logo nova e dizeres de fabricação · prazo MK3 de 2 dias úteis após o recebimento", data:"2026-10-02", resp:"Design"},
+      {id:"catalogo", fase:"1º ciclo", tarefa:"Montar catálogo institucional", detalhe:"Aguardando a lista descritiva do que deve compor o catálogo", data:"2026-10-07", resp:"Design"},
+      {id:"evento_1810", fase:"1º ciclo", tarefa:"Material do evento de 18/10 (alunas da Leí)", detalhe:"Único evento confirmado · aguardando dados específicos da Giovana", data:"2026-10-10", resp:"Analista"}
+    ],
+
+    concluidas: ["pasta","imersao","imersaoDoc","reuniaoPlan","pesq1","pesq2"],
+
+    marcos: [
+      {data:"2026-09-28", titulo:"Entrada do cliente",        detalhe:"Plano Presença · R$ 3.800/mês com 5% de desconto por 12 meses = R$ 3.610 · retorno de cliente antiga"},
+      {data:"2026-09-28", titulo:"Reunião de imersão",        detalhe:"Diagnóstico: qualidade alta, autoridade de marca baixa · foco na nail designer"},
+      {data:"2026-09-30", titulo:"Reunião de planejamento 1", detalhe:"Henna 1.3 como foco · géis prioritários: Control Cover, Classic Cover, Clear Hard e Gel Básico"},
+      {data:"2026-10-18", titulo:"Evento alunas da Leí",      detalhe:"Único evento confirmado · produtos específicos para as alunas"},
+      {data:"2026-11-09", titulo:"Evento Guarapari (a confirmar)", detalhe:"Aguardando posicionamento do organizador"},
+      {data:"2026-12-08", titulo:"Evento Henrique (a confirmar)",  detalhe:"Formato de participação em definição"}
+    ]
+  },
 ];
