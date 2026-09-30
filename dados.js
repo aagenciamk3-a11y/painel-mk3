@@ -285,7 +285,7 @@ const CLIENTES = [
     marcos: [
       {data:"2026-02-12", titulo:"Entrada do cliente", detalhe:"Contrato CS00016/2026 · Escola Oceanus (Serra/ES)"}
     ]
-  }
+  },
 
   /* ─────────────── A MARROQUINA · COSMÉTICOS PARA UNHAS ─────────────── */
   {
