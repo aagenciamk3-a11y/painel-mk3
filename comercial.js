@@ -186,7 +186,7 @@ function historicoHTML(l){
   return '<div class="cm-sec">Histórico'+(ts.length?' <span class="cm-cont">'+ts.length+
       (ts.length>1?' toques':' toque')+'</span>':'')+'</div>'+
     (ts.length
-      ? '<div class="hist">'+ts.map((t,i)=>
+      ? '<div class="cm-hist">'+ts.map((t,i)=>
           '<div class="hist-l"><span class="hist-d">'+esc(fmt(t.data))+'</span>'+
           '<span class="hist-c">'+esc(t.canal||"")+'</span>'+
           '<span class="hist-o">'+esc(t.oque||"")+
@@ -264,7 +264,7 @@ function funilHTML(){
   if(!COM_LOGADO) return loginComHTML();
   if(COM_NEGADO) return '<section class="bloco cm-login"><h2>Acesso negado</h2>'+
     '<p>Você entrou como <b>'+esc(COM_LOGADO)+'</b>, e esse e-mail não está na lista '+
-    'de quem pode ver a base de leads. Peça ao Guilherme para incluir, ou entre com outra conta.</p>'+
+    'de quem pode ver a base de leads. Peça à administração para incluir, ou entre com outra conta.</p>'+
     '<button class="cm-entrar" data-cmsair="1">Entrar com outra conta</button></section>';
   if(!COM_PRONTO) return '<section class="bloco"><h2>Funil</h2><p>Carregando a base…</p></section>';
 
@@ -279,7 +279,7 @@ function funilHTML(){
 
   const avisos=[];
   if(semContato.length) avisos.push('<span class="cm-av urg">'+semContato.length+
-    (semContato.length>1?' esperando':' esperando')+' o primeiro contato</span>');
+    (semContato.length>1?' leads esperando':' lead esperando')+' o primeiro contato</span>');
   if(vencidos.length) avisos.push('<span class="cm-av">'+vencidos.length+
     ' com follow-up vencido</span>');
 
@@ -852,8 +852,7 @@ function loginComHTML(){
     'telefone e faturamento de gente que ainda não é cliente, então ela fica '+
     'guardada separada do resto e só abre para os e-mails da MK3.</p>'+
     '<button class="cm-entrar" data-cmentrar="1">Entrar com Google</button>'+
-    '<p class="cm-dica">Seu Chrome já está logado no Google por causa do Drive e da Agenda, '+
-    'então costuma ser um clique só.</p></section>';
+    '<p class="cm-dica">Use a conta Google da MK3.</p></section>';
 }
 function entrarCom(){
   if(!window.firebase || !firebase.auth){
@@ -1116,7 +1115,7 @@ function leadViraCliente(id){
    O painel delega tudo num ouvinte so. Aqui o funil registra os seus,
    sem mexer na lista gigante do motor. */
 document.addEventListener("click", ev=>{
-  const a=ev.target.closest("[data-cmlead],[data-cmnovo],[data-cmsalvar],[data-cmexcluir],[data-cmdesf],[data-cmentrar],[data-cmsair],[data-cmquem],[data-cmautadd],[data-cmautx],[data-cmfil],[data-cmord],[data-cmtoque],[data-cmtoquex]");
+  const a=ev.target.closest("[data-cmlead],[data-cmnovo],[data-cmsalvar],[data-cmexcluir],[data-cmdesf],[data-cmentrar],[data-cmsair],[data-cmquem],[data-cmautadd],[data-cmautx],[data-cmfil],[data-cmord],[data-cmtoque],[data-cmtoquex],[data-cmdono],[data-cmacao],[data-cmlimpa],[data-cmordc]");
   if(!a) return;
   if(ev.target.closest("[data-cmzap]")) return;        /* o botao de WhatsApp e link, deixa passar */
   ev.preventDefault(); ev.stopPropagation();

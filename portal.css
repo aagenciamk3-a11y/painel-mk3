@@ -12,7 +12,7 @@ body{background:var(--bg);color:var(--txt);line-height:1.55;padding:28px 18px 60
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
 .marca{font-size:20px;font-weight:800;letter-spacing:-.02em}
 .marca span{color:var(--mk3o)}
-.hoje{font-size:12.5px;color:var(--mut)}
+.hoje-txt{font-size:12.5px;color:var(--mut)}
 h1{font-size:24px;letter-spacing:-.02em;margin-bottom:18px}
 h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);font-weight:700;margin-bottom:12px}
 h3.sub{font-size:13px;font-weight:600;color:var(--txt);margin:20px 0 4px}

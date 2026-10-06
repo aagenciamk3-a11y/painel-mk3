@@ -308,7 +308,7 @@ function faltaVoce(){
   if(!p.length) return '';
   return '<section class="bloco falta"><h2>O que falta de voc\u00ea</h2>'+
     p.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).map(x=>{
-      const n=(x.dias==null?dias(x.vencimento):x.dias);
+      const n=uteisAte(x.vencimento);    /* recalcula todo dia: o espelho pode ser de ontem */
       const urg = n<0?"atrasado":n===0?"hoje":n===1?"umdia":"ok";
       const quanto = n<0 ? "o prazo venceu, seguimos com a aprova\u00e7\u00e3o autom\u00e1tica"
                    : n===0 ? "vence hoje"

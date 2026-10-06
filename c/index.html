@@ -18,7 +18,7 @@ body{background:var(--bg);color:var(--txt);line-height:1.55;padding:28px 18px 60
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
 .marca{font-size:20px;font-weight:800;letter-spacing:-.02em}
 .marca span{color:var(--mk3o)}
-.hoje{font-size:12.5px;color:var(--mut)}
+.hoje-txt{font-size:12.5px;color:var(--mut)}
 h1{font-size:24px;letter-spacing:-.02em;margin-bottom:18px}
 h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);font-weight:700;margin-bottom:12px}
 h3.sub{font-size:13px;font-weight:600;color:var(--txt);margin:20px 0 4px}
@@ -412,7 +412,7 @@ body.travado{overflow:hidden}
 @media(max-width:620px){ .tp-emp{padding:6px 11px;font-size:12px} }
 </style></head><body>
 <div class="wrap">
-  <header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
+  <header><div class="marca">MK<span>3</span></div><div class="hoje-txt" id="hoje"></div></header>
   <div id="view"><div class="bloco"><h2>Carregando…</h2></div></div>
   <footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer>
 </div>
@@ -457,6 +457,13 @@ const uteisEntre = (limite, real) => {
   let n=0, x=d(limite);
   while(iso(x) < real){ x.setDate(x.getDate()+1); const w=x.getDay(); if(w!==0&&w!==6) n++; }
   return n;
+};
+/* dias UTEIS de hoje ate a data (negativo = ja passou, em dias corridos) */
+const uteisAte = s => {
+  const n=dias(s); if(n<=0) return n;
+  let c=0, x=new Date(HOJE);
+  for(let i=0;i<n;i++){ x.setDate(x.getDate()+1); const w=x.getDay(); if(w!==0&&w!==6) c++; }
+  return c;
 };
 const maiorData = (a,b) => !a ? b : !b ? a : (a>b ? a : b);
 
@@ -1136,7 +1143,7 @@ function faltaVoce(){
   if(!p.length) return '';
   return '<section class="bloco falta"><h2>O que falta de voc\u00ea</h2>'+
     p.sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento))).map(x=>{
-      const n=(x.dias==null?dias(x.vencimento):x.dias);
+      const n=uteisAte(x.vencimento);    /* recalcula todo dia: o espelho pode ser de ontem */
       const urg = n<0?"atrasado":n===0?"hoje":n===1?"umdia":"ok";
       const quanto = n<0 ? "o prazo venceu, seguimos com a aprova\u00e7\u00e3o autom\u00e1tica"
                    : n===0 ? "vence hoje"

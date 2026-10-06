@@ -22,7 +22,7 @@ const html=`<!DOCTYPE html>
 <title>Acompanhamento MK3</title>
 <style>${portalCss}</style></head><body>
 <div class="wrap">
-  <header><div class="marca">MK<span>3</span></div><div class="hoje" id="hoje"></div></header>
+  <header><div class="marca">MK<span>3</span></div><div class="hoje-txt" id="hoje"></div></header>
   <div id="view"><div class="bloco"><h2>Carregando…</h2></div></div>
   <footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer>
 </div>

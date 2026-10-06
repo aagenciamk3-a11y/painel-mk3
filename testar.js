@@ -114,7 +114,7 @@ __ok("cliente vira link", /data-cliente="suelem"/.test(h));
 __ok("chips de periodo", /data-feed="7"/.test(h));
 ESTADO.log=[{ts:new Date().toISOString(),cliente:"suelem",nome:"Antiga",acao:"concluir",id:"y"}];
 const ha=feedHTML();
-__ok("sem autor nao inventa nome", !/alguem/i.test(ha) && /autor nao registrado/.test(ha));
+__ok("sem autor nao inventa nome", !/alguem/i.test(ha) && /autor não registrado/.test(ha));
 ESTADO.log=[];
 __ok("vazio explica o filtro", /fd-vazio/.test(feedHTML()));
 __ok("menu Feed sem bolinha", !/Feed<\\/span><span class="snav-n"/.test(sidebarHTML()));
@@ -163,8 +163,8 @@ bloco("Rascunho do relatorio", M, limpar+`
 const c=cliente("suelem"), ym=mesAtualYM();
 let txt=rascunhoRelatorio(c,ym);
 __ok("tem cabecalho do cliente", /Suelem/.test(txt));
-__ok("sem Reportei diz que nao tem", /nao ha dados do Reportei/.test(txt));
-__ok("lista o que foi entregue", /ENTREGUE NO MES/.test(txt));
+__ok("sem Reportei diz que nao tem", /não há dados do Reportei/.test(txt));
+__ok("lista o que foi entregue", /ENTREGUE NO MÊS/.test(txt));
 __ok("avisa que e rascunho", /Revise antes de enviar/.test(txt));
 ESTADO.resultados.suelem={};
 ESTADO.resultados.suelem[ym]={periodo:"1 a 12 de agosto",compara:"julho",
@@ -830,6 +830,9 @@ __ok("conclusao no futuro e ignorada", !(ESTADO.concluidas["_dem"]||[]).some(e=>
 
 bloco("Ciclo mensal maleavel", M, limpar+`
 const cidCM="suelem";
+/* o teste e sobre a regua do mes, nao sobre o fim do contrato: sem isto ele
+   "envelhece" (o contrato real da Suelem termina e o painel corta o ciclo) */
+const cmCli=ORIG.find(c=>c.id===cidCM); const cmVenc=cmCli.vencimentoContrato; cmCli.vencimentoContrato=addD(iso(HOJE),365); rebuild();
 const cmMes=iso(HOJE).slice(0,7);
 const cmProx=(()=>{ const x=new Date(HOJE.getFullYear(),HOJE.getMonth()+1,1); return iso(x).slice(0,7); })();
 const cmAcha=(id)=>TODAS.find(t=>t.clienteId===cidCM && t.id===id);
@@ -865,6 +868,7 @@ __ok("nem joga o conteudo para o fim do mes", cmAcha("agendado_"+cmProx).data===
 const cmAnt=(()=>{ const x=new Date(HOJE.getFullYear(),HOJE.getMonth()-1,1); return iso(x).slice(0,7); })();
 const cmVelho=cmAcha("envPlanej_"+cmAnt);
 __ok("o historico do mes passado nao se mexe", !cmVelho || cmVelho.data===cmAnt+"-24");
+cmCli.vencimentoContrato=cmVenc; rebuild();
 `);
 
 bloco("Demanda recorrente: por area ou so para uma pessoa", M, limpar+`
