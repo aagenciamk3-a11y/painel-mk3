@@ -867,6 +867,84 @@ const cmVelho=cmAcha("envPlanej_"+cmAnt);
 __ok("o historico do mes passado nao se mexe", !cmVelho || cmVelho.data===cmAnt+"-24");
 `);
 
+bloco("Demanda recorrente: por area ou so para uma pessoa", M, limpar+`
+{ /* bloco proprio: as constantes daqui nao colidem com as dos outros testes */
+ESTADO.recorrentes=[]; ESTADO.concluidas["_rec"]=[]; ESTADO.excluidas["_rec"]=[];
+const hoje=iso(HOJE), dwHoje=d(hoje).getDay();
+const ocs=rid=>TODAS.filter(t=>t.clienteId==="_rec" && t.recId===rid);
+const ultimaRec=()=>ESTADO.recorrentes[ESTADO.recorrentes.length-1];
+const veComo=(nome,rid)=>{ USUARIO=nome; rebuild(); return ocs(rid).length>0; };
+
+/* sem perfil escolhido nao cria nada */
+USUARIO=null; addRecorrente({texto:"x",area:"mkt",alvo:"area",freq:"semanal",dow:dwHoje});
+__ok("sem perfil nao cria recorrente", ESTADO.recorrentes.length===0);
+
+/* ADM cria so para a Carla */
+USUARIO="Alda"; addRecorrente({texto:"Conferir agendamentos",area:"mkt",alvo:"pessoa",resp:"Carla",freq:"semanal",dow:dwHoje});
+const rp=ultimaRec();
+__ok("ADM cria recorrente por pessoa", !!rp && rp.alvo==="pessoa" && rp.resp==="Carla");
+__ok("registra quem criou", rp.criadaPor==="Alda" && (ESTADO.log[0]||{}).acao==="recorrente" && ESTADO.log[0].quem==="Alda");
+__ok("a Carla ve", veComo("Carla",rp.id));
+__ok("a ocorrencia de hoje existe", ocs(rp.id).some(t=>t.data===hoje));
+__ok("a tarefa diz que e so para ela", ocs(rp.id).every(t=>t.soPara==="Carla" && t.resp==="Carla"));
+__ok("cai na area da Carla", ocs(rp.id).every(t=>t.area==="mkt"));
+__ok("outra ADM ve", veComo("Guilherme",rp.id));
+__ok("quem criou ve", veComo("Alda",rp.id));
+__ok("a Bia nao ve", !veComo("Bia",rp.id));
+__ok("o Marlon nao ve", !veComo("Marlon",rp.id));
+__ok("sem perfil ninguem ve", !veComo(null,rp.id));
+USUARIO="Bia"; __ok("a lista de recorrentes tambem esconde da Bia", listaRecorrentes().indexOf("Conferir agendamentos")<0);
+USUARIO="Carla"; __ok("e mostra para a Carla", listaRecorrentes().indexOf("Conferir agendamentos")>=0);
+
+/* pessoa de uma area pedida em outra: a tarefa vai para a area que ela enxerga */
+USUARIO="Guilherme"; addRecorrente({texto:"Fechar caixa",area:"mkt",alvo:"pessoa",resp:"Bia",freq:"semanal",dow:dwHoje});
+const rb=ultimaRec();
+__ok("a Bia ve a dela", veComo("Bia",rb.id));
+__ok("e ela cai na area fin, que a Bia enxerga", ocs(rb.id).every(t=>t.area==="fin"));
+
+/* quem nao e ADM so cria para si mesmo */
+USUARIO="Bia"; addRecorrente({texto:"Lancar notas",area:"com",alvo:"area",freq:"util"});
+const rbia=ultimaRec();
+__ok("nao-ADM que pede por area ganha recorrente so dele", rbia.alvo==="pessoa" && rbia.resp==="Bia");
+__ok("a Carla nao ve a da Bia", !veComo("Carla",rbia.id));
+__ok("a ADM ve a da Bia", veComo("Alda",rbia.id));
+
+/* por area: o filtro de area de sempre resolve */
+USUARIO="Alda"; addRecorrente({texto:"Conciliar pagamentos",area:"fin",alvo:"area",freq:"semanal",dow:dwHoje});
+const ra=ultimaRec();
+__ok("recorrente por area e visivel para quem tem a area", recVisivel(ra) && veComo("Bia",ra.id));
+__ok("e fica na area escolhida", ocs(ra.id).every(t=>t.area==="fin" && t.soPara===null));
+
+/* quem pode mexer */
+USUARIO="Carla"; pausarRecorrente(rbia.id);
+__ok("a Carla nao pausa a recorrente da Bia", rbia.pausada===false);
+USUARIO="Bia"; __ok("a Bia pode mexer na dela", podeMexerRec(rbia));
+USUARIO="Bia"; __ok("a Bia nao mexe na que a ADM criou para ela", !podeMexerRec(rb));
+USUARIO="Alda"; pausarRecorrente(rbia.id);
+__ok("a ADM pausa", rbia.pausada===true);
+__ok("pausada nao gera tarefa", !veComo("Alda",rbia.id));
+USUARIO="Carla"; removerRecorrente(rp.id);
+__ok("a Carla nao remove a que a ADM criou", ESTADO.recorrentes.some(r=>r.id===rp.id));
+USUARIO="Alda"; removerRecorrente(rp.id);
+__ok("a ADM remove", !ESTADO.recorrentes.some(r=>r.id===rp.id) && !veComo("Alda",rp.id));
+
+/* nao cobra o que veio antes de existir */
+USUARIO="Alda"; addRecorrente({texto:"Antiga",area:"mkt",alvo:"area",freq:"util",inicio:addD(hoje,-20)});
+const rv=ultimaRec(); rebuild();
+__ok("nao gera atraso antes da data de criacao", ocs(rv.id).every(t=>t.data>=hoje));
+
+/* calendario das regras */
+__ok("mensal dia 31 cai no ultimo dia de um mes de 30", JSON.stringify(datasRec({freq:"mensal",dia:31,inicio:"2026-09-01"},"2026-09-01","2026-09-30"))==='["2026-09-30"]');
+const uteisSet=datasRec({freq:"util",inicio:"2026-10-05"},"2026-10-05","2026-10-11");
+__ok("todo dia util pula sabado e domingo", uteisSet.length===5 && uteisSet.every(x=>{ const w=d(x).getDay(); return w>=1&&w<=5; }));
+__ok("semanal cai no dia da semana pedido", JSON.stringify(datasRec({freq:"semanal",dow:3,inicio:"2026-10-01"},"2026-10-01","2026-10-14"))==='["2026-10-07","2026-10-14"]');
+__ok("quinzenal anda de 14 em 14 dias", JSON.stringify(datasRec({freq:"quinzenal",inicio:"2026-10-01"},"2026-10-01","2026-10-31"))==='["2026-10-01","2026-10-15","2026-10-29"]');
+__ok("texto da regra mensal", regraRecTexto({freq:"mensal",dia:10})==="Todo dia 10 do mês");
+__ok("texto da regra semanal", regraRecTexto({freq:"semanal",dow:1})==="Toda segunda");
+ESTADO.recorrentes=[]; USUARIO=null; rebuild();
+}
+`);
+
 bloco("Rotas e menu", M, limpar+`
 USUARIO="Guilherme";
 location.hash="#/feed"; __ok("rota #/feed", aplicarRota()===true && VISTA.modo==="feed");
