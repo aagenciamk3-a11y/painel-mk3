@@ -158,7 +158,7 @@ function cardLead(l){
         (c.contato?'&#10003; Falei com essa pessoa':'Entrei em contato?')+'</button>'+
       '<button class="ld-chk nao'+(c.semContato?" on":"")+'" data-semcontato="'+escAttr(l._id)+'">'+
         (c.semContato?'&#10007; Não consegui':'Não consegui contato')+'</button>'+
-      '<button class="ld-mais" data-fechar="'+escAttr(l._id)+'" title="Registrar visita, venda ou parceria">&#8942;</button>'+
+      '<button class="ld-mais" data-fechar="'+escAttr(l._id)+'">Registrar visita ou venda</button>'+
     '</div></div>';
 }
 function mesRotulo(ym){
@@ -497,9 +497,21 @@ function cicloHTML(){
 
 /* ---- 2) próximos passos (o que vem) ---- */
 let PMES = 0, PDIA = null;                       /* 0 = mes corrente, -1 = anterior, 1 = seguinte */
-let PVISAO = "cal";                 /* cal ou lista */
+/* no celular o calendario vira pontinhos: comeca na lista */
+let PVISAO = (window.matchMedia && window.matchMedia("(max-width:620px)").matches) ? "lista" : "cal";
+/* o cliente ve so o que diz respeito a ele: rotina interna da MK3 (pastas, planilha,
+   codigo 2FA, lembretes, Pode Postar, roteiro para a produtora) fica de fora */
+const INTERNAS = /^(pasta|grupo|boasvindas|onboarding|acessos|planilha|fotoMarca|prints|reserva|pesq\d*|imersaoDoc|revisaoOnb|c1_lembPlan|c1_lembMid|c1_roteiro|c1_gravacaoMarcar|c1_podepostar|c1_calendario|relatorio|planej|reserva3m|pesq6m|renov|rec_|plan_atraso)(_|$)/;
+/* nomes em linguagem de cliente para as etapas que ele acompanha */
+const ROTULO_CLIENTE = {
+  c1_plan:"Planejamento do primeiro mês", c1_artes:"Criação das artes", c1_gravacao:"Dia de gravação e fotos",
+  c1_ajuste:"Ajuste que você pediu", envPlanej:"Envio do planejamento do mês", midia:"Produção das artes e vídeos",
+  envMidia:"Entrega das artes e vídeos", agendado:"Conteúdo agendado para postar", reuMensal:"Reunião mensal",
+  envRelat:"Envio do relatório do mês", reuniaoPlan:"Reunião de planejamento", imersao:"Reunião de imersão"
+};
 function tarefasDoPortal(){
-  return TAREFAS.filter(t=>t.data && t.fase!=="Contrato" && !/^pag_|^fotos_/.test(t.id));
+  return TAREFAS.filter(t=>t.data && t.fase!=="Contrato" && t.fase!=="Recorrente" && !/^pag_|^fotos_/.test(t.id) && !INTERNAS.test(t.id))
+    .map(t=>{ const b=String(t.id).replace(/_\d{4}-\d{2}$/,""); return ROTULO_CLIENTE[b] ? {...t, tarefa:ROTULO_CLIENTE[b]} : t; });
 }
 /* janelas de cada etapa: serve para pintar o intervalo no calendario */
 function faixas(){
@@ -601,7 +613,7 @@ function calendarioHTML(abas){
       ' aria-label="'+esc(fmt(dia))+(temAlgo?", "+(doDia.length+marcos.length)+" item(ns)":", sem nada")+'">'+
       '<span class="cd-n">'+d0+'</span>'+(itens?'<div class="cd-itens">'+itens+'</div>':'')+'</button>';
   }
-  const nomeMes=ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  const nomeMes=(t=>t.charAt(0).toUpperCase()+t.slice(1))(ref.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}));
   const legenda='<div class="cd-leg">'+
     '<span><i class="l-mk3"></i>com a MK3</span>'+
     '<span><i class="l-cli"></i>com você</span>'+
@@ -611,9 +623,9 @@ function calendarioHTML(abas){
     '<div class="cd-nav"><button data-pmes="'+(PMES-1)+'" aria-label="Mês anterior">&lsaquo;</button>'+
       '<strong>'+esc(nomeMes)+'</strong>'+
       '<button data-pmes="'+(PMES+1)+'" aria-label="Próximo mês">&rsaquo;</button></div>'+
+    '<div class="cd-dica">Toque em qualquer dia para ver o que acontece nele.</div>'+
     '<div class="cd-dow"><span>dom</span><span>seg</span><span>ter</span><span>qua</span><span>qui</span><span>sex</span><span>sáb</span></div>'+
-    '<div class="cd-grade">'+cels+'</div>'+
-    '<div class="cd-dica">Clique em qualquer dia para ver o que acontece nele.</div>'+ legenda +
+    '<div class="cd-grade">'+cels+'</div>'+ legenda +
     '<p class="nota">O fundo de cada dia mostra de quem é a vez: roxo com a MK3, amarelo com você. '+
     'Quando a sua parte passa do prazo, o bloco fica vermelho e tudo que vem depois anda junto.</p>'+
     '</section>';
@@ -759,7 +771,7 @@ function desenhar(){
   if(!C){ return; }
   const corpo = ABA==="trafego"
     ? trafegoHTML()
-    : (heroHTML() + faltaVoce() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico());
+    : (faltaVoce() + heroHTML() + planoHTML() + cicloHTML() + esperando() + resultados() + proximos() + historico());   /* o que depende do cliente vem primeiro */
   $("view").innerHTML = topoHTML() + corpo;
   if(ABA!=="trafego"){ ligarDash(); caixaDia(); }
 }

@@ -511,11 +511,14 @@ const IC = {
   repete:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg>',
   compromisso:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 12.5v5M9.5 15h5"/></svg>',
   lixo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  mais:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>',
   sair:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5M15 12H4"/></svg>'
 };
+/* no celular a sidebar vira barra inferior: so os itens "prim" ficam a mostra, o resto vai para "Mais" */
+const NAV_PRIM = ["cards","feed","prio","cal","lista"];
 function navItem(key,label,icon,kind,on,n){
   const href = kind==="view" ? rotaDe({modo:key,escopo:null}) : rotaDe({area:key});
-  return '<a class="snav'+(on?" on":"")+'" href="'+href+'" data-'+kind+'="'+key+'" title="'+esc(label)+'" aria-label="'+esc(label)+(n?' ('+n+')':'')+'"'+(on?' aria-current="page"':'')+'>'+
+  return '<a class="snav'+(on?" on":"")+(NAV_PRIM.indexOf(key)>=0?" prim":"")+'" href="'+href+'" data-'+kind+'="'+key+'" title="'+esc(label)+'" aria-label="'+esc(label)+(n?' ('+n+')':'')+'"'+(on?' aria-current="page"':'')+'>'+
     '<span class="snav-i">'+icon+'</span><span class="snav-t">'+esc(label)+'</span>'+
     (n?'<span class="snav-b">'+n+'</span>':'')+'</a>';
 }
@@ -544,6 +547,9 @@ function posicionarPill(){
     pill.style.width=ativo.offsetWidth+"px";
     pill.style.transform="translateX("+ativo.offsetLeft+"px)";
     pill.style.opacity="1";
+    /* no celular a barra rola: a area escolhida fica sempre a vista */
+    const bx=bar.querySelector(".abar");
+    if(bx && bx.scrollWidth>bx.clientWidth){ const l=ativo.offsetLeft-12; if(l<bx.scrollLeft||ativo.offsetLeft+ativo.offsetWidth>bx.scrollLeft+bx.clientWidth) bx.scrollLeft=l; }
   });
 }
 function sidebarHTML(){
@@ -558,6 +564,7 @@ function sidebarHTML(){
     '<span class="snav-i">'+icon+'</span><span class="snav-t">'+esc(label)+'</span></button>';
   let h='<div class="side-brand"><a class="b" href="'+rotaDe({modo:"cards",escopo:null})+'" data-view="cards" aria-label="MK3, ir para os clientes"><span>MK</span>3</a>'+
         '<button class="side-toggle" data-side="toggle" title="Recolher menu" aria-label="Recolher menu" aria-expanded="'+(!VISTA.side)+'">&#10094;</button></div>';
+  h+='<button class="snav prim mais" data-maismenu="1" aria-label="Mais opções" aria-expanded="false"><span class="snav-i">'+IC.mais+'</span><span class="snav-t">Mais</span></button>';
   h+='<div class="side-sec">Ver</div>';
   h+=views.map(v=>navItem(v[0],v[1],v[2],"view",(!c&&VISTA.modo===v[0]),(v[0]==="prio"?urg:0))).join("");
   /* o funil e da area comercial: quem so tem marketing nao ve */
@@ -2250,7 +2257,14 @@ async function init(){
   setTimeout(rodarCobrancas, 4000);
 }
 
-$("hoje").textContent = HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+/* data do topo: por extenso no computador, curta no celular */
+function pintarHoje(){
+  const el=$("hoje"); if(!el) return;
+  const longa=HOJE.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+  const curta=HOJE.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"}).replace(/\./g,"");
+  el.innerHTML='<span class="hj-l">'+esc(longa)+'</span><span class="hj-c" aria-hidden="true">'+esc(curta)+'</span>';
+}
+pintarHoje();
 
 function coresSeg(seg){
   const M = {
@@ -2437,16 +2451,29 @@ function feedHTML(){
       dias0[d0].map(feedLinha).join("")+'</div>').join("");
   return '<section class="feed"><div class="fd-topo"><h2>Quem fez o quê</h2>'+chips+'</div>'+corpo+'</section>';
 }
+/* selo do card: so aparece quando diz algo (antes "Ativo" estava em todos) */
+function seloCliente(c){
+  const v=c.vencimentoContrato;
+  if(v){ const n=dias(v);
+    if(n<0)   return '<span class="badge-ativo b-alerta">Contrato venceu</span>';
+    if(n<=30) return '<span class="badge-ativo b-aviso">Contrato vence em '+n+(n===1?' dia':' dias')+'</span>'; }
+  const o=onboardingDe(c);
+  if(o.total && !o.completo) return '<span class="badge-ativo">Onboarding</span>';
+  return '';
+}
 function cardsHTML(){
-  const crit=c=>{ const ts=tarefasCli(c);
+  /* conta uma vez por cliente: antes o sort refiltrava TODAS a cada comparacao */
+  const por={}; CLIENTES.forEach(c=>{ por[c.id]=tarefasCli(c); });
+  const crit=c=>{ const ts=por[c.id];
     return ts.filter(t=>t.st.k==="atrasado").length*100 + ts.filter(t=>t.st.k==="hoje").length*10 + ts.filter(t=>t.st.k==="umdia").length; };
-  return CLIENTES.slice().sort((a,b)=>crit(b)-crit(a)).map(c=>{
-    const ts = tarefasCli(c);
+  const peso={}; CLIENTES.forEach(c=>{ peso[c.id]=crit(c); });
+  return CLIENTES.slice().sort((a,b)=>peso[b.id]-peso[a.id]).map(c=>{
+    const ts = por[c.id];
     const n  = ks => ts.filter(t=>ks.includes(t.st.k)).length;
     const cor = coresDe(c);
     const tiles = [
       ["atrasado","Atrasado", n(["atrasado"])],
-      ["hoje","Vence hoje",   n(["hoje","umdia"])],
+      ["hoje","Hoje e amanhã", n(["hoje","umdia"])],
       ["semana","A fazer",    n(["semana","futuro","sem"])],
       ["ok","Concluído",      n(["ok"])]
     ];
@@ -2454,7 +2481,7 @@ function cardsHTML(){
       '<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
       avatarHTML(c,"ccard-av")+
       '<div class="ccard-body">'+
-        '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3><span class="badge-ativo">Ativo</span></div>'+
+        '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3>'+seloCliente(c)+'</div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
           '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
       onbBadgeHTML(c)+linksHTML(c,"card")+'</div></a>';
@@ -2510,7 +2537,7 @@ function calendario(tasks, marcos, showCli){
     const evsHtml = items.slice(0,cap).map(it=> it.ag ? evAgenda(it.o) : (it.marco ? evCard(it.o,false,true) : evCard(it.o,showCli,false))).join("");
     const resto = items.length - cap;
     const extra = resto>0 ? '<div class="mais" data-dia="'+s+'">+'+resto+' '+(resto===1?"item":"itens")+'</div>' : "";
-    cells += '<div class="'+cls+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
+    cells += '<div class="'+cls+(items.length?'':' vazia')+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
   }
 
   let dica="";
@@ -2523,6 +2550,14 @@ function calendario(tasks, marcos, showCli){
     dica='<div class="cal-dica">Nada neste mês. '+abertas.length+(abertas.length>1?' itens em aberto':' item em aberto')+
       ', o mais próximo em <b>'+r.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})+'</b>'+
       '<button class="ubtn" data-irmes="'+salto+'">Ir para lá</button></div>';
+  }
+  /* atrasadas de meses anteriores nao aparecem na grade do mes: avisa em vez de parecer que nao ha nada */
+  if(VISTA.mes===0){
+    const ini0=iso(new Date(ano,mes,1));
+    const velhas=tasks.filter(t=>t.st && t.st.k==="atrasado" && t.data && t.data<ini0).length;
+    if(velhas) dica+='<div class="cal-dica atr"><b>'+velhas+'</b>'+(velhas>1?' tarefas atrasadas':' tarefa atrasada')+
+      ' de meses anteriores não '+(velhas>1?'aparecem':'aparece')+' nesta grade.'+
+      '<button class="ubtn" data-veratrasadas="1">Ver atrasadas</button></div>';
   }
   return dica+'<div class="cal-nav"><button data-mes="-1">&lsaquo;</button>'+
       '<strong>'+esc(mesAno(ref))+'</strong>'+
@@ -2812,7 +2847,7 @@ function virouODia(){
   const agora=new Date(); agora.setHours(0,0,0,0);
   if(agora.getTime()===HOJE.getTime()) return false;
   HOJE.setTime(agora.getTime());
-  rebuild(); render(); return true;
+  pintarHoje(); rebuild(); render(); return true;
 }
 setInterval(()=>{ try{ if(!document.hidden) virouODia(); }catch(e){} }, 5*60000);
 function abrirAgendaConfig(){
@@ -3286,7 +3321,8 @@ function dashboardHTML(completo){
   const anel='<div class="db-anel"><svg viewBox="0 0 110 110" aria-hidden="true">'+
       '<circle cx="55" cy="55" r="'+R+'" class="an-bg"/>'+
       '<circle cx="55" cy="55" r="'+R+'" class="an-fg" style="stroke-dasharray:'+C+';stroke-dashoffset:'+C+'" data-arco="'+(C-(C*pct/100))+'"/>'+
-    '</svg><div class="an-txt"><b data-num="'+pct+'">0</b><span>%</span><i>do mês concluído</i></div></div>';
+    '</svg><div class="an-txt"><b data-num="'+pct+'">0</b><span>%</span><i>do mês concluído</i>'+
+      '<i class="an-sub">'+feitasMes+' de '+doMes.length+' tarefas com prazo em '+esc(HOJE.toLocaleDateString("pt-BR",{month:"long"}))+'</i></div></div>';
 
   /* o que fazer agora: 3 mais críticos */
   const criticos=ts.filter(t=>t.st.k!=="ok" && t.data)
@@ -3701,21 +3737,33 @@ function animar(){
   el.querySelectorAll("[data-num]").forEach(n=>{
     const alvo=+n.getAttribute("data-num")||0;
     const fmtN=v=>Number(v).toLocaleString("pt-BR");
-    if(reduz || alvo<=0){ n.textContent=fmtN(alvo); return; }
+    if(reduz || alvo<=0 || !TELA_NOVA){ n.textContent=fmtN(alvo); return; }
     const dur=Math.min(900, 260+Math.min(alvo,40)*18); const ini=performance.now();
     const passo=t=>{ const p=Math.min(1,(t-ini)/dur);
       n.textContent=fmtN(Math.round(alvo*(1-Math.pow(1-p,3))));
       if(p<1) requestAnimationFrame(passo); };
     requestAnimationFrame(passo);
   });
-  /* barras e anel crescendo */
-  requestAnimationFrame(()=>{
-    el.querySelectorAll("[data-alt]").forEach(b=>{ b.style.height=b.getAttribute("data-alt")+"%"; });
-    el.querySelectorAll("[data-larg]").forEach(b=>{ b.style.width=b.getAttribute("data-larg")+"%"; });
-    el.querySelectorAll("[data-arco]").forEach(a=>{ a.style.strokeDashoffset=a.getAttribute("data-arco"); });
-  });
+  /* barras e anel crescendo (so na tela nova; num redesenho ja nascem no tamanho certo) */
+  const aplicar=()=>{
+    el.querySelectorAll("[data-alt]").forEach(b=>{ if(!TELA_NOVA) b.style.transition="none"; b.style.height=b.getAttribute("data-alt")+"%"; });
+    el.querySelectorAll("[data-larg]").forEach(b=>{ if(!TELA_NOVA) b.style.transition="none"; b.style.width=b.getAttribute("data-larg")+"%"; });
+    el.querySelectorAll("[data-arco]").forEach(a=>{ if(!TELA_NOVA) a.style.transition="none"; a.style.strokeDashoffset=a.getAttribute("data-arco"); });
+  };
+  if(TELA_NOVA && !reduz) requestAnimationFrame(aplicar); else aplicar();
+}
+/* animacao de entrada so quando a tela muda de verdade; marcar uma tarefa nao faz o dashboard "piscar" */
+let ULTIMA_TELA="", ANIM_T=null, TELA_NOVA=false;
+function marcarTela(){
+  const k=[USUARIO,VISTA.modo,VISTA.escopo,VISTA.aba,VISTA.area].join("|");
+  TELA_NOVA = k!==ULTIMA_TELA; ULTIMA_TELA=k;
+  const v=$("view"), sd=$("side");
+  if(TELA_NOVA){ [v,sd].forEach(e=>e&&e.classList.add("anim")); clearTimeout(ANIM_T);
+    ANIM_T=setTimeout(()=>[v,sd].forEach(e=>e&&e.classList.remove("anim")),900); }
 }
 function render(){
+  document.body.classList.remove("menu-aberto");      /* navegar fecha o menu "Mais" do celular */
+  marcarTela();
   if(!USUARIO){
     $("ctx").innerHTML=''; $("editbar").innerHTML=''; $("side").innerHTML=''; $("areabar").innerHTML='';
     $("view").innerHTML = loginHTML(VISTA.pinPara);
@@ -3837,7 +3885,7 @@ document.addEventListener("click", function(ev){
     const cx=$("dfdata"); if(cx) cx.disabled = !ev.target.checked;
     return;
   }
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-mvmodo],[data-desrem],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-recorrente],[data-recpausa],[data-recx],[data-demx],[data-demlimpa],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-pessoaxok],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro],[data-feitacheck]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-mvmodo],[data-desrem],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-recorrente],[data-recpausa],[data-recx],[data-demx],[data-demlimpa],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-pessoaxok],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-maismenu],[data-veratrasadas],[data-toastundo],[data-vertudo],[data-limpafiltro],[data-feitacheck]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3852,6 +3900,8 @@ document.addEventListener("click", function(ev){
     return;
   }
   if(D.pincancel){ VISTA.pinPara=null; render(); return; }
+  if(D.maismenu){ const ab=document.body.classList.toggle("menu-aberto"); ev.target.closest("[data-maismenu]").setAttribute("aria-expanded",ab); return; }
+  if(D.veratrasadas){ if(VISTA.escopo) VISTA.aba="tarefas"; else VISTA.modo="lista"; VISTA.filtro="atrasado"; render(); window.scrollTo({top:0}); return; }
   if(D.sair){ sair(); return; }
   if(D.macao){ handleModal(D); return; }
   if(D.wkok){ marcarFeitoSemana(D.mcid,D.mtid,D.mday); return; }

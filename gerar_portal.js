@@ -23,8 +23,8 @@ const html=`<!DOCTYPE html>
 <style>${portalCss}</style></head><body>
 <div class="wrap">
   <header><div class="marca">MK<span>3</span></div><div class="hoje-txt" id="hoje"></div></header>
-  <div id="view"><div class="bloco"><h2>Carregando…</h2></div></div>
-  <footer>Acompanhamento gerado pela MK3. Prazos contam dias úteis. Link pessoal, não compartilhe.</footer>
+  <div id="view"><div class="bloco carregando" aria-busy="true"><h2>Carregando seu acompanhamento…</h2><div class="sk"></div><div class="sk curto"></div></div></div>
+  <footer><b class="aviso-link">Este link é só seu: não compartilhe.</b> Acompanhamento gerado pela MK3. Prazos contam dias úteis.</footer>
 </div>
 <script>
 /* o token vive so no fragmento do endereco: nao vai para o servidor,

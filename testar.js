@@ -1234,7 +1234,9 @@ __ok("tem legenda", /cd-leg/.test(hc2) && /com voc/.test(hc2));
 __ok("explica o vermelho", /fica vermelho/.test(hc2));
 /* dia clicavel */
 __ok("cada dia e um botao clicavel", /button type="button" class="cd-d/.test(hc2) && /data-pdia="/.test(hc2));
-__ok("sem dia aberto, convida a clicar", /Clique em qualquer dia/.test(hc2));
+__ok("sem dia aberto, convida a clicar", /Toque em qualquer dia/.test(hc2));
+__ok("o cliente nao ve tarefa interna (2FA, pasta, lembrete)", tarefasDoPortal().every(t=>!/reserva|pasta|lembPlan|lembMid|podepostar|rec_/.test(t.id)));
+__ok("e ve o nome amigavel da etapa", !tarefasDoPortal().some(t=>/Peças no Pode Postar|Enviar roteiro/.test(t.tarefa)));
 __ok("sem dia aberto nao existe janela", detalheDia()==="");
 PDIA=iso(HOJE);
 let dj=detalheDia();
