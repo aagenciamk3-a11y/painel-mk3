@@ -545,6 +545,7 @@ function sidebarHTML(){
   if(podeComercial()) h+=navItem("funil","Funil de vendas",IC.com,"view",(!c&&VISTA.modo==="funil"),0);
   h+='<div class="side-sec">Demandas</div>';
   h+='<button class="snav snav-add" data-demanda="1" title="'+(ehAdmin()?'Nova demanda':'Nova demanda para você')+'"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Nova demanda</span></button>';
+  h+='<button class="snav snav-add" data-recorrente="1" title="'+(ehAdmin()?'Demanda que se repete, para uma área ou uma pessoa':'Demanda que se repete, para você')+'"><span class="snav-i">'+IC.add+'</span><span class="snav-t">Demanda recorrente</span></button>';
   if(ehAdmin()){
     h+='<button class="snav snav-add" data-compromisso="1" title="Novo compromisso na agenda"><span class="snav-i">'+IC.cal+'</span><span class="snav-t">Novo compromisso</span></button>';
     h+='<button class="snav" data-clientes="1" title="Clientes"><span class="snav-i">'+IC.cards+'</span><span class="snav-t">Clientes</span></button>';
@@ -699,6 +700,8 @@ function rebuild(){
     t.st=status(t);
     TODAS.push(t);
   });
+  /* demandas recorrentes: cada ocorrencia vira uma tarefa no balde "_rec" */
+  ocorrenciasRec().forEach(t=>TODAS.push(t));
 }
 
 
@@ -868,6 +871,7 @@ function renomearTarefa(cid,tid,novo){
 function abrirRenomear(cid,tid){
   if(!ehAdmin()) return;
   if(cid==="_dem"){ abrirEditarDemanda(tid); return; }   /* demanda edita tudo no formulário */
+  if(cid==="_rec"){ abrirRecorrente(); return; }
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   const atual=EXEC[baseId(t.id)]||t.tarefa;
   const renomeada=!!((ESTADO.titulos||{})[cid]||{})[tid];
@@ -902,7 +906,7 @@ function nExcluidas(){ let n=0; for(const k in (ESTADO.excluidas||{})) n+=(ESTAD
 function abrirExcluidas(){
   if(!ehAdmin()) return;
   const E=ESTADO.excluidas||{};
-  const nomeCli=id=>{ const c=CLIENTES.find(x=>x.id===id); return c?c.nome:(id==="_dem"?"Demanda":id); };
+  const nomeCli=id=>{ const c=CLIENTES.find(x=>x.id===id); return c?c.nome:(id==="_dem"?"Demanda":(id==="_rec"?"Recorrente":id)); };
   let linhas="";
   for(const cid in E) (E[cid]||[]).forEach(tid=>{
     linhas+='<div class="ex-row"><span class="ex-t">'+esc(EXEC[baseId(tid)]||tid)+' <i>'+esc(nomeCli(cid))+'</i></span>'+
@@ -1057,6 +1061,208 @@ function setNota(day, texto){
   ESTADO.notas=ESTADO.notas||{};
   if(texto && texto.trim()) ESTADO.notas[day]=texto; else delete ESTADO.notas[day];
   persist(); render();
+}
+/* ================= DEMANDAS RECORRENTES =================
+   Uma regra (ESTADO.recorrentes) gera ocorrencias na janela abaixo.
+   Destino por AREA: todos da area + administracao veem.
+   Destino por PESSOA: so a pessoa + administracao veem.
+   Quem nao e da administracao so cria recorrente para si mesmo.        */
+const REC_PASSADO=30, REC_FUTURO=45;            /* dias gerados para tras e para frente */
+const FREQ_ROT={semanal:"Toda semana",mensal:"Todo mês",util:"Todo dia útil",quinzenal:"A cada 15 dias"};
+const DOW_ROT=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+const AREA_ROT={mkt:"Marketing",fin:"Financeiro",com:"Comercial"};
+function regraRecTexto(r){
+  if(r.freq==="semanal") return ((r.dow===0||r.dow===6)?"Todo ":"Toda ")+DOW_ROT[r.dow];
+  if(r.freq==="mensal")  return "Todo dia "+r.dia+" do mês";
+  if(r.freq==="quinzenal") return "A cada 15 dias, desde "+fmt(r.inicio);
+  return "Todo dia útil";
+}
+function datasRec(r,de,ate){
+  const out=[]; const ini=(r.inicio&&r.inicio>de)?r.inicio:de;
+  if(ini>ate) return out;
+  if(r.freq==="mensal"){
+    let y=+ini.slice(0,4), m=+ini.slice(5,7)-1;
+    for(let k=0;k<5;k++){
+      const ult=new Date(y,m+1,0).getDate();
+      const s=iso(new Date(y,m,Math.min(Number(r.dia)||1,ult)));
+      if(s>=ini && s<=ate) out.push(s);
+      m++; if(m>11){ m=0; y++; }
+    }
+    return out;
+  }
+  for(let cur=ini; cur<=ate; cur=addD(cur,1)){
+    const dw=d(cur).getDay();
+    if(r.freq==="util"){ if(dw>=1 && dw<=5) out.push(cur); }
+    else if(r.freq==="semanal"){ if(dw===Number(r.dow)) out.push(cur); }
+    else if(r.freq==="quinzenal"){
+      const n=Math.round((d(cur)-d(r.inicio))/86400000);
+      if(n>=0 && n%14===0) out.push(cur);
+    }
+  }
+  return out;
+}
+/* por pessoa: so ela e a administracao. Por area: o filtro de area de sempre resolve */
+function recVisivel(r){
+  if(r.alvo!=="pessoa") return true;
+  if(!USUARIO) return false;
+  return ehAdmin() || USUARIO===r.resp;
+}
+function ocorrenciasRec(){
+  const out=[]; const hoje=iso(HOJE);
+  const de=addD(hoje,-REC_PASSADO), ate=addD(hoje,REC_FUTURO);
+  const exc=((ESTADO.excluidas||{})["_rec"])||[];
+  const conc=(ESTADO.concluidas&&ESTADO.concluidas["_rec"])||[];
+  (ESTADO.recorrentes||[]).forEach(r=>{
+    if(!r || r.pausada || !recVisivel(r)) return;
+    const cli=r.cli?CLIENTES.find(c=>c.id===r.cli):null;
+    const pessoa=r.alvo==="pessoa";
+    /* a pessoa so enxerga as areas dela: a ocorrencia cai numa area que ela ve */
+    let area=r.area||"mkt";
+    if(pessoa){
+      const p=(ESTADO.pessoas||[]).find(x=>x.nome===r.resp);
+      if(p && !p.admin){ const as=(p.areas||[]).filter(a=>a!=="all"); if(as.length && as.indexOf(area)<0) area=as[0]; }
+    }
+    datasRec(r,de,ate).forEach(dia=>{
+      const id=r.id+"@"+dia;
+      if(exc.indexOf(id)>=0) return;
+      const done=conc.filter(e=>((e&&e.id)?e.id:e)===id).pop();
+      const feita=!!(done&&!done.remove);
+      if(!feita && r.criadaEm && dia<r.criadaEm) return;   /* nao cobra o que veio antes de existir */
+      const t={id:id, clienteId:"_rec", cliDem:(cli?cli.id:null), recId:r.id, soPara:(pessoa?r.resp:null),
+               cliente:(cli?cli.nome:(pessoa?r.resp:"Recorrente")),
+               tarefa:r.texto, detalhe:regraRecTexto(r)+(r.obs?" · "+r.obs:""), obs:r.obs||"",
+               data:dia, resp:(pessoa?r.resp:(AREA_ROT[area]||"")),
+               fase:(pessoa?"Demanda":"Recorrente"), area:area,
+               feita:feita, dataConclusao:(done&&done.data)||null};
+      t.st=status(t);
+      out.push(t);
+    });
+  });
+  return out;
+}
+const podeMexerRec = r => !!r && (ehAdmin() || (!!USUARIO && r.criadaPor===USUARIO));
+function addRecorrente(o){
+  if(!USUARIO) return;
+  snapshot();
+  ESTADO.recorrentes=ESTADO.recorrentes||[];
+  if(!ehAdmin()){ o.alvo="pessoa"; o.resp=USUARIO; }
+  const id="rec_"+Date.now()+"_"+Math.floor(Math.random()*1000);
+  const r={id:id, texto:o.texto, area:o.area, alvo:(o.alvo==="pessoa"?"pessoa":"area"),
+           resp:(o.alvo==="pessoa"?o.resp:""), freq:o.freq, dow:Number(o.dow), dia:Number(o.dia)||1,
+           inicio:o.inicio||iso(HOJE), cli:o.cli||null, obs:(o.obs||"").trim(),
+           criadaPor:USUARIO||null, criadaEm:iso(HOJE), pausada:false};
+  ESTADO.recorrentes.push(r);
+  ESTADO.log.unshift({ts:new Date().toISOString(),acao:"recorrente",id:id,nome:r.texto,area:r.area,
+                      resp:(r.alvo==="pessoa"?r.resp:(AREA_ROT[r.area]||"")),quem:USUARIO||null});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
+}
+function pausarRecorrente(id){
+  const r=(ESTADO.recorrentes||[]).find(x=>x.id===id);
+  if(!podeMexerRec(r)){ toast("Só quem criou, ou a administração, mexe nessa recorrente",false); return; }
+  snapshot();
+  r.pausada=!r.pausada;
+  ESTADO.log.unshift({ts:new Date().toISOString(),acao:"recpausa",id:id,nome:r.texto,area:r.area,quem:USUARIO||null});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
+}
+function removerRecorrente(id){
+  const r=(ESTADO.recorrentes||[]).find(x=>x.id===id);
+  if(!podeMexerRec(r)){ toast("Só quem criou, ou a administração, remove essa recorrente",false); return; }
+  snapshot();
+  ESTADO.recorrentes=(ESTADO.recorrentes||[]).filter(x=>x.id!==id);
+  const pre=id+"@";
+  ESTADO.concluidas["_rec"]=(ESTADO.concluidas["_rec"]||[]).filter(e=>String((e&&e.id)?e.id:e).indexOf(pre)!==0);
+  if(ESTADO.excluidas && ESTADO.excluidas["_rec"]) ESTADO.excluidas["_rec"]=ESTADO.excluidas["_rec"].filter(x=>String(x).indexOf(pre)!==0);
+  ESTADO.log.unshift({ts:new Date().toISOString(),acao:"recorrentex",id:id,nome:r.texto,area:r.area,quem:USUARIO||null});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
+}
+function listaRecorrentes(){
+  const todas=(ESTADO.recorrentes||[]).filter(recVisivel);
+  if(!todas.length) return '<div class="dem-lista"><div class="dem-vazio">Nenhuma recorrente ainda. A primeira que você criar aparece aqui.</div></div>';
+  const linha=r=>{
+    const cli=r.cli?CLIENTES.find(c=>c.id===r.cli):null;
+    const quem=r.alvo==="pessoa"?("Só "+r.resp):("Área: "+(AREA_ROT[r.area]||r.area));
+    return '<div class="dem-row'+(r.pausada?" feita":"")+'">'+
+      '<span class="dem-d">'+esc(regraRecTexto(r))+(r.pausada?' · pausada':'')+'</span>'+
+      '<span class="dem-t">'+esc(r.texto)+(cli?' <i>'+esc(cli.nome)+'</i>':'')+
+        (r.obs?'<span class="dem-obs">&#128221; '+esc(r.obs)+'</span>':'')+'</span>'+
+      '<span class="dem-r">'+esc(quem)+'</span>'+
+      (podeMexerRec(r)
+        ? '<button class="dem-e" data-recpausa="'+escAttr(r.id)+'" title="'+(r.pausada?'Retomar':'Pausar')+'" aria-label="'+(r.pausada?'Retomar':'Pausar')+'">'+(r.pausada?'&#9654;':'&#10074;&#10074;')+'</button>'+
+          '<button class="dem-x" data-recx="'+escAttr(r.id)+'" title="Remover" aria-label="Remover recorrente">&#215;</button>'
+        : '<span class="dem-x off" title="Só quem criou pode mexer">&#215;</span>')+'</div>';
+  };
+  return '<div class="dem-lista">'+
+    '<div class="dem-lista-h">Recorrentes cadastradas <span class="dem-n">'+todas.filter(r=>!r.pausada).length+' ativas</span></div>'+
+    todas.map(linha).join("")+'</div>';
+}
+function recForm(){
+  const f=$("rfreq"); if(!f) return;
+  const v=f.value;
+  if($("rl-dow")) $("rl-dow").style.display=(v==="semanal")?"":"none";
+  if($("rl-dia")) $("rl-dia").style.display=(v==="mensal")?"":"none";
+  const a=$("ralvo");
+  if(a && $("rl-pessoa")) $("rl-pessoa").style.display=(a.value==="pessoa")?"":"none";
+}
+function abrirRecorrente(){
+  if(!USUARIO) return;
+  const admin=ehAdmin();
+  const minhas=admin?["mkt","fin","com"]:areasDe().filter(a=>a!=="all");
+  const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]].filter(a=>minhas.indexOf(a[0])>=0);
+  const pessoas=(ESTADO.pessoas||[]).map(p=>p.nome);
+  const hj=iso(HOJE), dwHoje=HOJE.getDay();
+  const dows=[1,2,3,4,5,6,0];
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox demform"><h3>Demanda recorrente</h3>'+
+    '<p class="msub">Ela se repete sozinha no painel, na frequência que você escolher.</p>'+
+    '<label class="mlab">O que é a demanda<input type="text" id="rtexto" placeholder="Ex.: conferir o código reserva, postar o relatório..." autocomplete="off" data-focar></label>'+
+    '<label class="mlab">Cliente <i class="opt-l">(opcional)</i><select id="rcli"><option value="">Sem cliente / interno</option>'+
+      CLIENTES.map(c=>'<option value="'+c.id+'">'+esc(c.nome)+'</option>').join("")+'</select></label>'+
+    (admin
+      ? '<label class="mlab">Para quem<select id="ralvo" data-recform="1">'+
+          '<option value="area">Uma área: todos da área e a administração veem</option>'+
+          '<option value="pessoa">Uma pessoa: só ela e a administração veem</option></select></label>'+
+        '<label class="mlab" id="rl-pessoa" style="display:none">Pessoa<select id="rresp">'+
+          pessoas.map(p=>'<option>'+esc(p)+'</option>').join("")+'</select></label>'
+      : '<p class="mhint">Você cria recorrente só para você: só você e a administração veem.</p>')+
+    '<label class="mlab">Área<select id="rarea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
+    '<label class="mlab">Frequência<select id="rfreq" data-recform="1">'+
+      '<option value="semanal">Toda semana</option><option value="mensal">Todo mês</option>'+
+      '<option value="util">Todo dia útil (segunda a sexta)</option><option value="quinzenal">A cada 15 dias</option></select></label>'+
+    '<label class="mlab" id="rl-dow">Dia da semana<select id="rdow">'+
+      dows.map(n=>'<option value="'+n+'"'+(n===dwHoje?' selected':'')+'>'+DOW_ROT[n]+'</option>').join("")+'</select></label>'+
+    '<label class="mlab" id="rl-dia" style="display:none">Dia do mês<input type="number" id="rdia" min="1" max="31" value="'+HOJE.getDate()+'">'+
+      '<span class="mhint">Em mês mais curto, cai no último dia.</span></label>'+
+    '<label class="mlab">A partir de<input type="date" id="rini" value="'+hj+'">'+
+      '<span class="mhint">Na frequência de 15 dias, esta é a primeira data.</span></label>'+
+    '<label class="mlab">Observações <i class="opt-l">(opcional)</i><textarea id="robs" rows="2"></textarea></label>'+
+    '<div class="mbtns"><button data-macao="salvarrecorrente">Criar recorrente</button><button class="sec" data-macao="fechar">Fechar</button></div>'+
+    listaRecorrentes()+
+  '</div>';
+  mostrarModal();
+  recForm();
+}
+function abrirEditorRec(id){
+  const t=TODAS.find(x=>x.clienteId==="_rec"&&x.id===id); if(!t) return;
+  const r=(ESTADO.recorrentes||[]).find(x=>x.id===t.recId);
+  const feita=t.st.k==="ok";
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>'+esc(t.tarefa)+'</h3>'+
+    '<p class="msub">Recorrente · '+esc(r?regraRecTexto(r):"")+' · '+fmt(t.data)+' · '+
+      esc(t.soPara?("só "+t.soPara):(AREA_ROT[t.area]||""))+
+      (t.cliDem?' · '+esc(t.cliente):'')+
+      (r&&r.criadaPor?' <i class="opt-l">(criada por '+esc(r.criadaPor)+')</i>':'')+'</p>'+
+    (t.obs?'<p class="mok">&#128221; '+esc(t.obs)+'</p>':'')+
+    (feita
+      ? '<p class="mok">Concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
+        blocoCorrigir("_rec", id, t.st.quando)+
+        '<div class="mbtns wrap"><button class="danger" data-macao="desfazer" data-mcid="_rec" data-mtid="'+escAttr(id)+'">Reabrir</button></div>'
+      : blocoConcluir("_rec", id, t, "Concluir"))+
+    '<div class="mbtns wrap"><button class="sec" data-recorrente="1">Ver recorrentes</button>'+
+      '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
 }
 function addDemanda(texto,area,data,resp,obs,cli,feitaEm){
   snapshot();
@@ -1814,6 +2020,7 @@ function abrirEditorDemanda(id){
 }
 function abrirEditor(cid,tid){
   if(cid==="_dem"){ abrirEditorDemanda(tid); return; }
+  if(cid==="_rec"){ abrirEditorRec(tid); return; }
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   const feita=t.st.k==="ok"; const cli=cliente(cid); if(!cli) return; const anc=ANCORA[tid];
   const verbo = anc ? anc.verbo : "Concluído";
@@ -1893,6 +2100,18 @@ function handleModal(D){
     fecharModal(); toast("Demanda atualizada",true); return;
   }
   if(D.macao==="salvarobs"){ setObsDemanda(D.demid, ($("obsTxt")&&$("obsTxt").value)||""); fecharModal(); toast("Observação salva",false); return; }
+  if(D.macao==="salvarrecorrente"){
+    const tx=(($("rtexto")&&$("rtexto").value)||"").trim();
+    if(!tx){ if($("rtexto"))$("rtexto").focus(); return; }
+    const freq=$("rfreq").value;
+    const dia=Number(($("rdia")&&$("rdia").value)||0);
+    if(freq==="mensal" && !(dia>=1 && dia<=31)){ toast("Dia do mês tem que ser de 1 a 31",false); return; }
+    const alvo=($("ralvo")&&$("ralvo").value)||"pessoa";
+    addRecorrente({texto:tx, area:$("rarea").value, alvo:alvo, resp:($("rresp")&&$("rresp").value)||USUARIO,
+                   freq:freq, dow:($("rdow")&&$("rdow").value), dia:dia, inicio:($("rini")&&$("rini").value)||iso(HOJE),
+                   cli:($("rcli")&&$("rcli").value)||null, obs:($("robs")&&$("robs").value)||""});
+    toast("Recorrente criada",true); abrirRecorrente(); return;
+  }
   if(D.macao==="salvardemanda"){ const tx=(($("dtexto")&&$("dtexto").value)||"").trim(); if(!tx){ if($("dtexto"))$("dtexto").focus(); return; } const jaFeita=$("dfeita")&&$("dfeita").checked; const qdo=jaFeita?(($("dfdata")&&$("dfdata").value)||iso(HOJE)):null;
     if(qdo && qdo>iso(HOJE)){ toast("A conclusão não pode ser numa data futura",false); return; }
     addDemanda(tx,$("darea").value,$("ddata").value,$("dresp").value,($("dobs")&&$("dobs").value)||"",($("dcli")&&$("dcli").value)||null,qdo); abrirDemanda(); return; }
@@ -1965,7 +2184,7 @@ async function init(){
   try{ const r=await fetch("estado.json?ts="+Date.now()); if(r.ok){ const j=await r.json(); base={concluidas:{},datas:{},log:[],...j}; } }catch(e){}
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.agenda)ESTADO.agenda=[]; if(!ESTADO.agendaResp)ESTADO.agendaResp={}; if(!ESTADO.cobrancas)ESTADO.cobrancas={}; if(!ESTADO.plano)ESTADO.plano={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.agenda)ESTADO.agenda=[]; if(!ESTADO.agendaResp)ESTADO.agendaResp={}; if(!ESTADO.cobrancas)ESTADO.cobrancas={}; if(!ESTADO.plano)ESTADO.plano={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p})); if(!ESTADO.recorrentes)ESTADO.recorrentes=[];
   ESTADO.pessoas.forEach(p=>{
     if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
     if(!p.areas) p.areas=["mkt"];
@@ -2000,7 +2219,8 @@ const CORCLI = {
   cynthia:  ["#cbb693","#9a8461"],   // Cynthia — bege
   oceanus:  ["#2a30df","#1414a2"],   // Oceanus — azul da logo
   cli_1786128011208: ["#501e93","#30105c"],  // MK3 — roxo da marca
-  cli_1786128681070: ["#0f3fb0","#001032"]   // Tyconnex — azul e marinho da marca
+  cli_1786128681070: ["#0f3fb0","#001032"],  // Tyconnex — azul e marinho da marca
+  marroquina:        ["#f9ae00","#20160a"]   // A Marroquina — dourado e marrom da marca
 };
 const coresDe = c => CORCLI[c.id] || coresSeg(c.segmento);
 const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
@@ -2009,7 +2229,8 @@ const FOTO_FIXA = {
   cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg", leonardo:"fotos/leonardo.jpg",
   oceanus:"fotos/oceanus.jpg", adriana:"fotos/dinha.jpg",
   cli_1786128681070:"fotos/tyconnex.jpg",
-  cli_1786128011208:"fotos/mk3.jpg"
+  cli_1786128011208:"fotos/mk3.jpg",
+  marroquina:"fotos/marroquina.jpg"
 };
 /* clientes novos podem ter foto própria salva no estado */
 const FOTO = new Proxy({}, { get:(_,k)=>{
@@ -2071,6 +2292,8 @@ const ACAOROT = {
   concluir:["concluiu","ok"], registrar:["registrou","ok"], desfazer:["desfez","x"],
   naofeito:["marcou como nao feito","x"], replanejar:["replanejou","mv"],
   observacao:["deixou observacao em","obs"], demanda:["criou a demanda","nova"],
+  recorrente:["criou a demanda recorrente","nova"], recpausa:["pausou ou retomou a recorrente","obs"],
+  recorrentex:["removeu a recorrente","x"],
   renomear:["renomeou","obs"], novolink:["trocou o link do portal de","obs"],
   excluir:["excluiu","x"], restaurar:["restaurou","ok"], cobranca:["agendou cobranca de","nova"],
   editar:["editou a demanda","obs"], "cliente-editado":["editou o cadastro de","obs"],
@@ -2080,6 +2303,7 @@ const ACAOROT = {
 };
 function nomeCli(cid){
   if(cid==="_dem") return "Demanda";
+  if(cid==="_rec") return "Recorrente";
   const c=CLIENTES.find(x=>x.id===cid); return c?c.nome:"";
 }
 /* de que area e a linha do log: demanda ja traz a area, tarefa vem do id.
@@ -3083,6 +3307,7 @@ const areasDe = () => { const p=eu(); if(!p) return []; return p.admin?["all","m
 const podeArea = a => areasDe().indexOf(a)>=0;
 function entrar(nome){
   USUARIO=nome; VISTA.pinPara=null;
+  rebuild();                                      /* recorrente por pessoa: so aparece para quem pode ver */
   if(typeof reiniciarOcioso==="function") reiniciarOcioso();
 
   const as=areasDe(); if(as.indexOf(VISTA.area)<0) VISTA.area=as[0]||"mkt";
@@ -3097,7 +3322,7 @@ function tentarEntrar(nome){
   if(p && p.pin){ VISTA.pinPara=nome; render(); return; }
   entrar(nome);
 }
-function sair(){ USUARIO=null; VISTA.pinPara=null; fecharModal(); render(); }
+function sair(){ USUARIO=null; VISTA.pinPara=null; rebuild(); fecharModal(); render(); }
 
 /* sai sozinho depois de um tempo parado (evita ficar aberto na mesa de alguém) */
 const OCIOSO_MIN=30;
@@ -3535,7 +3760,7 @@ document.addEventListener("click", function(ev){
     const cx=$("dfdata"); if(cx) cx.disabled = !ev.target.checked;
     return;
   }
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-mvmodo],[data-desrem],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-demx],[data-demlimpa],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro],[data-feitacheck]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-mvmodo],[data-desrem],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-recorrente],[data-recpausa],[data-recx],[data-demx],[data-demlimpa],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-toastundo],[data-vertudo],[data-limpafiltro],[data-feitacheck]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3569,6 +3794,9 @@ document.addEventListener("click", function(ev){
   if(D.vertudo){ VISTA.verTudo=true; render(); return; }
   if(D.limpafiltro){ VISTA.filtro=null; render(); return; }
   if(D.demanda){ if(!USUARIO) return; abrirDemanda(D.demdia); return; }
+  if(D.recorrente){ if(!USUARIO) return; abrirRecorrente(); return; }
+  if(D.recpausa){ pausarRecorrente(D.recpausa); abrirRecorrente(); return; }
+  if(D.recx){ removerRecorrente(D.recx); abrirRecorrente(); return; }
   if(D.equipe){ if(!ehAdmin()) return; abrirEquipe(); return; }
   if(D.motivo){ semPular(()=>abrirMotivo(D.mcid,D.mtid,D.mday,D.motivo)); return; }
   if(D.removedup){ semPular(()=>{ removeDup(D.mcid,D.mtid,D.mday); abrirMover(D.mcid,D.mtid,null,D.mday.slice(0,7)); }); toast("Cópia removida",true); return; }
@@ -3680,6 +3908,7 @@ document.addEventListener("click", function(ev){
 });
 
 document.addEventListener("change", function(ev){
+  if(ev.target.closest("[data-recform]")){ recForm(); return; }
   const pm=ev.target.closest("[data-perm]");
   if(pm){ setPerm(pm.dataset.pnome, pm.dataset.perm, pm.checked); return; }
   const pn=ev.target.closest("[data-pin]");
