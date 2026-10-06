@@ -44,6 +44,11 @@ ESTADO.dup=[];ESTADO.log=[];ESTADO.demandas=[];ESTADO.agenda=[];ESTADO.novosClie
 ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p}));
 USUARIO=null; VISTA.area="all"; VISTA.escopo=null; VISTA.feedDias=7; rebuild();
 `;
+/* motor.js e montado a partir de src/: se alguem editou um sem o outro, avisa antes de tudo */
+{ const r=require("child_process").spawnSync(process.execPath,[path.join(raiz,"montar.js"),"--conferir"],{encoding:"utf8"});
+  console.log("\nMontagem do motor.js"); total++;
+  if(r.status===0) console.log("  ok    motor.js igual aos arquivos de src/");
+  else { falhas++; console.log("  FALHA motor.js diferente de src/ (edite src/ e rode node montar.js)"); } }
 const M=contexto(["dados.js","motor.js"]);
 
 bloco("Replanejar: antecipar, adiar e vencer de novo", M, limpar+`
@@ -434,7 +439,7 @@ __ok("desfazer fica registrado no feed", ESTADO.log.some(x=>x.acao==="desremanej
    ESTADO de proposito. Os testes abaixo cobrem as regras e, no fim,
    travam o que mais importa: que nada disso vaze para o lado publico.
    --------------------------------------------------------------- */
-const CM = contexto(["comercial.js"], `
+const CM_PRE = `
   const HOJE=new Date("2026-09-15T12:00:00-03:00"); HOJE.setHours(0,0,0,0);
   const d=s=>{const p=String(s).slice(0,10).split("-");return new Date(+p[0],+p[1]-1,+p[2]);};
   const iso=x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");
@@ -445,7 +450,30 @@ const CM = contexto(["comercial.js"], `
   const ehAdmin=()=>false, cliente=()=>null;
   const __el={innerHTML:"",value:"",focus(){},classList:{add(){},remove(){}}};
   const $=()=>__el;
-`);
+`;
+const CM = contexto(["comercial.js"], CM_PRE); CM.__pre=CM_PRE;
+
+/* ---- cliques do funil: o teste antigo so olhava o HTML e deixou 4 botoes mortos passarem ---- */
+{
+  const ouvintes={};
+  const docGrava={getElementById:()=>el(),querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>el(),
+    addEventListener:(t,f)=>{ (ouvintes[t]=ouvintes[t]||[]).push(f); },body:el(),documentElement:el(),activeElement:null};
+  const CK=contexto(["comercial.js"], CM.__pre, {document:docGrava});
+  const clicar=ds=>{ const alvo={dataset:ds, closest(sel){
+      const ok=sel.split(",").some(x=>{ const m=x.trim().match(/^\[data-([a-z-]+)\]$/); if(!m) return false;
+        const k=m[1].replace(/-([a-z])/g,(_,c)=>c.toUpperCase()); return ds[k]!==undefined; });
+      return ok?alvo:null; } };
+    (ouvintes.click||[]).forEach(f=>f({target:alvo,preventDefault(){},stopPropagation(){}})); };
+  const R=[]; const ok=(n,c)=>{ R.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
+  console.log("\nFunil: os botoes respondem ao clique");
+  clicar({cmdono:"cynthia"}); ok("aba de dono troca a lista", vm.runInContext("DONO_SEL",CK)==="cynthia");
+  vm.runInContext('FIL.busca="abc"',CK);
+  clicar({cmacao:"1"}); ok("Precisa de acao liga o filtro", vm.runInContext("FIL.acao",CK)===true);
+  clicar({cmlimpa:"1"}); ok("limpar filtros zera a busca", vm.runInContext("FIL.busca",CK)==="" && vm.runInContext("FIL.acao",CK)===false);
+  clicar({cmordc:"entrada"}); ok("o cabecalho da tabela ordena", vm.runInContext("ORD_CLI.col",CK)==="entrada");
+  clicar({cmordc:"entrada"}); ok("e clicar de novo inverte", vm.runInContext("ORD_CLI.desc",CK)===false);
+  console.log(R.join("\n"));
+}
 
 bloco("Funil: score, pipeline e gatilhos", CM, `
 const base={entrada:"2026-09-15", entradaEm:"2026-09-15T09:00:00-03:00", primeiro_contato:"2026-09-15T09:07:00-03:00",
@@ -955,11 +983,17 @@ ESTADO.recorrentes=[]; USUARIO=null; rebuild();
 function hubFirebase(){
   const hub={dados:{}, subs:[]};
   const partes=p=>p.split("/").filter(Boolean);
-  const ler=p=>{ let o=hub.dados; for(const k of partes(p)){ if(o==null||typeof o!=="object") return null; o=o[k]; } return o===undefined?null:JSON.parse(JSON.stringify(o)); };
+  /* como o Firebase de verdade: devolve as chaves em ordem alfabetica, sem vazios e sem null,
+     e arrays voltam como array so quando os indices sao 0..n-1 */
+  const ordenar=v=>{ if(Array.isArray(v)) return v.map(ordenar); if(v&&typeof v==="object"){ const o={}; Object.keys(v).sort().forEach(k=>{ o[k]=ordenar(v[k]); }); return o; } return v; };
+  const ler=p=>{ let o=hub.dados; for(const k of partes(p)){ if(o==null||typeof o!=="object") return null; o=o[k]; } return o===undefined?null:ordenar(JSON.parse(JSON.stringify(o))); };
   const podar=o=>{ if(o&&typeof o==="object"){ for(const k of Object.keys(o)){ podar(o[k]); if(o[k]==null||(typeof o[k]==="object"&&!Object.keys(o[k]).length)) delete o[k]; } } };
   const gravar=(p,v)=>{ const ks=partes(p); let o=hub.dados; for(let i=0;i<ks.length-1;i++){ if(o[ks[i]]==null||typeof o[ks[i]]!=="object") o[ks[i]]={}; o=o[ks[i]]; }
     if(v==null) delete o[ks[ks.length-1]]; else o[ks[ks.length-1]]=JSON.parse(JSON.stringify(v)); podar(hub.dados); };
-  const avisar=()=>hub.subs.slice().forEach(s=>s.cb({val:()=>ler(s.path)}));
+  /* pausado: o servidor grava, mas os avisos so chegam quando soltar (simula rede lenta) */
+  hub.pausado=false; hub.pendente=false;
+  const avisar=()=>{ if(hub.pausado){ hub.pendente=true; return; } hub.subs.slice().forEach(s=>s.cb({val:()=>ler(s.path)})); };
+  hub.soltar=()=>{ hub.pausado=false; if(hub.pendente){ hub.pendente=false; avisar(); } };
   hub.fb=()=>{ const apps=[]; const ref=path=>({
       on:(ev,cb)=>{ if(path===".info/connected"){ cb({val:()=>true}); return; } hub.subs.push({path,cb}); cb({val:()=>ler(path)}); },
       off:()=>{},
@@ -967,7 +1001,9 @@ function hubFirebase(){
       set:v=>{ gravar(path,v); avisar(); return Promise.resolve(); },
       remove:()=>{ gravar(path,null); avisar(); return Promise.resolve(); },
       update:o=>{ for(const k in o) gravar(path+"/"+k,o[k]); avisar(); return Promise.resolve(); },
-      transaction:fn=>{ gravar(path, fn(ler(path))); avisar(); return Promise.resolve(); }
+      /* como o SDK: devolver undefined aborta; a Promise traz {committed, snapshot} */
+      transaction:fn=>{ const v=fn(ler(path)); if(v===undefined) return Promise.resolve({committed:false,snapshot:{val:()=>ler(path)}});
+        gravar(path, v); avisar(); return Promise.resolve({committed:true,snapshot:{val:()=>ler(path)}}); }
     });
     return { apps, initializeApp:()=>{ apps.push(1); return {}; }, app:()=>({}), database:()=>({ref}), auth:()=>({onAuthStateChanged(){}}) };
   };
@@ -1001,7 +1037,22 @@ function hubFirebase(){
     __ok("e nao apaga a marcacao da Carla", ${feitaEm(A,ca,ta)} && ${feitaEm(B,ca,ta)});
     __ok("o log guarda as acoes das duas", ${rodar(A,`ESTADO.log.filter(l=>l.acao==="concluir").map(l=>l.quem).sort().join(",")`)==="Bia,Carla"} );
   `);
-  /* PIN vira hash e continua funcionando */
+  /* as duas marcam tarefas DIFERENTES do MESMO cliente antes de uma ver a outra */
+  const doisAlvos=JSON.parse(rodar(A,`JSON.stringify(TODAS.filter(t=>t.clienteId==="oceanus"&&t.st.k!=="ok"&&t.data).slice(0,2).map(t=>t.id))`));
+  hub.pausado=true;
+  rodar(A,`marcar("oceanus",${JSON.stringify(doisAlvos[0])},iso(HOJE),"concluir");`);
+  rodar(B,`marcar("oceanus",${JSON.stringify(doisAlvos[1])},iso(HOJE),"concluir");`);
+  hub.soltar();
+  bloco("Sincronizacao: duas pessoas no mesmo cliente ao mesmo tempo", A, `
+    __ok("o servidor guarda as duas marcacoes", ${JSON.stringify(((hub.dados.painel.estado.concluidas||{}).oceanus||[]).map(x=>x.id).sort())}.length===2);
+    __ok("a Carla ve as duas", ${feitaEm(A,"oceanus",doisAlvos[0]) && feitaEm(A,"oceanus",doisAlvos[1])});
+    __ok("a Bia ve as duas", ${feitaEm(B,"oceanus",doisAlvos[0]) && feitaEm(B,"oceanus",doisAlvos[1])});
+  `);
+  /* quem sai limpa o Desfazer: a proxima pessoa na mesma aba nao desfaz o que a anterior fez */
+  rodar(A,`marcar("oceanus",${JSON.stringify(doisAlvos[0])},null,"desfazer"); sair(); USUARIO="Alda"; desfazer();`);
+  bloco("Sincronizacao: troca de pessoa", A, `
+    __ok("depois de sair, o Desfazer da pessoa anterior nao vale", ${!feitaEm(A,"oceanus",doisAlvos[0])} && UNDO.length===0);
+  `);
   rodar(A,`USUARIO="Alda";`);
 }
 

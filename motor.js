@@ -404,6 +404,8 @@ function status(t){
 }
 
 /* ================= INTERFACE ================= */
+/* nome de cada area, igual em todo o painel */
+const AREA_ROT = {mkt:"Marketing Digital", fin:"Financeiro", com:"Comercial"};
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?"":s)
   .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -621,7 +623,7 @@ const ANCORA = {
    O valor vem do banco compartilhado; sem isto, um texto com aspas viraria codigo na tela de todos */
 const fotoOk = f => typeof f==="string" && /^(data:image\/(png|jpe?g|webp|gif);base64,|fotos\/[\w.-]+$|https:\/\/)/i.test(f);
 const urlOk  = u => typeof u==="string" && /^https?:\/\//i.test(u);
-const escAttr = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const escAttr = esc;   /* mesma coisa que esc: o nome fica por legibilidade nos atributos */
 
 
 /* uma tarefa entregue pela metade e com o resto remarcado não é simplesmente "atrasada" */
@@ -783,31 +785,58 @@ function normalizarEstado(v){
   return e;
 }
 const ehObj = x => x && typeof x==="object" && !Array.isArray(x);
-/* caminhos (1 ou 2 niveis) em que a e b diferem. Objetos descem um nivel; arrays e valores vao inteiros. */
+/* forma canonica: o Firebase devolve as chaves em ordem alfabetica e apaga vazio e null.
+   Comparar sem isto faz o eco da propria acao parecer mudanca de colega. */
+function canon(v){
+  if(v==null || typeof v==="function" || (typeof v==="number" && !isFinite(v))) return undefined;
+  if(Array.isArray(v)){ const a=v.map(canon); while(a.length && a[a.length-1]===undefined) a.pop();
+    return a.length ? a.map(x=>x===undefined?null:x) : undefined; }
+  if(typeof v==="object"){ const o={}; Object.keys(v).sort().forEach(k=>{ const c=canon(v[k]); if(c!==undefined) o[k]=c; });
+    return Object.keys(o).length ? o : undefined; }
+  return v;
+}
+const chaveCanon = v => JSON.stringify(canon(v));
+const igual = (a,b) => chaveCanon(a)===chaveCanon(b);
+/* ate que nivel cada parte do estado desce: onde varios clientes dividem o mesmo objeto
+   (semana -> cliente|tarefa|dia), descer mais evita que duas pessoas se atropelem */
+const PROF = {semanal:3, obsT:3, datas:3, ficha:3, clientes:3, plano:3, portais:3, resultados:2};
 function caminhosDiff(a,b){
-  const out=[]; const ks=new Set(Object.keys(a||{}).concat(Object.keys(b||{})));
-  ks.forEach(k=>{
-    const x=(a||{})[k], y=(b||{})[k];
-    if(JSON.stringify(x)===JSON.stringify(y)) return;
-    if(ehObj(x)&&ehObj(y)){
-      const ks2=new Set(Object.keys(x).concat(Object.keys(y)));
-      ks2.forEach(k2=>{ if(JSON.stringify(x[k2])!==JSON.stringify(y[k2])) out.push([k,k2]); });
-    } else out.push([k]);
-  });
+  const out=[];
+  const desce=(x,y,pre)=>{
+    const lim=PROF[pre[0]]||2;
+    const ks=new Set(Object.keys(x||{}).concat(Object.keys(y||{})));
+    ks.forEach(k=>{
+      const u=(x||{})[k], w=(y||{})[k], p=pre.concat(k);
+      if(igual(u,w)) return;
+      if(ehObj(u) && ehObj(w) && p.length<lim) desce(u,w,p);
+      else out.push(p);
+    });
+  };
+  desce(a,b,[]);
   return out;
 }
-const lerCaminho = (o,p) => p.length===1 ? (o||{})[p[0]] : ((o||{})[p[0]]||{})[p[1]];
+const lerCaminho = (o,p) => { let x=o; for(const k of p){ if(x==null || typeof x!=="object") return undefined; x=x[k]; } return x; };
 function gravarCaminho(o,p,v){
-  const c = v===undefined ? undefined : JSON.parse(JSON.stringify(v));
-  if(p.length===1){ if(c===undefined) delete o[p[0]]; else o[p[0]]=c; return; }
-  if(!ehObj(o[p[0]])) o[p[0]]={};
-  if(c===undefined) delete o[p[0]][p[1]]; else o[p[0]][p[1]]=c;
+  const c = (v===undefined) ? undefined : JSON.parse(JSON.stringify(v));
+  let x=o;
+  for(let i=0;i<p.length-1;i++){ if(!ehObj(x[p[i]])) x[p[i]]={}; x=x[p[i]]; }
+  if(c===undefined) delete x[p[p.length-1]]; else x[p[p.length-1]]=c;
+}
+/* fusao de lista em 3 vias: mantem a minha ordem, tira o que um colega removeu,
+   acrescenta no fim o que um colega criou. Base = como estava antes da minha mudanca. */
+function merge3(base,mine,cur){
+  const lista=v=>Array.isArray(v)?v.filter(x=>x!=null):(ehObj(v)?Object.keys(v).sort((a,b)=>a-b).map(k=>v[k]).filter(x=>x!=null):[]);
+  const B=new Set(lista(base).map(chaveCanon)), M=new Set(lista(mine).map(chaveCanon)), C=new Set(lista(cur).map(chaveCanon));
+  const out=lista(mine).filter(x=>{ const k=chaveCanon(x); return !(B.has(k) && !C.has(k)); });
+  lista(cur).forEach(x=>{ const k=chaveCanon(x); if(!B.has(k) && !M.has(k)) out.push(x); });
+  return out;
 }
 /* o log e de todos: soma as entradas novas em vez de sobrescrever a lista */
 const chaveLog = l => (l&&l.ts||"")+"|"+(l&&l.acao||"")+"|"+(l&&l.id||"")+"|"+(l&&l.quem||"");
 function somarLog(a,b){
   const vistos=new Set(), out=[];
-  (a||[]).concat(b||[]).forEach(l=>{ if(!l) return; const k=chaveLog(l); if(vistos.has(k)) return; vistos.add(k); out.push(l); });
+  const lista=v=>Array.isArray(v)?v:(ehObj(v)?Object.values(v):[]);
+  lista(a).concat(lista(b)).forEach(l=>{ if(!l) return; const k=chaveLog(l); if(vistos.has(k)) return; vistos.add(k); out.push(l); });
   return out.sort((x,y)=>String(y.ts||"").localeCompare(String(x.ts||""))).slice(0,300);
 }
 
@@ -826,11 +855,16 @@ function syncIniciar(){
         SYNC_PRONTO=true;
         if(!v){ SYNC_BASE=normalizarEstado({}); syncEnviar(); return; }
         const remoto=normalizarEstado(v);
-        /* o que a pessoa mexeu antes do servidor responder vai por cima do que chegou */
+        /* o que a pessoa mexeu antes do servidor responder vai por cima do que chegou;
+           lista e fundida (nao apaga o que os colegas criaram desde o cache) */
         const meus=caminhosDiff(inicioLocal, ESTADO);
         SYNC_BASE=JSON.parse(JSON.stringify(remoto));
-        meus.forEach(p=>{ if(p[0]==="log") return; gravarCaminho(remoto,p,lerCaminho(ESTADO,p)); });
+        meus.forEach(p=>{ if(p[0]==="log") return;
+          const b0=lerCaminho(inicioLocal,p), m0=lerCaminho(ESTADO,p), r0=lerCaminho(remoto,p);
+          gravarCaminho(remoto,p, (Array.isArray(m0)||Array.isArray(b0)) ? merge3(b0,m0,r0) : m0); });
         remoto.log=somarLog(remoto.log, ESTADO.log);
+        /* o Desfazer guardado antes de ler o servidor e do cache velho: nao pode voltar */
+        UNDO.length=0; REDO.length=0;
         aplicarRemoto(remoto, null);
         if(meus.length) syncEnviar();
         migrarPins();
@@ -874,19 +908,25 @@ function syncEnviar(){
   try{
     const ps=caminhosDiff(SYNC_BASE, ESTADO);
     if(!ps.length) return;
-    const up={}; let logNovo=null;
+    const antes=JSON.parse(JSON.stringify(SYNC_BASE));
+    const up={}, listas=[]; let temLog=false;
     ps.forEach(p=>{
-      if(p[0]==="log"){ logNovo=ESTADO.log; return; }
-      const v=lerCaminho(ESTADO,p);
-      up[p.join("/")] = (v===undefined) ? null : JSON.parse(JSON.stringify(v));
+      if(p[0]==="log"){ temLog=true; return; }
+      const v=lerCaminho(ESTADO,p), b0=lerCaminho(antes,p);
+      if(Array.isArray(v) || Array.isArray(b0)) listas.push([p,b0,v]);       /* lista: funde no servidor */
+      else up[p.join("/")] = (v===undefined) ? null : JSON.parse(JSON.stringify(v));
     });
-    const novos=logNovo ? (logNovo||[]).filter(l=>!(SYNC_BASE.log||[]).some(b=>chaveLog(b)===chaveLog(l))) : [];
+    const novos=temLog ? (ESTADO.log||[]).filter(l=>!(antes.log||[]).some(b=>chaveLog(b)===chaveLog(l))) : [];
     /* a base anda ANTES de enviar: o Firebase devolve o eco na hora, dentro do update,
        e sem isto a propria mudanca pareceria vinda de um colega (e o Desfazer nao a tiraria) */
     ps.forEach(p=>{ if(p[0]!=="log") gravarCaminho(SYNC_BASE,p,lerCaminho(ESTADO,p)); });
     SYNC_BASE.log=somarLog(SYNC_BASE.log, ESTADO.log);
     if(Object.keys(up).length) SYNC.update(up).catch(()=>marcarSync("erro"));
-    if(novos.length) SYNC.child("log").transaction(cur=>somarLog(Array.isArray(cur)?cur:(cur?Object.values(cur):[]), novos));
+    listas.forEach(([p,b0,v])=>{
+      SYNC.child(p.join("/")).transaction(cur=>{ const r=merge3(b0,v,cur); return r.length?JSON.parse(JSON.stringify(r)):null; })
+        .catch(()=>marcarSync("erro"));
+    });
+    if(novos.length) SYNC.child("log").transaction(cur=>somarLog(cur, novos)).catch(()=>{});
   }catch(e){ marcarSync("erro"); }
 }
 let syncTimer=null;
@@ -1239,7 +1279,7 @@ function setNota(day, texto){
 const REC_PASSADO=30, REC_FUTURO=45;            /* dias gerados para tras e para frente */
 const FREQ_ROT={semanal:"Toda semana",mensal:"Todo mês",util:"Todo dia útil",quinzenal:"A cada 15 dias"};
 const DOW_ROT=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
-const AREA_ROT={mkt:"Marketing",fin:"Financeiro",com:"Comercial"};
+/* AREA_ROT (nome de cada area) mora em 02-interface.js: um lugar so para o painel inteiro */
 function regraRecTexto(r){
   if(r.freq==="semanal") return ((r.dow===0||r.dow===6)?"Todo ":"Toda ")+DOW_ROT[r.dow];
   if(r.freq==="mensal")  return "Todo dia "+r.dia+" do mês";
@@ -1488,7 +1528,7 @@ function demConcluida(id){ const e=(ESTADO.concluidas["_dem"]||[]).find(x=>((x&&
 function listaDemandas(){
   const todas=(ESTADO.demandas||[]).slice().sort((a,b)=>String(b.data).localeCompare(String(a.data)));
   if(!todas.length) return '<div class="dem-lista"><div class="dem-vazio">Nenhuma demanda cadastrada ainda. A primeira que você criar aparece aqui, com opção de editar depois.</div></div>';
-  const A={mkt:"Marketing",fin:"Financeiro",com:"Comercial"};
+  const A=AREA_ROT;
   const linha=x=>{
     const feita=demConcluida(x.id);
     return '<div class="dem-row'+(x.obs?" comobs":"")+(feita?" feita":"")+'">'+
@@ -1748,7 +1788,7 @@ function abrirEquipe(){
       return '<div class="pcard'+(admin?" adm":"")+'">'+
         '<div class="pc-topo">'+faceDe(p.nome)+
           '<div class="pc-id"><span class="pc-n">'+esc(p.nome)+'</span>'+
-          '<span class="pc-c">'+(admin?"Administração":((p.areas||[]).length?(p.areas||[]).map(a=>({mkt:"Marketing",fin:"Financeiro",com:"Comercial"}[a]||a)).join(" · "):"sem área"))+'</span></div>'+
+          '<span class="pc-c">'+(admin?"Administração":((p.areas||[]).length?(p.areas||[]).map(a=>(AREA_ROT[a]||a)).join(" · "):"sem área"))+'</span></div>'+
           '<button class="pc-ico" data-trocarfoto="'+escAttr(p.nome)+'" title="'+(p.foto?"Trocar foto":"Adicionar foto")+'" aria-label="Foto">&#128247;</button>'+
           '<button class="pc-ico rm" data-pessoax="'+escAttr(p.nome)+'" title="Remover da equipe" aria-label="Remover">&#128465;</button>'+
         '</div>'+
@@ -1799,21 +1839,26 @@ async function hashPin(nome,pin){
 }
 async function pinConfere(p,v){
   if(!p || !p.pin) return true;
-  if(ehHashPin(p.pin)) return (await hashPin(p.nome,v))===p.pin;
+  if(ehHashPin(p.pin)){ try{ return (await hashPin(p.nome,v))===p.pin; }catch(e){ return false; } }
   return v===p.pin;                                   /* PIN antigo, ainda nao convertido */
 }
 /* converte os PINs que ainda estao em texto puro (roda uma vez, quem abrir primeiro) */
 async function migrarPins(){
   if(!(window.crypto&&crypto.subtle)) return;
+  /* calcula primeiro e so depois grava no estado ATUAL: no meio do await o estado pode ter sido trocado pelo do servidor */
+  const novos={};
+  for(const p of (ESTADO.pessoas||[])){ if(p.pin && !ehHashPin(p.pin)){ try{ novos[p.nome]={de:p.pin, para:await hashPin(p.nome,p.pin)}; }catch(e){} } }
   let mudou=false;
-  for(const p of (ESTADO.pessoas||[])){ if(p.pin && !ehHashPin(p.pin)){ p.pin=await hashPin(p.nome,p.pin); mudou=true; } }
+  (ESTADO.pessoas||[]).forEach(p=>{ const n=novos[p.nome]; if(n && p.pin===n.de){ p.pin=n.para; mudou=true; } });
   if(mudou) persist();
 }
 async function setPin(nome,pin){
-  const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
   const v=(pin||"").trim();
+  if(v && !(window.crypto&&crypto.subtle)){ toast("Este navegador não consegue proteger o PIN (abra pelo endereço https)",false); return; }
+  const h = v ? await hashPin(nome,v) : "";
+  const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;   /* busca depois do await, no estado atual */
   snapshot();
-  p.pin = v ? await hashPin(nome,v) : "";
+  p.pin = h;
   persist(); toast(v?"PIN de "+nome+" atualizado":"PIN de "+nome+" removido",true);
 }
 function abrirEditarDemanda(id){
@@ -1969,7 +2014,13 @@ function abrirMotivo(cid,tid,day,sel){
     '</div></div>';
   mostrarModal(sel!=="__outros");
 }
-function desfazer(){ if(!UNDO.length)return; REDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(UNDO.pop()); persist(); rebuild(); render(); }
+function desfazer(){
+  if(!UNDO.length) return;
+  const antes=ESTADO;
+  REDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(UNDO.pop()); persist(); rebuild(); render();
+  /* com a equipe mexendo junto, pode nao sobrar nada para desfazer: avisa em vez de fingir */
+  if(typeof igual==="function" && igual(antes,ESTADO)) toast("Nada mudou: um colega alterou isso depois de você",false);
+}
 function refazer(){ if(!REDO.length)return; UNDO.push(JSON.stringify(ESTADO)); ESTADO=JSON.parse(REDO.pop()); persist(); rebuild(); render(); }
 
 function concluirRapido(cid,tid){
@@ -2190,7 +2241,7 @@ function abrirEditorDemanda(id){
   const t=TODAS.find(x=>x.clienteId==="_dem"&&x.id===id);
   if(!dm || !t) return;
   const feita=t.st.k==="ok";
-  const A={mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
+  const A=AREA_ROT;
   const cli=dm.cli?cliente(dm.cli):null;
   const mm=$("modal");
   mm.innerHTML='<div class="mbox"><h3>'+esc(dm.texto)+'</h3>'+
@@ -2881,7 +2932,8 @@ function cobrancasPendentes(){
 }
 /* trava no servidor antes de criar o evento: dois admins abrindo juntos nao duplicam a cobranca */
 function reservarCobranca(chave){
-  if(!SYNC || !SYNC_PRONTO) return Promise.resolve(true);
+  if(!SYNC) return Promise.resolve(true);                 /* sem banco (teste local): nao tem com quem disputar */
+  if(!SYNC_PRONTO) return Promise.resolve(false);          /* ainda nao leu o servidor: nao arrisca duplicar */
   return SYNC.child("cobrancas/"+chave).transaction(cur=> cur ? undefined : {reservado:USUARIO||"", em:new Date().toISOString()})
     .then(r=>!!(r&&r.committed)).catch(()=>false);
 }
@@ -2915,6 +2967,7 @@ function criarCobrancaAgenda(item){
 let COBR_RODOU=false;
 function rodarCobrancas(){
   if(COBR_RODOU || !ehAdmin() || !agendaUrl()) return;
+  if(SYNC && !SYNC_PRONTO){ setTimeout(rodarCobrancas,3000); return; }   /* espera ler o servidor */
   COBR_RODOU=true;
   const l=cobrancasPendentes();
   if(!l.length) return;
@@ -3375,7 +3428,7 @@ function cargaSemana(ts){
 }
 function funcionariosHTML(){
   if(!ehAdmin()) return '<div class="vazio">Só a administração vê esta tela.</div>';
-  const ROT={all:"todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
+  const ROT={all:"todas as áreas",...AREA_ROT};
   const pes=pessoasVisiveis();
   const cartoes=pes.map((p,i)=>{
     const ts=tarefasDe(p.nome);
@@ -3606,7 +3659,8 @@ function tentarEntrar(nome){
   if(p && p.pin){ VISTA.pinPara=nome; render(); return; }
   entrar(nome);
 }
-function sair(){ USUARIO=null; VISTA.pinPara=null; rebuild(); fecharModal(); render(); }
+function sair(){ USUARIO=null; VISTA.pinPara=null; UNDO.length=0; REDO.length=0;   /* quem entra depois nao desfaz o que o outro fez */
+  rebuild(); fecharModal(); render(); }
 
 /* sai sozinho depois de um tempo parado (evita ficar aberto na mesa de alguém) */
 const OCIOSO_MIN=30;
@@ -3793,7 +3847,7 @@ function prioridadesHTML(){
       (nota?'<span class="bnota-prev">'+esc(nota.length>70?nota.slice(0,70)+"\u2026":nota)+'</span>':'<span class="bnota-add">anotar\u2026</span>')+'</div>';
     cols+='<div class="bcol'+(dayIso===hojeIso?" hoje":"")+'" data-daycol="'+dayIso+'"><div class="bcol-h"><span>'+dias[i]+(cs.length?'<span class="bcount">'+cs.length+'</span>':'')+'</span><span class="bcol-hr">'+fmt(dayIso).slice(0,5)+'<button class="bcol-add" data-demanda="1" data-demdia="'+dayIso+'" title="Nova demanda neste dia" aria-label="Nova demanda">+</button>'+'</span></div><div class="bcol-body">'+body+'</div>'+notaEl+'</div>';
   }
-  const rotArea={all:"Todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[VISTA.area]||"";
+  const rotArea={all:"Todas as áreas",...AREA_ROT}[VISTA.area]||"";
   return '<div class="semsel"><span class="semsel-l">Semana:</span>'+selAno+selMes+selSem+
            '</div>'+
          '<div class="board">'+cols+'</div>'+resumoSemanaHTML();
@@ -3878,7 +3932,7 @@ function histHTML(c){
 /* ---------------- RENDER ---------------- */
 function tituloContexto(){
   const c=VISTA.escopo?cliente(VISTA.escopo):null;
-  const A={all:"Visão geral · todas as áreas",mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"};
+  const A={all:"Visão geral · todas as áreas",...AREA_ROT};
   const V={cards:"Clientes",prio:"Tarefas da semana",equipe:"Funcionários",cal:"Agenda",lista:"Dashboard",tend:"Tendência de atrasos",feed:"Feed da equipe",portais:"Visão do cliente",funil:"Funil de vendas"};
   const AB={cal:"Calendário",tarefas:"Tarefas",marca:"Marca",tend:"Tendência",hist:"Histórico"};
   let t = c ? c.nome : (V[VISTA.modo]||"");
@@ -3891,7 +3945,7 @@ function tituloContexto(){
 }
 function loginHTML(pendente){
   const ps=ESTADO.pessoas||[];
-  const cargo=p=>p.admin?"Administra\u00e7\u00e3o":({mkt:"Marketing Digital",fin:"Financeiro",com:"Comercial"}[(p.areas||[])[0]]||"Sem \u00e1rea");
+  const cargo=p=>p.admin?"Administra\u00e7\u00e3o":(AREA_ROT[(p.areas||[])[0]]||"Sem \u00e1rea");
   if(pendente){
     const p=ps.find(x=>x.nome===pendente)||{nome:pendente};
     return '<div class="login"><div class="login-box">'+

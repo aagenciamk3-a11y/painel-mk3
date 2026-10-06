@@ -3,7 +3,7 @@
     "painel": {
       "estado": {
         ".read": true,
-        ".write": true
+        "$campo": { ".write": true }
       },
 
       "leads": {
