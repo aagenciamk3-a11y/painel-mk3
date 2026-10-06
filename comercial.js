@@ -1161,14 +1161,20 @@ document.addEventListener("click", ev=>{
 /* A busca e os seletores nao sao clique, sao digitacao. Como a tela toda
    se redesenha a cada tecla, devolvemos o cursor para o campo depois:
    sem isso da para escrever uma letra so. */
+let BUSCA_T=null;
 document.addEventListener("input", ev=>{
   const el=ev.target;
   if(!el || !el.dataset) return;
   if(el.dataset.cmfilb!==undefined){
+    /* espera a pessoa parar de digitar (150 ms) antes de redesenhar a lista */
     FIL.busca=el.value;
-    render();
-    const novo=document.getElementById("cmBusca");
-    if(novo){ novo.focus(); const n=novo.value.length; try{ novo.setSelectionRange(n,n); }catch(e){} }
+    clearTimeout(BUSCA_T);
+    BUSCA_T=setTimeout(()=>{
+      const pos=(document.activeElement&&document.activeElement.id==="cmBusca")?document.activeElement.selectionStart:null;
+      render();
+      const novo=document.getElementById("cmBusca");
+      if(novo && pos!=null){ novo.focus(); try{ novo.setSelectionRange(pos,pos); }catch(e){} }
+    },150);
   }
 });
 document.addEventListener("change", ev=>{

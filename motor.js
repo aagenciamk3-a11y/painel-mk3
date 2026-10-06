@@ -625,7 +625,18 @@ const escAttr = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&l
 
 
 /* uma tarefa entregue pela metade e com o resto remarcado não é simplesmente "atrasada" */
+/* indices montados uma vez por rebuild: antes cada tarefa varria ESTADO.dup e todas as semanas de obsT */
+let IDX=null;
+function construirIndices(){
+  const dup={}, parc={};
+  (ESTADO.dup||[]).forEach(e=>{ if(!e) return; const k=e.cid+"|"+e.tid; (dup[k]=dup[k]||[]).push(e); });
+  const b=ESTADO.obsT||{};
+  for(const wk in b){ const s0=b[wk]||{}; for(const k in s0){ if(s0[k]&&s0[k].parcial){ const p=k.split("|"); parc[p[0]+"|"+p[1]]=true; } } }
+  return {dup, parc};
+}
+function dupDe(cid,tid){ return IDX ? (IDX.dup[cid+"|"+tid]||[]).slice() : (ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid); }
 function temParcial(cid,tid){
+  if(IDX) return !!IDX.parc[cid+"|"+tid];
   const b=ESTADO.obsT||{};
   for(const wk in b){
     const s=b[wk]||{};
@@ -637,7 +648,7 @@ function temParcial(cid,tid){
 }
 function remarcadaPara(cid,tid){
   const hoje=iso(HOJE);
-  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid)
+  const l=dupDe(cid,tid)
     .sort((a,b)=>a.dia.localeCompare(b.dia));
   if(!l.length) return null;
   const futura=l.find(e=>e.dia>=hoje);
@@ -646,7 +657,7 @@ function remarcadaPara(cid,tid){
 /* replanejada cuja data nova ja passou: nao pode voltar a ser "futuro" nem sumir */
 function replanVencido(cid,tid){
   const hoje=iso(HOJE);
-  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid).sort((a,b)=>a.dia.localeCompare(b.dia));
+  const l=dupDe(cid,tid).sort((a,b)=>a.dia.localeCompare(b.dia));
   if(!l.length) return null;
   if(l.some(e=>e.dia>=hoje)) return null;          /* ainda tem remarcacao no futuro */
   return l[l.length-1].dia;
@@ -654,7 +665,7 @@ function replanVencido(cid,tid){
 /* remarcacao para antes da data original: o prazo que vale passa a ser o novo */
 function antecipacao(cid,tid,dataOrig){
   const hoje=iso(HOJE);
-  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid && e.dia>=hoje && (!dataOrig || e.dia<dataOrig))
+  const l=dupDe(cid,tid).filter(e=>e.dia>=hoje && (!dataOrig || e.dia<dataOrig))
     .sort((a,b)=>a.dia.localeCompare(b.dia));
   return l.length?l[0].dia:null;
 }
@@ -701,6 +712,10 @@ function ajustarParcial(t){
   return t;
 }
 function rebuild(){
+  IDX=construirIndices();
+  try{ rebuildCore(); } finally { IDX=null; }
+}
+function rebuildCore(){
   const base = ORIG.concat((ESTADO.novosClientes||[]).map(c=>JSON.parse(JSON.stringify(c))));
   const ed = ESTADO.clientes||{};
   CLIENTES.length=0;
@@ -743,32 +758,136 @@ const tdOf = t => escAttr([t.cliente, (t.st&&t.st.txt), (t.data?fmt(t.data)+" "+
 const attrsEdit = t => ' data-editar="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-tt="'+escAttr(t.tarefa||t.titulo||"")+'" data-td="'+tdOf(t)+'"';
 
 /* ---------- sincronização em tempo real ---------- */
+/* ================= SINCRONIZACAO =================
+   Antes: cada clique gravava o ESTADO inteiro, e quem salvasse por ultimo apagava o que
+   os outros tinham feito no meio tempo (inclusive pelo Desfazer).
+   Agora: cada pessoa envia so os caminhos que ela mudou (ex.: concluidas/suelem),
+   o log e somado por transacao, e o Desfazer de cada um ignora o que veio dos colegas. */
+const ESTADO_VAZIO = () => ({concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],recorrentes:[],portais:{},obsT:{},
+  excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},ficha:{},agenda:[],agendaResp:{},
+  cobrancas:{},plano:{},agendaChave:"",log:[]});
+function normalizarEstado(v){
+  const e=Object.assign(ESTADO_VAZIO(), v||{});
+  const vz=ESTADO_VAZIO();
+  for(const k in vz){ if(e[k]==null || (Array.isArray(vz[k]) && !Array.isArray(e[k])) ) e[k]=vz[k]; }
+  /* o Firebase guarda array como objeto quando ha buracos: volta para array */
+  ["dup","demandas","recorrentes","novosClientes","pessoas","agenda","log"].forEach(k=>{
+    if(e[k] && !Array.isArray(e[k]) && typeof e[k]==="object") e[k]=Object.keys(e[k]).sort((a,b)=>a-b).map(x=>e[k][x]).filter(Boolean); });
+  if(!e.pessoas.length) e.pessoas=SEED_PESSOAS.map(p=>({...p}));
+  e.pessoas.forEach(p=>{
+    if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
+    if(!p.areas) p.areas=["mkt"];
+    if(!p.admin) p.areas=(p.areas||[]).filter(a=>a!=="all");   /* "all" é exclusivo de admin */
+    if(p.pin===undefined) p.pin="";
+  });
+  return e;
+}
+const ehObj = x => x && typeof x==="object" && !Array.isArray(x);
+/* caminhos (1 ou 2 niveis) em que a e b diferem. Objetos descem um nivel; arrays e valores vao inteiros. */
+function caminhosDiff(a,b){
+  const out=[]; const ks=new Set(Object.keys(a||{}).concat(Object.keys(b||{})));
+  ks.forEach(k=>{
+    const x=(a||{})[k], y=(b||{})[k];
+    if(JSON.stringify(x)===JSON.stringify(y)) return;
+    if(ehObj(x)&&ehObj(y)){
+      const ks2=new Set(Object.keys(x).concat(Object.keys(y)));
+      ks2.forEach(k2=>{ if(JSON.stringify(x[k2])!==JSON.stringify(y[k2])) out.push([k,k2]); });
+    } else out.push([k]);
+  });
+  return out;
+}
+const lerCaminho = (o,p) => p.length===1 ? (o||{})[p[0]] : ((o||{})[p[0]]||{})[p[1]];
+function gravarCaminho(o,p,v){
+  const c = v===undefined ? undefined : JSON.parse(JSON.stringify(v));
+  if(p.length===1){ if(c===undefined) delete o[p[0]]; else o[p[0]]=c; return; }
+  if(!ehObj(o[p[0]])) o[p[0]]={};
+  if(c===undefined) delete o[p[0]][p[1]]; else o[p[0]][p[1]]=c;
+}
+/* o log e de todos: soma as entradas novas em vez de sobrescrever a lista */
+const chaveLog = l => (l&&l.ts||"")+"|"+(l&&l.acao||"")+"|"+(l&&l.id||"")+"|"+(l&&l.quem||"");
+function somarLog(a,b){
+  const vistos=new Set(), out=[];
+  (a||[]).concat(b||[]).forEach(l=>{ if(!l) return; const k=chaveLog(l); if(vistos.has(k)) return; vistos.add(k); out.push(l); });
+  return out.sort((x,y)=>String(y.ts||"").localeCompare(String(x.ts||""))).slice(0,300);
+}
+
 let SYNC=null, SYNC_APLICANDO=false, SYNC_ON=false;
+let SYNC_BASE=null;        /* ultimo estado que sabemos que esta no servidor */
+let SYNC_PRONTO=false;     /* so envia depois de ler o servidor pela primeira vez */
 function syncIniciar(){
   try{
     if(!window.firebase || !window.MK3_FIREBASE) return;
     const app = firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(window.MK3_FIREBASE);
     SYNC = firebase.database().ref("painel/estado");
-    /* recebe as mudanças de qualquer pessoa, na hora */
+    const inicioLocal = JSON.parse(JSON.stringify(ESTADO));   /* o que estava no cache quando abriu */
     SYNC.on("value", snap=>{
       const v=snap.val();
+      if(!SYNC_PRONTO){
+        SYNC_PRONTO=true;
+        if(!v){ SYNC_BASE=normalizarEstado({}); syncEnviar(); return; }
+        const remoto=normalizarEstado(v);
+        /* o que a pessoa mexeu antes do servidor responder vai por cima do que chegou */
+        const meus=caminhosDiff(inicioLocal, ESTADO);
+        SYNC_BASE=JSON.parse(JSON.stringify(remoto));
+        meus.forEach(p=>{ if(p[0]==="log") return; gravarCaminho(remoto,p,lerCaminho(ESTADO,p)); });
+        remoto.log=somarLog(remoto.log, ESTADO.log);
+        aplicarRemoto(remoto, null);
+        if(meus.length) syncEnviar();
+        migrarPins();
+        if(USUARIO) migrarDadosDoCodigo();
+        return;
+      }
       if(!v) return;
-      const meu=JSON.stringify(ESTADO);
-      const dele=JSON.stringify(v);
-      if(meu===dele) return;
-      SYNC_APLICANDO=true;
-      ESTADO = {concluidas:{},datas:{},semanal:{},notas:{},dup:[],demandas:[],portais:{},obsT:{},excluidas:{},titulos:{},clientes:{},novosClientes:[],pessoas:[],resultados:{},ficha:{},agenda:[],agendaResp:{},agendaChave:"",log:[], ...v};
-      try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
-      rebuild(); render();
-      SYNC_APLICANDO=false;
-      marcarSync("recebido");
+      const remoto=normalizarEstado(v);
+      const deles=caminhosDiff(SYNC_BASE, remoto);
+      SYNC_BASE=JSON.parse(JSON.stringify(remoto));
+      if(!deles.length) return;                     /* eco do que eu mesmo mandei */
+      /* o que eu mudei e ainda nao voltou do servidor continua valendo */
+      const meus=caminhosDiff(SYNC_BASE, ESTADO).filter(p=>!deles.some(q=>q.join("/")===p.join("/")));
+      meus.forEach(p=>{ if(p[0]==="log") return; gravarCaminho(remoto,p,lerCaminho(ESTADO,p)); });
+      remoto.log=somarLog(remoto.log, ESTADO.log);
+      aplicarRemoto(remoto, deles);
     }, err=>{ SYNC_ON=false; marcarSync("erro"); });
     firebase.database().ref(".info/connected").on("value", s=>{ SYNC_ON=!!s.val(); marcarSync(SYNC_ON?"ligado":"offline"); if(SYNC_ON) agendarEspelho(); });
   }catch(e){ SYNC=null; }
 }
+/* troca o estado pelo do servidor e corrige o Desfazer/Refazer: o que veio dos colegas
+   passa a fazer parte de cada passo guardado, entao desfazer nao apaga o trabalho deles */
+function aplicarRemoto(novo, caminhos){
+  SYNC_APLICANDO=true;
+  if(caminhos && caminhos.length){
+    const fix=pilha=>pilha.forEach((snap,i)=>{ try{ const o=JSON.parse(snap);
+      caminhos.forEach(p=>{ if(p[0]!=="log") gravarCaminho(o,p,lerCaminho(novo,p)); });
+      o.log=somarLog(o.log, novo.log); pilha[i]=JSON.stringify(o); }catch(e){} });
+    fix(UNDO); fix(REDO);
+  }
+  ESTADO=novo;
+  try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
+  const pinAberto = document.getElementById("pinInput");          /* nao redesenha a tela de PIN no meio da digitacao */
+  rebuild(); if(!(pinAberto && !USUARIO)) render();
+  SYNC_APLICANDO=false;
+  marcarSync("recebido");
+}
 function syncEnviar(){
   if(!SYNC || SYNC_APLICANDO) return;
-  try{ SYNC.set(JSON.parse(JSON.stringify(ESTADO))); }catch(e){}
+  if(!SYNC_PRONTO || !SYNC_BASE) return;            /* ainda nao leu o servidor: o envio sai quando ler */
+  try{
+    const ps=caminhosDiff(SYNC_BASE, ESTADO);
+    if(!ps.length) return;
+    const up={}; let logNovo=null;
+    ps.forEach(p=>{
+      if(p[0]==="log"){ logNovo=ESTADO.log; return; }
+      const v=lerCaminho(ESTADO,p);
+      up[p.join("/")] = (v===undefined) ? null : JSON.parse(JSON.stringify(v));
+    });
+    const novos=logNovo ? (logNovo||[]).filter(l=>!(SYNC_BASE.log||[]).some(b=>chaveLog(b)===chaveLog(l))) : [];
+    /* a base anda ANTES de enviar: o Firebase devolve o eco na hora, dentro do update,
+       e sem isto a propria mudanca pareceria vinda de um colega (e o Desfazer nao a tiraria) */
+    ps.forEach(p=>{ if(p[0]!=="log") gravarCaminho(SYNC_BASE,p,lerCaminho(ESTADO,p)); });
+    SYNC_BASE.log=somarLog(SYNC_BASE.log, ESTADO.log);
+    if(Object.keys(up).length) SYNC.update(up).catch(()=>marcarSync("erro"));
+    if(novos.length) SYNC.child("log").transaction(cur=>somarLog(Array.isArray(cur)?cur:(cur?Object.values(cur):[]), novos));
+  }catch(e){ marcarSync("erro"); }
 }
 let syncTimer=null;
 function marcarSync(estado){
@@ -1060,7 +1179,7 @@ function duplicarTarefa(cid,tid,dia,mover){
 }
 /* para onde a tarefa foi movida, se foi */
 function movidaPara(cid,tid){
-  const e=(ESTADO.dup||[]).filter(x=>x.cid===cid && x.tid===tid && x.mover)
+  const e=dupDe(cid,tid).filter(x=>x.mover)
     .sort((a,b)=>a.dia.localeCompare(b.dia)).pop();
   return e?e.dia:null;
 }
@@ -1644,7 +1763,7 @@ function abrirEquipe(){
               '<span class="chip-i">'+a[2]+'</span>'+esc(a[1])+'</button>';
           }).join("")+
           '<span class="pc-pin"><span class="pin-l">PIN</span>'+
-          '<input type="password" class="pinin" data-pin="'+escAttr(p.nome)+'" value="'+escAttr(p.pin||"")+'" maxlength="8" placeholder="—" inputmode="numeric" autocomplete="new-password" data-lpignore="true" aria-label="PIN de '+escAttr(p.nome)+'"></span>'+
+          '<input type="password" class="pinin" data-pin="'+escAttr(p.nome)+'" value="" maxlength="8" placeholder="'+(p.pin?'definido':'—')+'" title="'+(p.pin?'Digite um novo PIN para trocar':'Sem PIN')+'" inputmode="numeric" autocomplete="new-password" data-lpignore="true" aria-label="PIN de '+escAttr(p.nome)+'">'+(p.pin?'<button class="pin-rm" data-pinrm="'+escAttr(p.nome)+'" title="Remover o PIN" aria-label="Remover o PIN de '+escAttr(p.nome)+'">&#215;</button>':'')+'</span>'+
         '</div>'+
       '</div>';
     }).join("")+'</div>'+
@@ -1670,9 +1789,32 @@ function setPerm(nome,perm,valor){
   persist(); semPular(()=>abrirEquipe());
   if(p.nome===USUARIO){ const as=areasDe(); if(as.indexOf(VISTA.area)<0){ VISTA.area=as[0]||"mkt"; } render(); }
 }
-function setPin(nome,pin){
+/* PIN guardado como hash (SHA-256 com o nome): o banco nao mostra mais o PIN de ninguem.
+   Um PIN curto ainda pode ser adivinhado por quem le o banco; a protecao real e a regra do Firebase. */
+const ehHashPin = v => typeof v==="string" && /^[0-9a-f]{64}$/.test(v);
+async function hashPin(nome,pin){
+  const dados=new TextEncoder().encode("mk3-painel|"+nome+"|"+String(pin||"").trim());
+  const h=await crypto.subtle.digest("SHA-256",dados);
+  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function pinConfere(p,v){
+  if(!p || !p.pin) return true;
+  if(ehHashPin(p.pin)) return (await hashPin(p.nome,v))===p.pin;
+  return v===p.pin;                                   /* PIN antigo, ainda nao convertido */
+}
+/* converte os PINs que ainda estao em texto puro (roda uma vez, quem abrir primeiro) */
+async function migrarPins(){
+  if(!(window.crypto&&crypto.subtle)) return;
+  let mudou=false;
+  for(const p of (ESTADO.pessoas||[])){ if(p.pin && !ehHashPin(p.pin)){ p.pin=await hashPin(p.nome,p.pin); mudou=true; } }
+  if(mudou) persist();
+}
+async function setPin(nome,pin){
   const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); if(!p) return;
-  p.pin=(pin||"").trim(); persist();
+  const v=(pin||"").trim();
+  snapshot();
+  p.pin = v ? await hashPin(nome,v) : "";
+  persist(); toast(v?"PIN de "+nome+" atualizado":"PIN de "+nome+" removido",true);
 }
 function abrirEditarDemanda(id){
   const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
@@ -2241,13 +2383,8 @@ async function init(){
   /* o estado vem do Firebase (e do cache local); nao existe mais estado.json no repositorio */
   let local=null; try{ local=JSON.parse(localStorage.getItem("mk3_estado")||"null"); }catch(e){}
   ESTADO = mergeEstado(base, local);
-  if(!ESTADO.concluidas)ESTADO.concluidas={}; if(!ESTADO.datas)ESTADO.datas={}; if(!ESTADO.log)ESTADO.log=[]; if(!ESTADO.semanal)ESTADO.semanal={}; if(!ESTADO.notas)ESTADO.notas={}; if(!ESTADO.dup)ESTADO.dup=[]; if(!ESTADO.demandas)ESTADO.demandas=[]; if(!ESTADO.portais)ESTADO.portais={}; if(!ESTADO.obsT)ESTADO.obsT={}; if(!ESTADO.excluidas)ESTADO.excluidas={}; if(!ESTADO.titulos)ESTADO.titulos={}; if(!ESTADO.clientes)ESTADO.clientes={}; if(!ESTADO.novosClientes)ESTADO.novosClientes=[]; if(!ESTADO.resultados)ESTADO.resultados={}; if(!ESTADO.ficha)ESTADO.ficha={}; if(!ESTADO.agenda)ESTADO.agenda=[]; if(!ESTADO.agendaResp)ESTADO.agendaResp={}; if(!ESTADO.cobrancas)ESTADO.cobrancas={}; if(!ESTADO.plano)ESTADO.plano={}; if(!ESTADO.pessoas||!ESTADO.pessoas.length)ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p})); if(!ESTADO.recorrentes)ESTADO.recorrentes=[];
-  ESTADO.pessoas.forEach(p=>{
-    if(p.admin===undefined){ const dd=PERMS_PADRAO[p.nome]; p.admin=dd?dd.admin:false; p.areas=dd?dd.areas.slice():["mkt"]; }
-    if(!p.areas) p.areas=["mkt"];
-    if(!p.admin) p.areas=(p.areas||[]).filter(a=>a!=="all");   /* "all" é exclusivo de admin */
-    if(p.pin===undefined) p.pin="";
-  });
+  ESTADO = normalizarEstado(ESTADO);
+  if(!window.firebase) migrarPins();                 /* com Firebase, converte depois de ler o servidor */
   /* o perfil NÃO é lembrado entre aberturas: sempre passa pela tela de escolha.
      (protege quando alguém abre em outro computador e esquece aberto) */
   USUARIO=null;
@@ -2311,12 +2448,12 @@ function avatarHTML(c, cls){
 /* tarefa remanejada: devolve a data da copia, para dar um jeito de desfazer */
 function remanejadaDe(t){
   if(!t) return null;
-  const l=(ESTADO.dup||[]).filter(e=>e.cid===t.clienteId && e.tid===t.id)
+  const l=dupDe(t.clienteId,t.id)
     .sort((a,b)=>a.dia.localeCompare(b.dia));
   return l.length ? l[l.length-1].dia : null;
 }
 function desfazerRemanejo(cid,tid){
-  const l=(ESTADO.dup||[]).filter(e=>e.cid===cid && e.tid===tid);
+  const l=dupDe(cid,tid);
   if(!l.length) return;
   snapshot();
   ESTADO.dup=(ESTADO.dup||[]).filter(e=>!(e.cid===cid && e.tid===tid));
@@ -2742,7 +2879,22 @@ function cobrancasPendentes(){
   }));
   return out;
 }
+/* trava no servidor antes de criar o evento: dois admins abrindo juntos nao duplicam a cobranca */
+function reservarCobranca(chave){
+  if(!SYNC || !SYNC_PRONTO) return Promise.resolve(true);
+  return SYNC.child("cobrancas/"+chave).transaction(cur=> cur ? undefined : {reservado:USUARIO||"", em:new Date().toISOString()})
+    .then(r=>!!(r&&r.committed)).catch(()=>false);
+}
 function criarCobranca(item){
+  return reservarCobranca(item.chave).then(ok=>{
+    if(!ok) return false;
+    return criarCobrancaAgenda(item).then(feito=>{
+      if(!feito && SYNC) SYNC.child("cobrancas/"+item.chave).remove().catch(()=>{});   /* falhou: solta a trava */
+      return feito;
+    });
+  });
+}
+function criarCobrancaAgenda(item){
   const c=item.cli, x=item.x;
   const corpo={ chave:(ESTADO.agendaChave||""),
     titulo:"Cobrar aprovação de "+x.tipo+" - "+c.nome,
@@ -3025,6 +3177,33 @@ const FICHA_CAMPOS = [
   ["sucesso","O que é sucesso pra ele"],
   ["recado","Recado do objetivo (o cliente lê isso no portal)"]
 ];
+/* Copia para o banco os links e fichas que ainda moram no codigo (repositorio publico).
+   Roda quando um admin abre o painel ja sincronizado. Depois que todos estiverem no banco,
+   LINKS_PADRAO e FICHA_PADRAO podem sair do codigo sem nada sumir da tela. */
+function migrarDadosDoCodigo(){
+  if(!ehAdmin() || (SYNC && !SYNC_PRONTO)) return 0;
+  let n=0;
+  ESTADO.clientes=ESTADO.clientes||{}; ESTADO.ficha=ESTADO.ficha||{};
+  Object.keys(LINKS_PADRAO).forEach(id=>{
+    const pad=LINKS_PADRAO[id], ed=ESTADO.clientes[id]=ESTADO.clientes[id]||{};
+    ["drive","insta","wpp"].forEach(k=>{ if(pad[k] && (ed[k]===undefined||ed[k]===null||ed[k]==="")){ ed[k]=pad[k]; n++; } });
+  });
+  Object.keys(FICHA_PADRAO).forEach(id=>{
+    const pad=FICHA_PADRAO[id], sv=ESTADO.ficha[id]=ESTADO.ficha[id]||{};
+    Object.keys(pad).forEach(k=>{ if(pad[k] && (sv[k]===undefined||sv[k]==="")){ sv[k]=pad[k]; n++; } });
+  });
+  if(n) persist();
+  return n;
+}
+/* quantos dados ainda dependem do codigo (0 = ja pode tirar do repositorio) */
+function dadosSoNoCodigo(){
+  let n=0;
+  Object.keys(LINKS_PADRAO).forEach(id=>{ const ed=(ESTADO.clientes||{})[id]||{}, pad=LINKS_PADRAO[id];
+    ["drive","insta","wpp"].forEach(k=>{ if(pad[k] && !ed[k]) n++; }); });
+  Object.keys(FICHA_PADRAO).forEach(id=>{ const sv=(ESTADO.ficha||{})[id]||{}, pad=FICHA_PADRAO[id];
+    Object.keys(pad).forEach(k=>{ if(pad[k] && !sv[k]) n++; }); });
+  return n;
+}
 function fichaDe(c){
   const salva=(ESTADO.ficha&&ESTADO.ficha[c.id])||{}, pad=FICHA_PADRAO[c.id]||{};
   const f={}; FICHA_CAMPOS.forEach(k=>{ f[k[0]] = (salva[k[0]]!==undefined && salva[k[0]]!=="") ? salva[k[0]] : (pad[k[0]]||""); });
@@ -3411,6 +3590,7 @@ const areasDe = () => { const p=eu(); if(!p) return []; return p.admin?["all","m
 const podeArea = a => areasDe().indexOf(a)>=0;
 function entrar(nome){
   USUARIO=nome; VISTA.pinPara=null;
+  setTimeout(()=>{ try{ migrarDadosDoCodigo(); }catch(e){} },0);
   rebuild();                                      /* recorrente por pessoa: so aparece para quem pode ver */
   if(typeof reiniciarOcioso==="function") reiniciarOcioso();
 
@@ -3752,6 +3932,8 @@ function animar(){
   };
   if(TELA_NOVA && !reduz) requestAnimationFrame(aplicar); else aplicar();
 }
+/* so troca o HTML quando ele mudou: menu e barras nao sao recriados a cada clique */
+function pintar(el,html){ if(!el) return; if(el.__h===html) return; el.innerHTML=html; el.__h=html; }
 /* animacao de entrada so quando a tela muda de verdade; marcar uma tarefa nao faz o dashboard "piscar" */
 let ULTIMA_TELA="", ANIM_T=null, TELA_NOVA=false;
 function marcarTela(){
@@ -3765,12 +3947,12 @@ function render(){
   document.body.classList.remove("menu-aberto");      /* navegar fecha o menu "Mais" do celular */
   marcarTela();
   if(!USUARIO){
-    $("ctx").innerHTML=''; $("editbar").innerHTML=''; $("side").innerHTML=''; $("areabar").innerHTML='';
+    pintar($("ctx"),''); $("editbar").innerHTML=''; pintar($("side"),''); pintar($("areabar"),'');
     $("view").innerHTML = loginHTML(VISTA.pinPara);
     const pi=document.getElementById("pinInput"); if(pi&&pi.focus) setTimeout(()=>pi.focus(),30);
     return;
   }
-  $("ctx").innerHTML = tituloContexto();
+  pintar($("ctx"), tituloContexto());
   $("editbar").innerHTML =
     '<button class="ubtn" data-undo="1"'+(UNDO.length?"":" disabled")+' title="Desfazer">&#8624; Desfazer</button>'+
     '<button class="ubtn" data-redo="1"'+(REDO.length?"":" disabled")+' title="Refazer">&#8625; Refazer</button>'+
@@ -3780,8 +3962,8 @@ function render(){
     (agendaUrl()?'<span class="agviva" id="agviva">agenda ao vivo</span>':'')+
     ultimaAlteracaoHTML();
   marcarSync(SYNC_ON?"ligado":(window.firebase?"offline":"local"));
-  $("side").innerHTML = sidebarHTML();
-  $("areabar").innerHTML = areasTopoHTML();
+  pintar($("side"), sidebarHTML());
+  pintar($("areabar"), areasTopoHTML());
   posicionarPill();
 
   const c = VISTA.escopo ? cliente(VISTA.escopo) : null;
@@ -3885,7 +4067,7 @@ document.addEventListener("click", function(ev){
     const cx=$("dfdata"); if(cx) cx.disabled = !ev.target.checked;
     return;
   }
-  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-mvmodo],[data-desrem],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-recorrente],[data-recpausa],[data-recx],[data-demx],[data-demlimpa],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-pessoaxok],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-maismenu],[data-veratrasadas],[data-toastundo],[data-vertudo],[data-limpafiltro],[data-feitacheck]");
+  const alvo = ev.target.closest("[data-area],[data-modo],[data-cliente],[data-cliaba],[data-nav],[data-mes],[data-dia],[data-bucket],[data-editar],[data-feed],[data-mvmodo],[data-desrem],[data-irorig],[data-usaragenda],[data-relatorio],[data-relmes],[data-gerarlink],[data-abacli],[data-plano],[data-planomes],[data-macao],[data-undo],[data-redo],[data-wkok],[data-wkx],[data-nota],[data-vermotivo],[data-view],[data-area],[data-side],[data-dropx],[data-demanda],[data-recorrente],[data-recpausa],[data-recx],[data-demx],[data-demlimpa],[data-demobs],[data-demedit],[data-obst],[data-editarobst],[data-parcial],[data-delt],[data-excl],[data-rename],[data-restaurar],[data-lixeira],[data-clientes],[data-clied],[data-clinovo],[data-cliocultar],[data-clirestaurar],[data-veobs],[data-editarmotivo],[data-editarobs],[data-equipe],[data-trocarfoto],[data-pessoax],[data-pessoaxok],[data-pinrm],[data-rowok],[data-mover],[data-atrasadas],[data-portais],[data-recado],[data-abrir],[data-ficha],[data-irmes],[data-agenda],[data-atribuir],[data-compromisso],[data-avisar],[data-resp],[data-copiar],[data-novolink],[data-permb],[data-mesmover],[data-removedup],[data-motivo],[data-entrar],[data-pinok],[data-pincancel],[data-sair],[data-maismenu],[data-veratrasadas],[data-toastundo],[data-vertudo],[data-limpafiltro],[data-feitacheck]");
   if(!alvo) return;
   if(alvo.tagName==="A" && alvo.getAttribute("href") && novaAba(ev)) return;   /* abrir em outra aba */
   if(alvo.tagName==="A") ev.preventDefault();
@@ -3894,9 +4076,9 @@ document.addEventListener("click", function(ev){
   if(D.entrar){ tentarEntrar(D.entrar); return; }
   if(D.pinok){
     const v=(($("pinInput")&&$("pinInput").value)||"").trim();
-    const p=(ESTADO.pessoas||[]).find(x=>x.nome===D.pinok);
-    if(p && v===p.pin){ entrar(D.pinok); }
-    else { const er=document.getElementById("pinErro"); if(er) er.textContent="PIN incorreto."; const pi=document.getElementById("pinInput"); if(pi){pi.value="";pi.focus();} }
+    const p=(ESTADO.pessoas||[]).find(x=>x.nome===D.pinok); const nome=D.pinok;
+    pinConfere(p,v).then(ok=>{ if(p && ok){ entrar(nome); }
+      else { const er=document.getElementById("pinErro"); if(er) er.textContent="PIN incorreto."; const pi=document.getElementById("pinInput"); if(pi){pi.value="";pi.focus();} } });
     return;
   }
   if(D.pincancel){ VISTA.pinPara=null; render(); return; }
@@ -3955,6 +4137,7 @@ document.addEventListener("click", function(ev){
   }
   if(D.trocarfoto){ fotoAlvo=D.trocarfoto; const fi=$("fotoInput"); if(fi){ fi.value=""; fi.click(); } return; }
   if(D.pessoax){ confirmarRemoverPessoa(D.pessoax); return; }
+  if(D.pinrm){ const n=D.pinrm; setPin(n,"").then(()=>semPular(abrirEquipe)); return; }
   if(D.pessoaxok){ const n=D.pessoaxok; semPular(()=>{ removePessoa(n); abrirEquipe(); }); toast(n+" removida da equipe",true); return; }
   if(D.demx){ const veio=modalAberto()&&/Demanda ·/.test(($("modal")||{}).innerHTML||"");
     semPular(()=>{ removeDemanda(D.demx); if(veio) fecharModal(); else abrirDemanda(); }); return; }
@@ -4041,7 +4224,7 @@ document.addEventListener("change", function(ev){
   const pm=ev.target.closest("[data-perm]");
   if(pm){ setPerm(pm.dataset.pnome, pm.dataset.perm, pm.checked); return; }
   const pn=ev.target.closest("[data-pin]");
-  if(pn){ setPin(pn.dataset.pin, pn.value); return; }
+  if(pn){ const nm=pn.dataset.pin; if(!pn.value.trim()) return; setPin(nm, pn.value).then(()=>semPular(abrirEquipe)); return; }
   const el=ev.target.closest("[data-sel]"); if(!el) return;
   const w=el.dataset.sel, v=el.value;
   if(w==="ano"){ VISTA.pano=Number(v); const ws=semanasDoMes(VISTA.pano,VISTA.pmes); VISTA.psem=ws[0]||VISTA.psem; }
@@ -4110,9 +4293,9 @@ document.addEventListener("change", function(ev){
 document.addEventListener("keydown", function(e){
   if(e.key==="Enter" && e.target && e.target.id==="pinInput"){
     const nome=VISTA.pinPara; const v=(e.target.value||"").trim();
-    const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome);
-    if(p && v===p.pin) entrar(nome);
-    else { const er=document.getElementById("pinErro"); if(er) er.textContent="PIN incorreto."; e.target.value=""; }
+    const p=(ESTADO.pessoas||[]).find(x=>x.nome===nome); const alvo=e.target;
+    pinConfere(p,v).then(ok=>{ if(p && ok) entrar(nome);
+      else { const er=document.getElementById("pinErro"); if(er) er.textContent="PIN incorreto."; alvo.value=""; } });
     return;
   }
   const tag=(e.target.tagName||"").toLowerCase();

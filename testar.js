@@ -6,7 +6,7 @@ const raiz=__dirname;
 const el=()=>({innerHTML:"",style:{},classList:{add(){},remove(){},toggle(){},contains(){return false}},
   setAttribute(){},removeAttribute(){},getAttribute(){return null},appendChild(){},querySelector(){return null},
   querySelectorAll(){return []},focus(){},addEventListener(){},dataset:{},children:[],textContent:"",value:"",disabled:false});
-function contexto(arquivos, pre){
+function contexto(arquivos, pre, extra){
   const ctx={console,setTimeout:()=>0,clearTimeout,setInterval:()=>0,clearInterval,Date,Math,JSON,String,Number,
     Boolean,Array,Object,RegExp,Promise,isNaN,parseInt,parseFloat,encodeURIComponent,decodeURIComponent,
     Proxy,Set,Map,Error,
@@ -20,6 +20,7 @@ function contexto(arquivos, pre){
     requestAnimationFrame:f=>f(), matchMedia:()=>({matches:false,addEventListener(){}}),
     crypto:{getRandomValues:a=>{ for(let i=0;i<a.length;i++) a[i]=Math.floor(Math.random()*256); return a; }},
     EventSource:function(){this.addEventListener=()=>{};this.close=()=>{};}};
+  if(extra) Object.assign(ctx, extra);
   ctx.window=ctx; ctx.self=ctx;
   vm.createContext(ctx);
   if(pre) vm.runInContext(pre,ctx,{filename:"pre.js"});
@@ -949,6 +950,78 @@ ESTADO.recorrentes=[]; USUARIO=null; rebuild();
 }
 `);
 
+
+/* ---- Firebase de mentira, em memoria, compartilhado por "dois navegadores" ---- */
+function hubFirebase(){
+  const hub={dados:{}, subs:[]};
+  const partes=p=>p.split("/").filter(Boolean);
+  const ler=p=>{ let o=hub.dados; for(const k of partes(p)){ if(o==null||typeof o!=="object") return null; o=o[k]; } return o===undefined?null:JSON.parse(JSON.stringify(o)); };
+  const podar=o=>{ if(o&&typeof o==="object"){ for(const k of Object.keys(o)){ podar(o[k]); if(o[k]==null||(typeof o[k]==="object"&&!Object.keys(o[k]).length)) delete o[k]; } } };
+  const gravar=(p,v)=>{ const ks=partes(p); let o=hub.dados; for(let i=0;i<ks.length-1;i++){ if(o[ks[i]]==null||typeof o[ks[i]]!=="object") o[ks[i]]={}; o=o[ks[i]]; }
+    if(v==null) delete o[ks[ks.length-1]]; else o[ks[ks.length-1]]=JSON.parse(JSON.stringify(v)); podar(hub.dados); };
+  const avisar=()=>hub.subs.slice().forEach(s=>s.cb({val:()=>ler(s.path)}));
+  hub.fb=()=>{ const apps=[]; const ref=path=>({
+      on:(ev,cb)=>{ if(path===".info/connected"){ cb({val:()=>true}); return; } hub.subs.push({path,cb}); cb({val:()=>ler(path)}); },
+      off:()=>{},
+      child:k=>ref(path+"/"+k),
+      set:v=>{ gravar(path,v); avisar(); return Promise.resolve(); },
+      remove:()=>{ gravar(path,null); avisar(); return Promise.resolve(); },
+      update:o=>{ for(const k in o) gravar(path+"/"+k,o[k]); avisar(); return Promise.resolve(); },
+      transaction:fn=>{ gravar(path, fn(ler(path))); avisar(); return Promise.resolve(); }
+    });
+    return { apps, initializeApp:()=>{ apps.push(1); return {}; }, app:()=>({}), database:()=>({ref}), auth:()=>({onAuthStateChanged(){}}) };
+  };
+  return hub;
+}
+{
+  const hub=hubFirebase();
+  const cfg={MK3_FIREBASE:{databaseURL:"x"}};
+  const A=contexto(["dados.js","motor.js"], null, {...cfg, firebase:hub.fb()});
+  const B=contexto(["dados.js","motor.js"], null, {...cfg, firebase:hub.fb()});
+  const rodar=(ctx,code)=>vm.runInContext(code,ctx);
+  bloco("Sincronizacao entre duas pessoas", A, `
+    __ok("os dois leram o servidor", SYNC_PRONTO===true);
+  `);
+  /* acha uma tarefa futura de cada cliente para as duas marcarem */
+  const alvo=rodar(A,`USUARIO="Carla"; rebuild(); JSON.stringify(TODAS.filter(t=>t.clienteId==="suelem"&&t.st.k!=="ok"&&t.data).slice(0,1).map(t=>[t.clienteId,t.id]))`);
+  const alvoB=rodar(B,`USUARIO="Bia"; rebuild(); JSON.stringify(TODAS.filter(t=>t.clienteId==="cynthia"&&t.st.k!=="ok"&&t.data).slice(0,1).map(t=>[t.clienteId,t.id]))`);
+  const [ca,ta]=JSON.parse(alvo)[0], [cb,tb]=JSON.parse(alvoB)[0];
+  rodar(B,`marcar(${JSON.stringify(cb)},${JSON.stringify(tb)},iso(HOJE),"concluir");`);   /* Bia marca a dela */
+  rodar(A,`marcar(${JSON.stringify(ca)},${JSON.stringify(ta)},iso(HOJE),"concluir");`);   /* Carla marca a dela */
+  const feitaEm=(ctx,c,t)=>rodar(ctx,`(function(){ const x=TODAS.find(z=>z.clienteId===${JSON.stringify(c)}&&z.id===${JSON.stringify(t)}); return !!x && x.st.k==="ok"; })()`);
+  A.__ok=B.__ok=null;
+  bloco("Sincronizacao entre duas pessoas: marcar", A, `
+    __ok("a Carla ve a marcacao da Bia", ${feitaEm(A,cb,tb)});
+    __ok("a Bia ve a marcacao da Carla", ${feitaEm(B,ca,ta)});
+    __ok("o servidor guarda as duas", ${JSON.stringify(!!(hub.dados.painel.estado.concluidas[ca]&&hub.dados.painel.estado.concluidas[cb]))});
+  `);
+  rodar(B,`desfazer();`);                                     /* Bia desfaz a DELA */
+  bloco("Sincronizacao entre duas pessoas: desfazer", A, `
+    __ok("o desfazer da Bia tira so a marcacao dela", ${!feitaEm(B,cb,tb)} && ${!feitaEm(A,cb,tb)});
+    __ok("e nao apaga a marcacao da Carla", ${feitaEm(A,ca,ta)} && ${feitaEm(B,ca,ta)});
+    __ok("o log guarda as acoes das duas", ${rodar(A,`ESTADO.log.filter(l=>l.acao==="concluir").map(l=>l.quem).sort().join(",")`)==="Bia,Carla"} );
+  `);
+  /* PIN vira hash e continua funcionando */
+  rodar(A,`USUARIO="Alda";`);
+}
+
+bloco("Dados que saem do codigo", M, limpar+`
+USUARIO="Carla"; __ok("quem nao e admin nao migra nada", migrarDadosDoCodigo()===0);
+USUARIO="Alda"; const antes=dadosSoNoCodigo();
+const c0=CLIENTES.find(c=>LINKS_PADRAO[c.id]); const linksAntes=c0?JSON.stringify(linksDe(c0)):"";
+const f0=CLIENTES.find(c=>FICHA_PADRAO[c.id]); const fichaAntes=f0?JSON.stringify(fichaDe(f0)):"";
+__ok("havia dados so no codigo", antes>0);
+migrarDadosDoCodigo();
+__ok("depois de migrar, nada depende do codigo", dadosSoNoCodigo()===0);
+/* prova de que da para tirar do codigo: zera os padroes e a tela continua igual */
+const LP=JSON.stringify(LINKS_PADRAO), FP=JSON.stringify(FICHA_PADRAO);
+Object.keys(LINKS_PADRAO).forEach(k=>delete LINKS_PADRAO[k]); Object.keys(FICHA_PADRAO).forEach(k=>delete FICHA_PADRAO[k]);
+__ok("sem os dados no codigo, os links continuam iguais", !c0 || JSON.stringify(linksDe(c0))===linksAntes);
+__ok("e a ficha da marca tambem", !f0 || JSON.stringify(fichaDe(f0))===fichaAntes);
+Object.assign(LINKS_PADRAO,JSON.parse(LP)); Object.assign(FICHA_PADRAO,JSON.parse(FP));
+__ok("rodar de novo nao muda nada", migrarDadosDoCodigo()===0);
+`);
+
 bloco("Rotas e menu", M, limpar+`
 USUARIO="Guilherme";
 location.hash="#/feed"; __ok("rota #/feed", aplicarRota()===true && VISTA.modo==="feed");
@@ -1263,5 +1336,24 @@ __ok("atraso da MK3 nao vira arrasto do cliente",
   et2.every(x=> x.dono!=="MK3" || x.arrasto===0 || cli.some(y=>y.atraso>0)));
 `);
 
-console.log("\n"+(total-falhas)+"/"+total+" passaram"+(falhas?"  ("+falhas+" FALHA)":""));
-process.exit(falhas?1:0);
+/* ---- testes assincronos (PIN usa crypto.subtle, que devolve Promise) ---- */
+(async()=>{
+  const W=contexto(["dados.js","motor.js"], null, {crypto:require("crypto").webcrypto, TextEncoder});
+  const R=[]; const ok=(n,c)=>{ R.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
+  console.log("\nPIN guardado como hash");
+  try{
+    await vm.runInContext(`(async()=>{ ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p})); ESTADO.pessoas[2].pin="1234"; await migrarPins(); })()`,W);
+    const guardado=vm.runInContext(`ESTADO.pessoas[2].pin`,W);
+    ok("o PIN antigo vira hash", /^[0-9a-f]{64}$/.test(guardado));
+    ok("e o PIN em texto some do estado", !/1234/.test(vm.runInContext(`JSON.stringify(ESTADO)`,W)));
+    ok("o PIN certo entra", await vm.runInContext(`pinConfere(ESTADO.pessoas[2],"1234")`,W));
+    ok("o PIN errado nao entra", !(await vm.runInContext(`pinConfere(ESTADO.pessoas[2],"1235")`,W)));
+    await vm.runInContext(`setPin("Bia","9999")`,W);
+    ok("trocar o PIN tambem grava hash", /^[0-9a-f]{64}$/.test(vm.runInContext(`ESTADO.pessoas.find(p=>p.nome==="Bia").pin`,W)));
+    await vm.runInContext(`setPin("Bia","1234")`,W);
+    ok("o mesmo PIN em outra pessoa gera outro hash", vm.runInContext(`ESTADO.pessoas[2].pin!==ESTADO.pessoas.find(p=>p.nome==="Bia").pin`,W));
+  }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
+  console.log(R.join("\n"));
+  console.log("\n"+(total-falhas)+"/"+total+" passaram"+(falhas?"  ("+falhas+" FALHA)":""));
+  process.exit(falhas?1:0);
+})();
