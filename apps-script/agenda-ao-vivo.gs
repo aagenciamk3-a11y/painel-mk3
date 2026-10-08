@@ -36,8 +36,7 @@ function configurar() {
   if (!props.getProperty('CHAVE')) props.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, ''));
   // testa o acesso à agenda e ao serviço avançado
   Calendar.Events.list(AGENDA_ID, { maxResults: 1, timeMin: new Date().toISOString() });
-  const url = ScriptApp.getService().getUrl() || '';
-  if (/\/exec$/.test(url)) { conectarPainel(); return; }   // já implantado: liga o painel na mesma hora
+  if (/\/exec$/.test(enderecoPublicado_())) { conectarPainel(); return; }   // já implantado: liga o painel na mesma hora
   Logger.log('Agenda acessível e chave criada. Agora implante como App da Web e rode configurar de novo (ou conectarPainel).');
 }
 
@@ -45,14 +44,22 @@ function configurar() {
 function conectarPainel() {
   const chave = PropertiesService.getScriptProperties().getProperty('CHAVE');
   if (!chave) throw new Error('Rode configurar primeiro.');
-  const url = ScriptApp.getService().getUrl() || '';
-  if (!/\/exec$/.test(url)) throw new Error('Implante como App da Web antes (o endereço precisa terminar em /exec). Recebi: ' + url);
+  const url = enderecoPublicado_();
+  if (!/\/exec$/.test(url)) throw new Error('Implante como App da Web antes. Se já implantou, copie o URL do App da Web (termina em /exec) e salve em Configurações do projeto > Propriedades do script, com o nome URL. Recebi: ' + url);
   const r = UrlFetchApp.fetch(BANCO_PAINEL, {
     method: 'patch', contentType: 'application/json', muteHttpExceptions: true,
     payload: JSON.stringify({ agendaUrl: url, agendaChave: chave })
   });
   if (r.getResponseCode() !== 200) throw new Error('O banco do painel recusou: ' + r.getResponseCode() + ' ' + r.getContentText());
   Logger.log('Painel conectado. Endereço: ' + url);
+}
+
+/** O endereço /exec da implantação. Rodando pelo editor, o Google às vezes só devolve o /dev:
+ *  nesse caso vale o que estiver salvo na propriedade URL. */
+function enderecoPublicado_() {
+  const url = ScriptApp.getService().getUrl() || '';
+  if (/\/exec$/.test(url)) return url;
+  return PropertiesService.getScriptProperties().getProperty('URL') || url;
 }
 
 /** Leitura: o painel chama a cada 20 segundos, com a aba aberta. */

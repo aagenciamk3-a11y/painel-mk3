@@ -1224,6 +1224,10 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
     const env=enviados[0]||{o:{}}; const corpo=JSON.parse(env.o.payload||"{}");
     ok("conectar grava endereco e chave no painel, so esses dois campos", /painel\/estado\.json$/.test(env.u) && env.o.method==="patch" &&
        corpo.agendaUrl===urlScript && corpo.agendaChave==="abc123" && Object.keys(corpo).length===2);
+    urlScript="https://script.google.com/macros/s/XYZ/dev"; props.URL="https://script.google.com/macros/s/IMPL/exec";
+    vm.runInContext("configurar()",G);
+    const env2=JSON.parse((enviados[1]||{o:{}}).o.payload||"{}");
+    ok("pelo editor (so /dev), usa o endereco salvo e configurar ja conecta", env2.agendaUrl===props.URL && env2.agendaChave==="abc123");
   }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
   console.log(R.join("\n"));
 }
