@@ -108,7 +108,12 @@ function montarRelatorio_(estadoTxt) {
   const out = rodar(doc, win, { getItem: () => null, setItem() {}, removeItem() {} }, { hash: '', pathname: '/', href: '' },
     { pushState() {}, replaceState() {} }, {}, nada, nada, nada, nada, estadoTxt);
   const quando = Utilities.formatDate(new Date(), FUSO, 'dd/MM/yyyy HH:mm');
-  return 'Gerado em ' + quando + '\n\n' + out.texto + '\n\n---JSON---\n' + JSON.stringify(out.r);
+  // JSON enxuto: cada tarefa vira [clienteId, id, tarefa, data] (o que a reunião precisa para marcar no painel)
+  const r = out.r, t = x => [x.clienteId, x.id, x.tarefa, x.data];
+  const enxuto = { hoje: r.hoje, totalAtrasadas: r.totalAtrasadas,
+    grupos: r.grupos.map(g => ({ cliente: g.cliente, mes: g.mes, itens: g.itens.map(t) })),
+    hojeEAmanha: r.hojeEAmanha.map(t), contratos: r.contratos, pagamentos: r.pagamentos.map(t) };
+  return 'Gerado em ' + quando + '\n\n' + out.texto + '\n\n---JSON---\n' + JSON.stringify(enxuto);
 }
 function instalarExportacao() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'exportarEstado').forEach(t => ScriptApp.deleteTrigger(t));
