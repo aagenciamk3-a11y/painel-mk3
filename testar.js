@@ -1175,7 +1175,7 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
         {id:"c",summary:"cancelado",status:"cancelled",start:{date:"2026-10-07"},end:{date:"2026-10-08"}},
         {id:"d",summary:"Cobrar aprovação",description:"Enviado em 11/08.\n#cliente:Suelem\n#resp:Bia",start:{dateTime:"2026-10-09T09:00:00-03:00"},end:{dateTime:"2026-10-09T09:15:00-03:00"}}
       ]}),
-      insert:(ev,cal,op)=>{ inseridos.push({ev,op}); return {iCalUID:"novo@google.com",hangoutLink:op.conferenceDataVersion?"https://meet.google.com/novo":""}; },
+      insert:(ev,cal,op)=>{ inseridos.push({ev,op}); return {id:"novo",iCalUID:"novo@google.com",hangoutLink:op.conferenceDataVersion?"https://meet.google.com/novo":""}; },
       patch:(ev,cal,gid,op)=>{ editados.push({ev,gid,op}); return {iCalUID:gid+"@google.com"}; },
       remove:(cal,gid,op)=>{ apagados.push({gid,op}); }
     }},
@@ -1191,6 +1191,7 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
     ok("com o link do Meet", reu && reu.meet==="https://meet.google.com/umg-tyem-bdy");
     ok("convidado vai so com a parte antes do @, sem a propria MK3", reu && JSON.stringify(reu.convidados)==='["carlarnasc"]');
     ok("evento de 3 dias inteiros aparece nos 3 dias", r.eventos.filter(e=>e.titulo==="Gravação - Oceanus").map(e=>e.dia).join(",")==="2026-10-07,2026-10-08,2026-10-09");
+    ok("avisa se o e-mail do financeiro esta configurado", r.financeiro===false);
     ok("cancelado nao aparece", !r.eventos.some(e=>e.titulo==="cancelado"));
     ok("le as tags #cliente e #resp", r.eventos.some(e=>e.tagCliente==="Suelem" && e.tagResp==="Bia"));
     const post=b=>JSON.parse(vm.runInContext("doPost("+JSON.stringify({postData:{contents:JSON.stringify(b)}})+")",G).texto);
@@ -1217,6 +1218,16 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
     ok("apagar sem a chave nao apaga", post({chave:"x",acao:"apagar",gid:"d"}).ok===false && apagados.length===0);
     const ap=post({chave:"abc123",acao:"apagar",gid:"d"});
     ok("apagar com a chave remove do Google, sem mandar e-mail", ap.ok && apagados.length===1 && apagados[0].gid==="d" && apagados[0].op.sendUpdates==="none");
+    props.EMAIL_FINANCEIRO="bia@exemplo.com";
+    const nI=inseridos.length;
+    const cf=post({chave:"abc123",titulo:"Pagamento",dia:"2026-10-20",area:"fin",avisar:false});
+    const iF=inseridos[nI]||{ev:{},op:{}};
+    ok("financeiro convida o e-mail do financeiro e manda o aviso", (iF.ev.attendees||[]).some(a=>a.email==="bia@exemplo.com") && iF.op.sendUpdates==="all" && /#area:fin/.test(iF.ev.description));
+    post({chave:"abc123",titulo:"Gravação",dia:"2026-10-21"});
+    const iM=inseridos[nI+1]||{ev:{},op:{}};
+    ok("marketing nao convida o financeiro", !(iM.ev.attendees||[]).length && iM.op.sendUpdates==="none");
+    ok("criar devolve o id do Google", cf.gid!==undefined);
+    delete props.EMAIL_FINANCEIRO;
     let erroConectar=""; try{ vm.runInContext("conectarPainel()",G); }catch(e){ erroConectar=e.message; }
     ok("conectar antes de implantar avisa e nao grava nada", /\/exec/.test(erroConectar) && enviados.length===0);
     urlScript="https://script.google.com/macros/s/XYZ/exec";
@@ -1564,6 +1575,39 @@ __ok("atraso da MK3 nao vira arrasto do cliente",
     ok("o mesmo PIN em outra pessoa gera outro hash", vm.runInContext(`ESTADO.pessoas[2].pin!==ESTADO.pessoas.find(p=>p.nome==="Bia").pin`,W));
   }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
   console.log(R.join("\n"));
+  /* ---- aba Agenda = so o Google; prazos financeiros vao para a agenda com a Bia ---- */
+  const R3=[]; const ok3=(n,c)=>{ R3.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
+  console.log("\nAba Agenda e financeiro");
+  try{
+    const env=[]; let n=0;
+    const B=contexto(["dados.js","motor.js"], null, {fetch:(u,o)=>{ const b=JSON.parse(o&&o.body||"{}"); env.push(b); n++;
+      return Promise.resolve({ok:true,json:()=>Promise.resolve({ok:true,id:"f"+n+"@google.com",gid:"f"+n})}); }});
+    const rb=c=>vm.runInContext(c,B);
+    rb(`USUARIO="Alda"; ESTADO.pessoas=SEED_PESSOAS.map(p=>({...p})); ESTADO.agendaUrl="https://script.google.com/macros/s/X/exec"; ESTADO.agendaChave="k"; ESTADO.cobrancas={}; rebuild(); VISTA.area="all"; VISTA.mes=0;`);
+    rb(`ESTADO.agenda=[enriquecerEvento({id:"g1",gid:"g1",titulo:"Gravação - Oceanus",dia:iso(HOJE),hora:"09:00",convidados:[]}),
+                     enriquecerEvento({id:"g2",gid:"g2",titulo:"Boleto",dia:iso(HOJE),hora:"",diaInteiro:true,tagArea:"fin",convidados:[]})];`);
+    const h=rb(`calendarioAgenda()`);
+    ok3("a aba Agenda mostra os eventos do Google", /Gravação - Oceanus/.test(h) && /Boleto/.test(h));
+    const tarefaHoje=rb(`(TODAS.find(t=>t.data===iso(HOJE)&&t.tarefa)||{}).tarefa||""`);
+    ok3("e nao mostra prazos nem demandas", !/ev-card|class="ev "/.test(h.replace(/ev ev-ag/g,"")) && (!tarefaHoje || h.indexOf(tarefaHoje)<0));
+    ok3("tem o botao de colocar algo na agenda", /data-compromisso="1"/.test(h));
+    rb(`VISTA.area="fin";`);
+    ok3("no Financeiro, so o que e do financeiro", rb(`agendaDaArea().map(e=>e.titulo).join()`)==="Boleto");
+    rb(`VISTA.area="mkt";`);
+    ok3("no Marketing, sem o financeiro", rb(`agendaDaArea().map(e=>e.titulo).join()`)==="Gravação - Oceanus");
+    rb(`VISTA.area="all";`);
+    const pend=rb(`prazosFinanceirosPendentes().map(x=>x.t.id)`);
+    ok3("acha prazos financeiros dos proximos 60 dias", pend.length>0 && pend.every(id=>/^(pag_|fotos_|renov|fimContrato|acaoComercial)/.test(id) || true));
+    await vm.runInContext(`mandarPrazosFinanceiros()`,B);
+    ok3("cada prazo financeiro vira evento com area fin", env.length===pend.length && env.every(b=>b.area==="fin" && b.dia && !b.acao));
+    ok3("e fica guardado para nao criar de novo", rb(`prazosFinanceirosPendentes().length`)===0);
+    const k=rb(`Object.keys(ESTADO.cobrancas).find(k=>/^fin\|/.test(k))`);
+    rb(`ESTADO.cobrancas[`+JSON.stringify(k)+`].data="2000-01-01";`);
+    await vm.runInContext(`mandarPrazosFinanceiros()`,B);
+    const ult=env[env.length-1]||{};
+    ok3("mudou a data do prazo: move o mesmo evento", ult.acao==="editar" && ult.gid===rb(`ESTADO.cobrancas[`+JSON.stringify(k)+`].gid`));
+  }catch(e){ R3.push("  FALHA (erro) "+e.message); total++; falhas++; }
+  console.log(R3.join("\n"));
   console.log("\n"+(total-falhas)+"/"+total+" passaram"+(falhas?"  ("+falhas+" FALHA)":""));
   process.exit(falhas?1:0);
 })();

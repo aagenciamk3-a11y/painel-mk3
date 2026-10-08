@@ -14,7 +14,7 @@ function evAgenda(e){
     '<div class="ev-meta"><span class="ev-dot"></span>'+esc(h||"agenda")+'</div></div>';
 }
 function btEditarAg(e){
-  return (ehAdmin() && e.gid && agendaUrl()) ? '<span class="ag-ed" role="button" tabindex="0" data-agedit="'+escAttr(e.id)+'" data-tt="Editar ou apagar no Google Agenda">editar</span>' : '';
+  return (USUARIO && e.gid && agendaUrl()) ? '<span class="ag-ed" role="button" tabindex="0" data-agedit="'+escAttr(e.id)+'" data-tt="Editar ou apagar no Google Agenda">editar</span>' : '';
 }
 function proximosAgendaHTML(){
   const hoje=iso(HOJE);
@@ -45,7 +45,7 @@ function editarCompromisso(id){
   abrirCompromisso(e.dia, e);
 }
 function abrirCompromisso(diaPre, evEd){
-  if(!ehAdmin()) return;
+  if(!USUARIO) return;
   COMP_EDIT=evEd||null;
   if(!agendaUrl()){ toast("A agenda do Google ainda não está ligada ao painel",false); return; }
   const hoje=iso(HOJE);
@@ -61,7 +61,12 @@ function abrirCompromisso(diaPre, evEd){
     '<div class="cp-dica">Sem hora, entra como dia inteiro. Sem hora de término, dura 1 hora.</div>'+
     '<div class="cp-linha dois">'+
       '<label class="mlab">Cliente<select id="cpCli"><option value="">Nenhum</option>'+cls+'</select></label>'+
+      '<label class="mlab">Área<select id="cpArea">'+
+        [["mkt","Marketing"],["fin","Financeiro"],["com","Comercial"]].map(a=>'<option value="'+a[0]+'"'+
+          (a[0]===((evEd&&evEd.area)||(VISTA.area==="fin"||VISTA.area==="com"?VISTA.area:"mkt"))?" selected":"")+'>'+a[1]+'</option>').join("")+
+      '</select></label>'+
     '</div>'+
+    '<div class="cp-dica">Financeiro: a Bia entra como convidada e recebe o aviso por e-mail.</div>'+
     '<div class="mlab">Responsáveis<div class="cp-eq" id="cpResp">'+
       (ESTADO.pessoas||[]).map(p=>'<button type="button" class="cp-p" data-resp="'+escAttr(p.nome)+'">'+
         faceDe(p.nome)+esc(p.nome)+'</button>').join("")+
@@ -96,7 +101,7 @@ function preencherCompromisso(e){
   if(e.meet){ const m=$("cpMeet"); if(m){ m.classList.add("on"); m.setAttribute("aria-checked","true"); m.disabled=true; } }
 }
 function apagarCompromisso(){
-  if(!ehAdmin()||!COMP_EDIT) return;
+  if(!USUARIO||!COMP_EDIT) return;
   const bt=document.querySelector('[data-macao="apagarcomp"]');
   if(bt && !bt.classList.contains("confirma")){ bt.classList.add("confirma"); bt.textContent="Clique de novo para apagar"; return; }
   if(bt){ bt.disabled=true; bt.textContent="Apagando..."; }
@@ -112,7 +117,7 @@ function apagarCompromisso(){
     .catch(()=>{ toast("Não consegui falar com a agenda",false); if(bt){ bt.disabled=false; bt.textContent="Apagar da agenda"; bt.classList.remove("confirma"); } });
 }
 function criarCompromisso(){
-  if(!ehAdmin()) return;
+  if(!USUARIO) return;
   const v=id=>{ const el=$(id); return el?String(el.value||"").trim():""; };
   const titulo=v("cpTit"), dia=v("cpDia");
   if(!titulo){ toast("Falta dizer o que é",false); return; }
@@ -122,7 +127,8 @@ function criarCompromisso(){
   const corpo={ chave:(ESTADO.agendaChave||""), titulo:titulo, dia:dia, hora:v("cpHora"),
     fim:v("cpFim"), cliente:v("cpCli"), responsavel:resp,
     convidados:v("cpConv"), avisar:!!(av && av.classList.contains("on")),
-    meet:!!($("cpMeet") && $("cpMeet").classList.contains("on") && !(COMP_EDIT && COMP_EDIT.meet)), obs:v("cpObs") };
+    meet:!!($("cpMeet") && $("cpMeet").classList.contains("on") && !(COMP_EDIT && COMP_EDIT.meet)), obs:v("cpObs"),
+    area:(v("cpArea")||"mkt") };
   if(COMP_EDIT){ corpo.acao="editar"; corpo.gid=COMP_EDIT.gid; }
   const rotulo = COMP_EDIT ? "Salvar na agenda" : "Criar na agenda";
   const bt=document.querySelector('[data-macao="criarcomp"]');
@@ -276,6 +282,7 @@ function enriquecerEvento(e){
   const x={...e};
   x.cliente=clienteDoEvento(e);
   x.pessoa=pessoasDoEvento(e);
+  if(e.tagArea) x.area=String(e.tagArea).trim().toLowerCase();
   if(!x.area) x.area = x.cliente ? "mkt" : "";
   return x;
 }
@@ -287,6 +294,7 @@ function puxarAgendaAoVivo(){
       if(!j || !Array.isArray(j.eventos)) return;
       const antes=JSON.stringify(ESTADO.agenda||[]);
       ESTADO.agenda=j.eventos.map(enriquecerEvento);   /* só na memória: não grava nem sincroniza */
+      if(ehAdmin() && j.financeiro) mandarPrazosFinanceiros();   /* so com o e-mail da Bia configurado no script */
       if(JSON.stringify(ESTADO.agenda)!==antes){ if(ehAdmin()) sincronizarGravacoes(); marcarAgendaViva(j.lido); semPular(render); }
       else marcarAgendaViva(j.lido);
     })
@@ -374,3 +382,84 @@ function resultadosPainelHTML(){
 
 
 
+
+
+/* ================= ABA AGENDA = SO O GOOGLE AGENDA =================
+   A aba Agenda mostra o que esta no Google Agenda da MK3 (gravacoes, reunioes...)
+   e o que a equipe coloca por ali, que vai direto para o Google.
+   Prazos e demandas continuam nas outras abas. */
+function agendaDaArea(){
+  const todos=agendaVisivel(), a=VISTA.area;
+  if(!a || a==="all") return todos;
+  if(a==="fin" || a==="com") return todos.filter(e=>e.area===a);
+  return todos.filter(e=>e.area!=="fin" && e.area!=="com");
+}
+function calendarioAgenda(){
+  const topo='<div class="ag-topo">'+
+    (agendaUrl()?'':'<span class="ag-aviso">A agenda do Google ainda não está ligada ao painel.</span>')+
+    (USUARIO && agendaUrl()?'<button class="ag-novo" data-compromisso="1">+ Novo na agenda</button>':'')+'</div>';
+  return topo+calendario([], [], true, true);
+}
+function abrirDiaAgenda(dayIso){
+  const ags=agendaDaArea().filter(e=>e.dia===dayIso)
+    .sort((a,b)=>String(a.diaInteiro?"":a.hora||"").localeCompare(String(b.diaInteiro?"":b.hora||"")));
+  const titulo=d(dayIso).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+  $("modal").innerHTML='<div class="mbox diamodal"><h3>'+esc(titulo)+'</h3>'+
+    (ags.length?'<div class="diaag">'+ags.map(e=>'<div class="diaag-l">&#9679; '+esc(e.titulo)+(e.diaInteiro?'':' · '+esc(e.hora||'')+(e.fim?'–'+esc(e.fim):''))+
+      ' '+donoHTML(e)+(e.meet?' <span class="ag-m" role="link" tabindex="0" data-abrir="'+escAttr(e.meet)+'">Meet</span>':'')+' '+btEditarAg(e)+'</div>').join("")+'</div>'
+      :'<div class="vazio">Nada na agenda neste dia.</div>')+
+    '<div class="mbtns">'+
+      (USUARIO && agendaUrl()?'<button data-compromisso="1" data-cpdia="'+dayIso+'">+ Novo na agenda neste dia</button>':'')+
+      '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal();
+}
+
+/* ================= PRAZOS FINANCEIROS NA AGENDA =================
+   Mensalidade, renovacao, fim de contrato... (tudo que e da area Financeiro)
+   vira evento de dia inteiro no Google Agenda, com a Bia convidada (o script
+   convida quem esta em EMAIL_FINANCEIRO). Janela: de hoje ate 60 dias.
+   O controle fica em ESTADO.cobrancas["fin|cliente|tarefa"] = {gid, data}. */
+const FIN_JANELA=60;
+let FIN_RODANDO=false;
+function chavePrazoFin(t){ return "fin|"+t.clienteId+"|"+t.id; }
+function prazosFinanceirosPendentes(){
+  const hoje=iso(HOJE), lim=(function(){ const x=new Date(HOJE); x.setDate(x.getDate()+FIN_JANELA); return iso(x); })();
+  const reg=ESTADO.cobrancas||{};
+  return (TODAS||[]).filter(t=>t.clienteId && t.clienteId!=="_dem" && t.data && t.data>=hoje && t.data<=lim
+      && (t.areas||[t.area]).indexOf("fin")>=0 && !(t.st && t.st.k==="ok"))
+    .map(t=>({t:t, chave:chavePrazoFin(t), reg:reg[chavePrazoFin(t)]}))
+    .filter(x=>!x.reg || (x.reg.gid && x.reg.data!==x.t.data));
+}
+function corpoPrazoFin(t){
+  return { chave:(ESTADO.agendaChave||""), titulo:t.tarefa+" · "+(t.cliente||""), dia:t.data, hora:"",
+    cliente:t.clienteId, responsavel:"Bia", area:"fin", avisar:false, meet:false,
+    obs:"Prazo financeiro do Painel de Prazos"+(t.detalhe?" · "+t.detalhe:"") };
+}
+function enviarPrazoFin(x){
+  const post=b=>(typeof fetch==="function")
+    ? fetch(agendaUrl(),{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(b)}).then(r=>r.json()).catch(()=>null)
+    : Promise.resolve(null);
+  if(x.reg && x.reg.gid){                                   /* a data mudou: move o mesmo evento */
+    return post({...corpoPrazoFin(x.t), acao:"editar", gid:x.reg.gid}).then(j=>{
+      if(j&&j.ok){ ESTADO.cobrancas[x.chave]={...x.reg, data:x.t.data};
+        if(SYNC) SYNC.child("cobrancas/"+x.chave).update({data:x.t.data}).catch(()=>{}); }
+    });
+  }
+  return reservarCobranca(x.chave).then(ok=>{
+    if(!ok) return;
+    return post(corpoPrazoFin(x.t)).then(j=>{
+      const gid = j && j.ok ? (j.gid || String(j.id||"").replace(/@google\.com$/,"")) : "";
+      if(gid){ const r={gid:gid, data:x.t.data, em:new Date().toISOString()};
+        ESTADO.cobrancas=ESTADO.cobrancas||{}; ESTADO.cobrancas[x.chave]=r;
+        if(SYNC) SYNC.child("cobrancas/"+x.chave).set(r).catch(()=>{}); }
+      else if(SYNC) SYNC.child("cobrancas/"+x.chave).remove().catch(()=>{});   /* falhou: tenta de novo depois */
+    });
+  });
+}
+function mandarPrazosFinanceiros(){
+  if(FIN_RODANDO || !agendaUrl() || !ESTADO.agendaChave) return Promise.resolve();
+  const fila=prazosFinanceirosPendentes();
+  if(!fila.length) return Promise.resolve();
+  FIN_RODANDO=true;
+  return fila.reduce((p,x)=>p.then(()=>enviarPrazoFin(x)), Promise.resolve()).then(()=>{ FIN_RODANDO=false; });
+}

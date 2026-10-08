@@ -26,6 +26,14 @@ compromissos por ela. As instruções de publicação estão no topo do arquivo.
 a função `conectarPainel` grava o endereço e a chave no banco do painel, e a equipe toda passa
 a usar sem colar nada.
 
+A aba **Agenda** mostra só o Google Agenda (gravações, reuniões e o que a equipe coloca por ali,
+que vai direto para o Google). Prazos e demandas ficam nas outras abas.
+
+**Financeiro:** compromisso criado com a área Financeiro e os prazos financeiros do painel
+(mensalidade, renovação, encerramento, próximos 60 dias) viram eventos com a Bia convidada,
+que recebe o aviso por e-mail. O e-mail dela fica na propriedade `EMAIL_FINANCEIRO` do script
+(fora do repositório e do banco). Enquanto ela não estiver configurada, os prazos não são enviados.
+
 ## Publicar
 
 ```

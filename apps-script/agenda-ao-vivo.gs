@@ -16,6 +16,9 @@
  * 5. Rode  configurar  de novo (ou  conectarPainel ): grava o endereço e a chave
  *    no painel, para a equipe toda. Ninguém precisa copiar nem colar nada.
  *
+ * Financeiro: salve o e-mail da Bia em Configurações do projeto > Propriedades do script,
+ * com o nome EMAIL_FINANCEIRO. Compromisso e prazo do financeiro chegam para ela por e-mail.
+ *
  * Para atualizar o código depois SEM trocar o endereço:
  * Implantar > Gerenciar implantações > lápis > Versão: "Nova versão".
  *
@@ -86,7 +89,8 @@ function doGet() {
     pagina = r.nextPageToken;
   } while (pagina);
 
-  const resposta = { lido: Utilities.formatDate(agora, FUSO, 'dd/MM HH:mm'), eventos: saida };
+  const resposta = { lido: Utilities.formatDate(agora, FUSO, 'dd/MM HH:mm'), eventos: saida,
+    financeiro: emailsFinanceiro_().length > 0 };   // o painel só manda prazo financeiro quando a Bia está configurada
   try { cache.put('eventos', JSON.stringify(resposta), CACHE_SEG); } catch (e) {}
   return json_(resposta);
 }
@@ -107,6 +111,7 @@ function eventoParaPainel_(ev) {
     meet: meet,
     tagCliente: tag('cliente'),
     tagResp: tag('resp'),
+    tagArea: tag('area'),
     obs: obsDe_(desc),                // a descrição sem as marcas, para editar sem perder nada
     convidados: convidados
   };
@@ -149,6 +154,7 @@ function doPost(e) {
   if (p.obs) linhas.push(String(p.obs));
   if (p.cliente) linhas.push('#cliente:' + p.cliente);
   if (p.responsavel) linhas.push('#resp:' + p.responsavel);
+  if (p.area) linhas.push('#area:' + p.area);
   const ev = { summary: String(p.titulo), description: linhas.join('\n') };
 
   const hora = String(p.hora || '');
@@ -160,16 +166,27 @@ function doPost(e) {
     ev.start = { date: p.dia };
     ev.end = { date: somaDia_(p.dia) };
   }
-  const emails = String(p.convidados || '').split(/[,;\s]+/).filter(x => /@/.test(x));
+  let emails = String(p.convidados || '').split(/[,;\s]+/).filter(x => /@/.test(x));
+  // financeiro: quem está na propriedade EMAIL_FINANCEIRO (a Bia) entra como convidado e recebe por e-mail
+  const fin = p.area === 'fin' ? emailsFinanceiro_() : [];
+  fin.forEach(x => { if (emails.indexOf(x) < 0) emails.push(x); });
+  // editar não tira quem já estava convidado
+  if (p.acao === 'editar' && p.gid && emails.length) {
+    try {
+      (Calendar.Events.get(AGENDA_ID, String(p.gid)).attendees || []).forEach(a => {
+        if (a.email && emails.indexOf(a.email) < 0) emails.push(a.email);
+      });
+    } catch (x) {}
+  }
   if (emails.length) ev.attendees = emails.map(x => ({ email: x }));
   if (p.meet) ev.conferenceData = { createRequest: { requestId: Utilities.getUuid(), conferenceSolutionKey: { type: 'hangoutsMeet' } } };
 
-  const opcoes = { sendUpdates: p.avisar ? 'all' : 'none', conferenceDataVersion: p.meet ? 1 : 0 };
+  const opcoes = { sendUpdates: (p.avisar || fin.length) ? 'all' : 'none', conferenceDataVersion: p.meet ? 1 : 0 };
   const criado = (p.acao === 'editar' && p.gid)
     ? Calendar.Events.patch(ev, AGENDA_ID, String(p.gid), opcoes)
     : Calendar.Events.insert(ev, AGENDA_ID, opcoes);
   cache.remove('eventos');                            // a próxima leitura já traz o evento novo
-  return json_({ ok: true, id: criado.iCalUID || criado.id, meet: criado.hangoutLink || '' });
+  return json_({ ok: true, id: criado.iCalUID || criado.id, gid: criado.id || '', meet: criado.hangoutLink || '' });
 }
 
 function obsDe_(desc) {
@@ -178,6 +195,12 @@ function obsDe_(desc) {
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/#(cliente|resp):[^\n#]*/gi, '')
     .split('\n').map(l => l.trim()).filter(Boolean).join(' · ').slice(0, 1000);
+}
+/** E-mails do financeiro: Configurações do projeto > Propriedades do script > EMAIL_FINANCEIRO
+ *  (fica só aqui, fora do repositório e fora do banco do painel). Vários: separe por vírgula. */
+function emailsFinanceiro_() {
+  return String(PropertiesService.getScriptProperties().getProperty('EMAIL_FINANCEIRO') || '')
+    .split(/[,;\s]+/).filter(x => /@/.test(x));
 }
 function somaDia_(iso) {
   const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1);

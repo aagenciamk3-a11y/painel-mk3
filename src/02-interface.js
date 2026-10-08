@@ -177,8 +177,8 @@ function sidebarHTML(){
   h+='<div class="side-sec">Criar</div>';
   h+=bt('data-demanda="1"',"Nova demanda",IC.add,"snav-add",ehAdmin()?"Nova demanda":"Nova demanda para você");
   h+=bt('data-recorrente="1"',"Demanda recorrente",IC.repete,"snav-add",ehAdmin()?"Demanda que se repete, para uma área ou uma pessoa":"Demanda que se repete, para você");
+  if(agendaUrl()) h+=bt('data-compromisso="1"',"Novo na agenda",IC.compromisso,"snav-add","Cria direto no Google Agenda da MK3");
   if(ehAdmin()){
-    h+=bt('data-compromisso="1"',"Novo compromisso",IC.compromisso,"snav-add","Novo compromisso na agenda");
     h+='<div class="side-sec">Administração</div>';
     h+=bt('data-clientes="1"',"Cadastro de clientes",IC.cadastro,"","Cadastrar, editar e arquivar clientes");
     h+=bt('data-equipe="1"',"Permissões da equipe",IC.cadeado,"","Quem vê o quê, PIN e foto de cada pessoa");

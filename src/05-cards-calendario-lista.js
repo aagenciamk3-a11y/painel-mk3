@@ -165,7 +165,7 @@ function marcosDaArea(lista){
   return lista.filter(mk=>areaMarco(mk)===VISTA.area);
 }
 /* ---------------- CALENDÁRIO (reutilizável) ---------------- */
-function calendario(tasks, marcos, showCli){
+function calendario(tasks, marcos, showCli, soAgenda){
   const base = tasks.filter(t=>t.data);
   const ref  = new Date(HOJE.getFullYear(), HOJE.getMonth()+VISTA.mes, 1);
   const ano  = ref.getFullYear(), mes = ref.getMonth();
@@ -183,7 +183,8 @@ function calendario(tasks, marcos, showCli){
     const fds  = dt.getDay()===0 || dt.getDay()===6;
     const evs  = base.filter(t=>t.data===s);
     const mk   = marcos.filter(m=>m.data===s);
-    const ags  = (VISTA.area==="all"||VISTA.area==="mkt") ? agendaVisivel().filter(e=>e.dia===s) : [];
+    const ags  = soAgenda ? agendaDaArea().filter(e=>e.dia===s)
+               : ((VISTA.area==="all"||VISTA.area==="mkt") ? agendaVisivel().filter(e=>e.dia===s) : []);
     const cls  = ["cel", fora?"fora":"", fds?"fds":"", s===hojeIso?"hj":""].filter(Boolean).join(" ");
     const maxEv = 3;
     /* dentro do dia: o que está atrasado vem primeiro, o que já foi aprovado/concluído vem por último */

@@ -102,7 +102,7 @@ function render(){
     else if(VISTA.modo==="feed")  body = feedHTML();
     else if(VISTA.modo==="portais") body = portaisHTML();
     else if(VISTA.modo==="funil")   body = (typeof funilHTML==="function" ? funilHTML() : '');
-    else if(VISTA.modo==="cal")   body = calendario(tarefasArea(), marcosDaArea(CLIENTES.flatMap(x=>x.marcos)), true);
+    else if(VISTA.modo==="cal")   body = calendarioAgenda();       /* aba Agenda: so o Google Agenda */
     else                          body = listaGlobalHTML();
     $("view").innerHTML = avisoGravacaoHTML()+body; animar(); gravarRota();
     return;
@@ -217,7 +217,7 @@ document.addEventListener("click", function(ev){
   }
   if(D.vermotivo){ abrirMotivoLeitura(D.mcid,D.mtid,D.mday); return; }
   if(D.nota){ abrirNota(D.nota); return; }
-  if(D.dia){ abrirDia(D.dia); return; }
+  if(D.dia){ if(VISTA.modo==="cal" && !VISTA.escopo) abrirDiaAgenda(D.dia); else abrirDia(D.dia); return; }
   if(D.dropx){ removeDup(D.mcid,D.mtid,D.mday); return; }
   if(D.rowok){ concluirRapido(D.mcid,D.mtid); return; }
   if(D.mover){ MOVERMODO=true; abrirMover(D.mcid,D.mtid,D.mday); return; }   /* cada abertura comeca em Mover */
@@ -241,7 +241,7 @@ document.addEventListener("click", function(ev){
   if(D.portais){ VISTA.escopo=null; VISTA.modo="portais"; VISTA.filtro=null; render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
   if(D.recado){ abrirRecado(); return; }
   if(D.agenda){ abrirAgendaConfig(); return; }
-  if(D.compromisso){ abrirCompromisso(VISTA.dia||null); return; }
+  if(D.compromisso){ abrirCompromisso(D.cpdia||VISTA.dia||null); return; }
   if(D.agedit){ ev.preventDefault(); ev.stopPropagation(); editarCompromisso(D.agedit); return; }
   if(D.resp!==undefined && alvo.classList.contains("cp-p")){ ev.preventDefault();
     if(alvo.classList.contains("on")) alvo.classList.remove("on"); else alvo.classList.add("on"); return; }
