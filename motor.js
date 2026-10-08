@@ -3306,14 +3306,9 @@ function resultadosPainelHTML(){
 const DEM_GOOGLE_DESDE="2026-10-08";     /* demandas antigas (ja passadas) nao vao para a agenda */
 function diasDe(isoD,n){ const x=new Date(isoD+"T12:00:00Z"); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); }
 function gidsDeDemanda(){ const o={}; (ESTADO.demandas||[]).forEach(d=>{ if(d.gid) o[d.gid]=d.id; }); return o; }
-/* no Google o titulo leva o cliente junto: "Planejamento · Oceanus" */
-function sufixoCliente(dm){ const c=dm&&dm.cli?CLIENTES.find(x=>x.id===dm.cli):null; return c?" · "+primeiroNomeCli(c):""; }
-function primeiroNomeCli(c){ return String(c.nome||c.marca||"").trim(); }
-function tituloDemanda(dm){ const suf=sufixoCliente(dm); const t=String(dm.texto||""); return suf && !t.endsWith(suf) ? t+suf : t; }
-function textoDoTitulo(dm,titulo){ const suf=sufixoCliente(dm); const t=String(titulo||""); return suf && t.endsWith(suf) ? t.slice(0,-suf.length) : t; }
 function corpoDemanda(dm){
   const linhas=[]; if(dm.obs) linhas.push(dm.obs); linhas.push("Demanda do Painel de Prazos");
-  return { chave:(ESTADO.agendaChave||""), titulo:tituloDemanda(dm), dia:dm.data, hora:"", cliente:dm.cli||"",
+  return { chave:(ESTADO.agendaChave||""), titulo:dm.texto, dia:dm.data, hora:"", cliente:dm.cli||"",
            responsavel:dm.resp||"", avisar:false, meet:false, obs:linhas.join(" · ") };
 }
 function postAgenda(corpo){
@@ -3374,8 +3369,7 @@ function demandasDoGoogle(evs){
       }
       return;
     }
-    const tx=textoDoTitulo(dm,e.titulo);
-    if(tx && tx!==dm.texto){ dm.texto=tx; mudou=true; }
+    if(e.titulo && e.titulo!==dm.texto){ dm.texto=e.titulo; mudou=true; }
     if(e.dia && e.dia!==dm.data && !e.varios){ dm.data=e.dia; mudou=true; }
   });
   if(mudou){ persist(); rebuild(); }

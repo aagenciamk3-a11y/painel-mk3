@@ -1579,7 +1579,7 @@ __ok("atraso da MK3 nao vira arrasto do cliente",
     const id=ra(`addDemanda("Reunião Adriadma","mkt","`+dia+`","Alda","levar proposta","cynthia")`);
     await new Promise(r=>setImmediate(r)); await new Promise(r=>setImmediate(r));
     const c1=enviados[0]||{};
-    ok2("criar demanda cria evento de dia inteiro no Google, com o cliente no titulo", c1.titulo===ra(`"Reunião Adriadma"+sufixoCliente({cli:"cynthia"})`) && /·/.test(c1.titulo) && c1.dia===dia && c1.hora==="" && !c1.acao && c1.chave==="k1");
+    ok2("criar demanda cria evento de dia inteiro no Google", c1.titulo==="Reunião Adriadma" && c1.dia===dia && c1.hora==="" && !c1.acao && c1.chave==="k1");
     ok2("vai com cliente, responsavel e observacao, sem mandar e-mail", c1.cliente==="cynthia" && c1.responsavel==="Alda" && /levar proposta/.test(c1.obs) && c1.avisar===false);
     ok2("guarda o id do evento na demanda", ra(`ESTADO.demandas[0].gid`)==="ev1");
     ra(`editarDemanda("`+id+`",{data:diasDe(iso(HOJE),5),texto:"Reunião Adriadma (nova data)"})`);
@@ -1589,10 +1589,9 @@ __ok("atraso da MK3 nao vira arrasto do cliente",
     ra(`setObsDemanda("`+id+`","outra obs")`); await new Promise(r=>setImmediate(r));
     ok2("observacao tambem vai", (enviados[2]||{}).acao==="editar" && /outra obs/.test((enviados[2]||{}).obs));
     ra(`ESTADO.demandas[0].gidEm=0;`);
-    const evs=ra(`[{id:"x@google.com",gid:"ev1",titulo:"Reunião Adriadma - mudou no Google"+sufixoCliente({cli:"cynthia"}),dia:diasDe(iso(HOJE),6),hora:"",diaInteiro:true,convidados:[]},
+    const evs=ra(`[{id:"x@google.com",gid:"ev1",titulo:"Reunião Adriadma - mudou no Google",dia:diasDe(iso(HOJE),6),hora:"",diaInteiro:true,convidados:[]},
                    {id:"y",gid:"outro",titulo:"Gravação",dia:iso(HOJE),hora:"09:00",convidados:[]}]`);
     ra(`demandasDoGoogle(`+JSON.stringify(evs)+`)`);
-    ok2("no Google o titulo traz o cliente; no painel volta sem ele", /· /.test(evs[0].titulo));
     ok2("mudou titulo e dia no Google, a demanda acompanha", ra(`ESTADO.demandas[0].texto`)==="Reunião Adriadma - mudou no Google" && ra(`ESTADO.demandas[0].data`)===ra(`diasDe(iso(HOJE),6)`));
     ok2("evento que e demanda nao aparece duplicado na agenda", ra(`(function(){const g=gidsDeDemanda(); return `+JSON.stringify(evs)+`.filter(e=>!g[e.gid]).map(e=>e.gid).join()})()`)==="outro");
     ra(`demandasDoGoogle([])`);
