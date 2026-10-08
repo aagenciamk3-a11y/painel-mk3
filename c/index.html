@@ -612,35 +612,52 @@ function regras(c){
   const rpq = ocorrenciaAtual(c, D0, 6, "rec_pesq", "pesq6m");
   if(rpq) add(rpq.id,"Recorrente","Atualizar as duas pesquisas",
       "A cada 6 meses · mercado e comportamento, cada uma na pasta do ano e do mês", rpq.data, "Analista");
-  add("renov","Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
-      c.vencimentoContrato?addD(c.vencimentoContrato,-20):null,"Gestão");
-  if(c.vencimentoContrato)
-    add("acaoComercial","Contrato","Ação comercial — contrato encerra em 1 semana",
-        "Contato para renovação/negociação com o cliente",addD(c.vencimentoContrato,-7),"Gestão");
-  add("fimContrato","Contrato","Encerramento do contrato",
-      c.contrato?("Contrato "+c.contrato):"",c.vencimentoContrato,"Gestão");
+  /* tarefas de contrato levam a data de vencimento no id: cada contrato tem as suas.
+     Antes o id era fixo e, ao renovar, a tarefa do contrato novo ja nascia "feita". */
+  const venc=c.vencimentoContrato;
+  const idC = b => venc ? b+"_"+venc : b;
+  /* marca antiga (sem a data no id) so vale se foi feita perto deste vencimento */
+  const herdar = b => {
+    if(!venc) return;
+    const x=conclusaoDe(c,b); if(!x.feita || !x.data) return;
+    if(x.data>=addD(venc,-120) && x.data<=addD(venc,30) && !conclusaoDe(c,idC(b)).feita)
+      c.concluidas=(c.concluidas||[]).concat([{id:idC(b),data:x.data}]);
+  };
+  ["renov","acaoComercial","fimContrato","entregaMateriais"].forEach(herdar);
+  add(idC("renov"),"Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
+      venc?addD(venc,-20):null,"Gestão");
+  if(venc)
+    add(idC("acaoComercial"),"Contrato","Ação comercial — contrato encerra em 1 semana",
+        "Contato para renovação/negociação com o cliente",addD(venc,-7),"Gestão");
+  add(idC("fimContrato"),"Contrato","Encerramento do contrato",
+      c.contrato?("Contrato "+c.contrato):"",venc,"Gestão");
 
-  if(c.vencimentoContrato){
+  if(venc){
     /* entrega integral dos materiais: até o fim da vigência,
        com tolerância de 10 dias úteis depois (cláusula 4.f) */
-    add("entregaMateriais","Contrato","Entregar todos os materiais produzidos",
-        "Artes, textos e editáveis · tolerância até "+fmt(uteis(c.vencimentoContrato,10)),
-        c.vencimentoContrato,"Analista");
+    add(idC("entregaMateriais"),"Contrato","Entregar todos os materiais produzidos",
+        "Artes, textos e editáveis · tolerância até "+fmt(uteis(venc,10)),
+        venc,"Analista");
   }
 
-  /* mensalidade: todo dia 20 enquanto o contrato estiver vigente */
-  if(c.mensalidade && c.vencimentoContrato){
-    const dia = c.mensalidade.diaVencimento;
-    let m = new Date(d(c.inicioContrato||D0).getFullYear(), d(c.inicioContrato||D0).getMonth(), dia);
+  /* mensalidade: no dia de vencimento, enquanto cada contrato estiver vigente.
+     Contratos anteriores continuam gerando as mensalidades deles (historico de pagamento). */
+  const fmtR = v => Number(v||0).toLocaleString("pt-BR");
+  const mensalidades = (mens, ini, fim, nomeContrato) => {
+    if(!mens || !fim) return;
+    const dia = mens.diaVencimento;
+    let m = new Date(d(ini||D0).getFullYear(), d(ini||D0).getMonth(), dia);
     let i = 0;
-    while(iso(m) <= c.vencimentoContrato && i < 36){
+    while(iso(m) <= fim && i < 36){
       const s2 = iso(m);
-      if(s2 >= (c.inicioContrato||D0))
-        add("pag_"+s2,"Contrato","Mensalidade — R$ "+c.mensalidade.valorPix+" PIX + R$ "+
-            c.mensalidade.valorPermuta+" permuta","Vencimento dia "+dia,s2,"Cliente");
+      if(s2 >= (ini||D0) && !T.some(t=>t.id==="pag_"+s2))
+        add("pag_"+s2,"Contrato","Mensalidade — R$ "+fmtR(mens.valorPix)+" PIX"+(mens.valorPermuta?" + R$ "+fmtR(mens.valorPermuta)+" permuta":""),
+            "Vencimento dia "+dia+(nomeContrato?" · "+nomeContrato:""),s2,"Cliente");
       m.setMonth(m.getMonth()+1); i++;
     }
-  }
+  };
+  (c.contratosAnteriores||[]).forEach(k=>mensalidades(k.mensalidade, k.inicio, k.fim, k.contrato));
+  mensalidades(c.mensalidade, c.inicioContrato, c.vencimentoContrato, c.contrato);
 
   /* CICLO MENSAL PADRÃO — repete a cada mês de vigência, a partir de inicioCicloPadrao
      (ou do mês seguinte à entrada). Gera relatório, reunião mensal, planejamento e mídia

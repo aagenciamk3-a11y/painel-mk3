@@ -168,35 +168,52 @@ function regras(c){
   const rpq = ocorrenciaAtual(c, D0, 6, "rec_pesq", "pesq6m");
   if(rpq) add(rpq.id,"Recorrente","Atualizar as duas pesquisas",
       "A cada 6 meses · mercado e comportamento, cada uma na pasta do ano e do mês", rpq.data, "Analista");
-  add("renov","Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
-      c.vencimentoContrato?addD(c.vencimentoContrato,-20):null,"Gestão");
-  if(c.vencimentoContrato)
-    add("acaoComercial","Contrato","Ação comercial — contrato encerra em 1 semana",
-        "Contato para renovação/negociação com o cliente",addD(c.vencimentoContrato,-7),"Gestão");
-  add("fimContrato","Contrato","Encerramento do contrato",
-      c.contrato?("Contrato "+c.contrato):"",c.vencimentoContrato,"Gestão");
+  /* tarefas de contrato levam a data de vencimento no id: cada contrato tem as suas.
+     Antes o id era fixo e, ao renovar, a tarefa do contrato novo ja nascia "feita". */
+  const venc=c.vencimentoContrato;
+  const idC = b => venc ? b+"_"+venc : b;
+  /* marca antiga (sem a data no id) so vale se foi feita perto deste vencimento */
+  const herdar = b => {
+    if(!venc) return;
+    const x=conclusaoDe(c,b); if(!x.feita || !x.data) return;
+    if(x.data>=addD(venc,-120) && x.data<=addD(venc,30) && !conclusaoDe(c,idC(b)).feita)
+      c.concluidas=(c.concluidas||[]).concat([{id:idC(b),data:x.data}]);
+  };
+  ["renov","acaoComercial","fimContrato","entregaMateriais"].forEach(herdar);
+  add(idC("renov"),"Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
+      venc?addD(venc,-20):null,"Gestão");
+  if(venc)
+    add(idC("acaoComercial"),"Contrato","Ação comercial — contrato encerra em 1 semana",
+        "Contato para renovação/negociação com o cliente",addD(venc,-7),"Gestão");
+  add(idC("fimContrato"),"Contrato","Encerramento do contrato",
+      c.contrato?("Contrato "+c.contrato):"",venc,"Gestão");
 
-  if(c.vencimentoContrato){
+  if(venc){
     /* entrega integral dos materiais: até o fim da vigência,
        com tolerância de 10 dias úteis depois (cláusula 4.f) */
-    add("entregaMateriais","Contrato","Entregar todos os materiais produzidos",
-        "Artes, textos e editáveis · tolerância até "+fmt(uteis(c.vencimentoContrato,10)),
-        c.vencimentoContrato,"Analista");
+    add(idC("entregaMateriais"),"Contrato","Entregar todos os materiais produzidos",
+        "Artes, textos e editáveis · tolerância até "+fmt(uteis(venc,10)),
+        venc,"Analista");
   }
 
-  /* mensalidade: todo dia 20 enquanto o contrato estiver vigente */
-  if(c.mensalidade && c.vencimentoContrato){
-    const dia = c.mensalidade.diaVencimento;
-    let m = new Date(d(c.inicioContrato||D0).getFullYear(), d(c.inicioContrato||D0).getMonth(), dia);
+  /* mensalidade: no dia de vencimento, enquanto cada contrato estiver vigente.
+     Contratos anteriores continuam gerando as mensalidades deles (historico de pagamento). */
+  const fmtR = v => Number(v||0).toLocaleString("pt-BR");
+  const mensalidades = (mens, ini, fim, nomeContrato) => {
+    if(!mens || !fim) return;
+    const dia = mens.diaVencimento;
+    let m = new Date(d(ini||D0).getFullYear(), d(ini||D0).getMonth(), dia);
     let i = 0;
-    while(iso(m) <= c.vencimentoContrato && i < 36){
+    while(iso(m) <= fim && i < 36){
       const s2 = iso(m);
-      if(s2 >= (c.inicioContrato||D0))
-        add("pag_"+s2,"Contrato","Mensalidade — R$ "+c.mensalidade.valorPix+" PIX + R$ "+
-            c.mensalidade.valorPermuta+" permuta","Vencimento dia "+dia,s2,"Cliente");
+      if(s2 >= (ini||D0) && !T.some(t=>t.id==="pag_"+s2))
+        add("pag_"+s2,"Contrato","Mensalidade — R$ "+fmtR(mens.valorPix)+" PIX"+(mens.valorPermuta?" + R$ "+fmtR(mens.valorPermuta)+" permuta":""),
+            "Vencimento dia "+dia+(nomeContrato?" · "+nomeContrato:""),s2,"Cliente");
       m.setMonth(m.getMonth()+1); i++;
     }
-  }
+  };
+  (c.contratosAnteriores||[]).forEach(k=>mensalidades(k.mensalidade, k.inicio, k.fim, k.contrato));
+  mensalidades(c.mensalidade, c.inicioContrato, c.vencimentoContrato, c.contrato);
 
   /* CICLO MENSAL PADRÃO — repete a cada mês de vigência, a partir de inicioCicloPadrao
      (ou do mês seguinte à entrada). Gera relatório, reunião mensal, planejamento e mídia
@@ -475,16 +492,24 @@ const BUCKETS = ["atrasado","replan","parcial","hoje","umdia","semana","sem","ok
 /* ---- áreas (Visão Geral = tudo) ---- */
 const AREAS = [{k:"all",rot:"Visão Geral"},{k:"mkt",rot:"Marketing Digital"},
                {k:"fin",rot:"Financeiro"},{k:"com",rot:"Comercial"}];
-function areaBase(id){
-  if(/^pag_/.test(id) || /^fotos_/.test(id) || id==="renov" || id==="renovacao_atrasada") return "fin";
-  if(id==="acaoComercial") return "com";
-  return "mkt";
+/* de que area e cada tarefa. Contrato, mensalidade, renovacao e encerramento sao do
+   administrativo (fin); a acao comercial de renovacao aparece para o administrativo E o comercial. */
+function areasDaTarefa(t){
+  const id=String(t.id||"");
+  if(/^acaoComercial(_|$)/.test(id)) return ["fin","com"];
+  if(/^entregaMateriais(_|$)/.test(id)) return ["mkt"];                 /* entregar o material e trabalho do marketing */
+  if(/^(pag_|fotos_|renov(_|$)|renovacao|fimContrato(_|$))/.test(id)) return ["fin"];
+  if(t.fase==="Contrato") return ["fin"];                                 /* extras de contrato vindos do dados.js */
+  return ["mkt"];
 }
+const areaBase = id => areasDaTarefa({id:id})[0];
+/* a tarefa pertence a area? (algumas pertencem a duas) */
+const naArea = (t,a) => (t.areas||[t.area]).indexOf(a)>=0;
 const areaMatch = t => {
   const permitidas = USUARIO ? areasDe() : ["all","mkt","fin","com"];
   const a = (permitidas.indexOf(VISTA.area)>=0) ? VISTA.area : (permitidas.indexOf("all")>=0?"all":permitidas[0]);
   if(a==="all") return true;
-  return t.area===a;
+  return naArea(t,a);
 };
 
 /* ---- sidebar (estilo Pode Postar) ---- */
@@ -534,7 +559,7 @@ function areasTopoHTML(){
       const on=VISTA.area===a[0];
       /* dentro de um cliente, conta só o que é dele; fora, conta todo mundo */
       const universo = VISTA.escopo ? TODAS.filter(t=>t.clienteId===VISTA.escopo) : TODAS;
-      const n=universo.filter(t=>(a[0]==="all"||t.area===a[0]) && (t.st.k==="atrasado"||t.st.k==="hoje")).length;
+      const n=universo.filter(t=>(a[0]==="all"||naArea(t,a[0])) && (t.st.k==="atrasado"||t.st.k==="hoje")).length;
       return '<a class="abar-b'+(on?" on":"")+'" href="'+rotaDe({area:a[0]})+'" data-area="'+a[0]+'" role="tab" aria-selected="'+on+'"'+(n?' aria-label="'+escAttr(a[1])+', '+n+' urgentes"':'')+'>'+
         '<span class="abar-i">'+a[2]+'</span>'+esc(a[1])+
         (n?'<span class="abar-n">'+n+'</span>':'')+'</a>';
@@ -725,7 +750,10 @@ function rebuildCore(){
     const ov = ed[o.id]||{};
     if(ov.oculto) return;
     const c = JSON.parse(JSON.stringify(o));
-    ["nome","segmento","entrada","vencimentoContrato"].forEach(k=>{ if(ov[k]) c[k]=ov[k]; });
+    ["nome","segmento","entrada","vencimentoContrato","contrato","inicioContrato","mensalidade"].forEach(k=>{ if(ov[k]) c[k]=ov[k]; });
+    /* contratos renovados pelo painel somam ao historico do dados.js */
+    if(ov.contratosAnteriores) c.contratosAnteriores=(c.contratosAnteriores||[]).concat(
+      ov.contratosAnteriores.filter(k=>!(c.contratosAnteriores||[]).some(x=>x.contrato===k.contrato)));
     c.concluidas=(o.concluidas||[]).slice();
     const dd=ESTADO.datas[c.id]||{};
     for(const k in dd){ if(dd[k]) c[k]=dd[k]; }
@@ -737,7 +765,7 @@ function rebuildCore(){
     }
     CLIENTES.push(c);
   });
-  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>ajustarParcial(ajustarReplan({...t, st:status(t), area:areaBase(t.id)}))))
+  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>{ const as=areasDaTarefa(t); return ajustarParcial(ajustarReplan({...t, st:status(t), area:as[0], areas:as})); }))
     .filter(t=>((ESTADO.excluidas||{})[t.clienteId]||[]).indexOf(t.id)<0)
     .map(t=>{ const nv=((ESTADO.titulos||{})[t.clienteId]||{})[t.id];
               return nv ? {...t, tarefa:nv, tituloOriginal:t.tarefa} : t; });
@@ -800,12 +828,15 @@ const igual = (a,b) => chaveCanon(a)===chaveCanon(b);
 /* ate que nivel cada parte do estado desce: onde varios clientes dividem o mesmo objeto
    (semana -> cliente|tarefa|dia), descer mais evita que duas pessoas se atropelem */
 const PROF = {semanal:3, obsT:3, datas:3, ficha:3, clientes:3, plano:3, portais:3, resultados:2};
+/* o que nunca vai para o banco: a agenda e lida do Google por cada navegador, a cada minuto */
+const SO_LOCAL = new Set(["agenda"]);
 function caminhosDiff(a,b){
   const out=[];
   const desce=(x,y,pre)=>{
     const lim=PROF[pre[0]]||2;
     const ks=new Set(Object.keys(x||{}).concat(Object.keys(y||{})));
     ks.forEach(k=>{
+      if(!pre.length && SO_LOCAL.has(k)) return;
       const u=(x||{})[k], w=(y||{})[k], p=pre.concat(k);
       if(igual(u,w)) return;
       if(ehObj(u) && ehObj(w) && p.length<lim) desce(u,w,p);
@@ -895,8 +926,13 @@ function aplicarRemoto(novo, caminhos){
       o.log=somarLog(o.log, novo.log); pilha[i]=JSON.stringify(o); }catch(e){} });
     fix(UNDO); fix(REDO);
   }
+  /* o que e so local (agenda do Google) continua o que este navegador leu */
+  SO_LOCAL.forEach(k=>{ if(ESTADO && ESTADO[k]!==undefined) novo[k]=ESTADO[k]; });
+  const urlAntes = ESTADO && ESTADO.agendaUrl;
   ESTADO=novo;
   try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
+  /* o endereco da agenda pode chegar so agora (navegador novo, cache limpo): liga a leitura na hora */
+  if(typeof ligarAgendaAoVivo==="function" && ESTADO.agendaUrl && (ESTADO.agendaUrl!==urlAntes || !AGENDA_T)) ligarAgendaAoVivo();
   const pinAberto = document.getElementById("pinInput");          /* nao redesenha a tela de PIN no meio da digitacao */
   rebuild(); if(!(pinAberto && !USUARIO)) render();
   SYNC_APLICANDO=false;
@@ -998,6 +1034,15 @@ function publicarEspelho(){
       base.child(cfg.ativo).update({...dados, ativo:cfg.ativo});
       (cfg.revogados||[]).forEach(tk=>{ base.child(tk).remove(); });
     });
+    /* cliente que saiu do sistema (tirado do dados.js): o link do portal sai do ar, como no arquivar */
+    const existe=new Set(ORIG.concat(ESTADO.novosClientes||[]).map(c=>c.id));
+    let mudou=false;
+    Object.keys(ESTADO.portais||{}).forEach(cid=>{
+      const cfg=ESTADO.portais[cid];
+      if(existe.has(cid) || !cfg || !cfg.ativo || cfg.desligado) return;
+      desligarPortal(cid); mudou=true;
+    });
+    if(mudou){ try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){} syncEnviar(); }
   }catch(e){}
 }
 function agendarEspelho(){ clearTimeout(ESPELHO_T); ESPELHO_T=setTimeout(publicarEspelho,1500); }
@@ -1689,7 +1734,7 @@ function abrirClientes(){
       return '<div class="pcard">'+
         '<div class="pc-topo">'+avatarHTML(c,"card-face")+
           '<div class="pc-id"><span class="pc-n">'+esc(c.nome)+(novo?' <i class="cl-novo">novo</i>':'')+'</span>'+
-          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · contrato até '+fmt(c.vencimentoContrato)+
+          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · '+esc(c.contrato||"contrato")+' até '+fmt(c.vencimentoContrato)+
           (objetivoDe(c)?' · objetivo: '+esc((OBJETIVOS.find(o=>o[0]===objetivoDe(c))||["",""])[1].toLowerCase())+(metaDe(c)?' (meta '+numBR(metaDe(c))+')':''):'')+'</span></div>'+
           '<button class="pc-ico" data-clied="'+escAttr(c.id)+'" title="Editar cliente" aria-label="Editar">&#9998;</button>'+
           '<button class="pc-ico rm" data-cliocultar="'+escAttr(c.id)+'" title="Arquivar cliente" aria-label="Arquivar cliente">&#128230;</button>'+
@@ -1715,7 +1760,16 @@ function abrirClienteForm(id){
     '<label class="mlab">Nome<input type="text" id="clNome" value="'+escAttr(c?c.nome:"")+'" autocomplete="off"></label>'+
     '<label class="mlab">Segmento<select id="clSeg">'+segs.map(s=>'<option'+((c&&c.segmento===s)?" selected":"")+'>'+s+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Entrada (assinatura)<input type="date" id="clEnt" value="'+escAttr(c?c.entrada:iso(HOJE))+'"></label>'+
-    '<label class="mlab">Vencimento do contrato<input type="date" id="clVen" value="'+escAttr(c?(c.vencimentoContrato||""):"")+'"></label>'+
+    '<div class="cl-sec">Contrato vigente</div>'+
+    '<label class="mlab">Número do contrato<input type="text" id="clCon" value="'+escAttr(c?(c.contrato||""):"")+'" placeholder="Ex.: CS00009/2026" autocomplete="off"></label>'+
+    '<div class="cp-linha dois">'+
+      '<label class="mlab">Início<input type="date" id="clIni" value="'+escAttr(c?(c.inicioContrato||""):"")+'"></label>'+
+      '<label class="mlab">Vencimento<input type="date" id="clVen" value="'+escAttr(c?(c.vencimentoContrato||""):"")+'"></label></div>'+
+    '<div class="cp-linha tres">'+
+      '<label class="mlab">Mensalidade PIX (R$)<input type="number" min="0" step="1" id="clPix" value="'+escAttr(c&&c.mensalidade?c.mensalidade.valorPix:"")+'"></label>'+
+      '<label class="mlab">Permuta (R$)<input type="number" min="0" step="1" id="clPerm" value="'+escAttr(c&&c.mensalidade?(c.mensalidade.valorPermuta||0):"")+'"></label>'+
+      '<label class="mlab">Dia do vencimento<input type="number" min="1" max="31" id="clDia" value="'+escAttr(c&&c.mensalidade?c.mensalidade.diaVencimento:"")+'"></label></div>'+
+    (c?'<p class="mhint">Trocou o número do contrato? O anterior fica guardado com as mensalidades dele.</p>':'')+
     '<div class="mbtns"><button data-macao="salvarcli" data-cliid="'+escAttr(c?c.id:"")+'">Salvar</button>'+
     '<button class="sec" data-macao="fecharcli">Cancelar</button></div></div>';
   mostrarModal(true);
@@ -1725,6 +1779,13 @@ function salvarCliente(id,dados){
   snapshot();
   if(id){
     ESTADO.clientes=ESTADO.clientes||{};
+    const atual=CLIENTES.find(x=>x.id===id);
+    /* contrato renovado: o anterior vai para o historico, com as mensalidades dele */
+    if(atual && dados.contrato && atual.contrato && dados.contrato!==atual.contrato && atual.inicioContrato){
+      const ant={contrato:atual.contrato, inicio:atual.inicioContrato,
+                 fim:addD(dados.inicioContrato||atual.vencimentoContrato||iso(HOJE),-1), mensalidade:atual.mensalidade||null};
+      dados.contratosAnteriores=((ESTADO.clientes[id]||{}).contratosAnteriores||[]).concat([ant]);
+    }
     ESTADO.clientes[id]={...(ESTADO.clientes[id]||{}), ...dados};
     const n=(ESTADO.novosClientes||[]).find(x=>x.id===id);
     if(n) Object.assign(n,dados);
@@ -1733,8 +1794,8 @@ function salvarCliente(id,dados){
     const novoId="cli_"+Date.now();
     ESTADO.novosClientes=(ESTADO.novosClientes||[]).concat([{
       id:novoId, nome:dados.nome||"Cliente novo", marca:dados.nome||"", segmento:dados.segmento||"",
-      plano:"", entrada:dados.entrada||iso(HOJE), contrato:"", inicioContrato:dados.entrada||iso(HOJE),
-      vencimentoContrato:dados.vencimentoContrato||null, mensalidade:null,
+      plano:"", entrada:dados.entrada||iso(HOJE), contrato:dados.contrato||"", inicioContrato:dados.inicioContrato||dados.entrada||iso(HOJE),
+      vencimentoContrato:dados.vencimentoContrato||null, mensalidade:dados.mensalidade||null,
       escopo:{agendamento:true,calendarioEditorial:false,trafegoPago:false},
       imersao:null, reuniaoPlanejamentoEntrada:null, envioPlanejamento:null, aprovacaoPlanejamento:null,
       envioMidia:null, aprovacaoMidia:null, gravacao:null, artesDependemDaGravacao:false,
@@ -2308,13 +2369,21 @@ function handleModal(D){
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); semPular(()=>abrirEquipe()); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
   if(D.macao==="salvarcli"){
-    salvarCliente(D.cliid||null,{nome:(($("clNome")&&$("clNome").value)||"").trim(),
-      segmento:$("clSeg")&&$("clSeg").value, entrada:$("clEnt")&&$("clEnt").value,
-      vencimentoContrato:($("clVen")&&$("clVen").value)||null,
-      objetivo:($("clObj")&&$("clObj").value)||"",
-      meta:(($("clMeta")&&$("clMeta").value)||"")===""?null:Number($("clMeta").value),
-      drive:($("clDrive")&&$("clDrive").value.trim())||"", insta:($("clInsta")&&$("clInsta").value.trim())||"",
-      wpp:($("clWpp")&&$("clWpp").value.trim())||""});
+    /* so grava o que o formulario tem: antes, salvar apagava objetivo, meta e links (campos que nao estavam na tela) */
+    const val=id=>{ const e=$(id); return e ? String(e.value||"").trim() : undefined; };
+    const dados={};
+    const put=(k,v)=>{ if(v!==undefined) dados[k]=v; };
+    put("nome",val("clNome")); put("segmento",val("clSeg")); put("entrada",val("clEnt"));
+    put("contrato",val("clCon")); put("inicioContrato",val("clIni")||undefined);
+    const ven=val("clVen"); if(ven!==undefined) dados.vencimentoContrato=ven||null;
+    const pix=val("clPix"), perm=val("clPerm"), dia=val("clDia");
+    if(pix!==undefined && pix!==""){
+      if(!(Number(dia)>=1 && Number(dia)<=31)){ toast("Dia do vencimento tem que ser de 1 a 31",false); return; }
+      dados.mensalidade={valorPix:Number(pix)||0, valorPermuta:Number(perm)||0, diaVencimento:Number(dia)};
+    }
+    if(dados.inicioContrato && dados.vencimentoContrato && dados.inicioContrato>dados.vencimentoContrato){
+      toast("O início do contrato está depois do vencimento",false); return; }
+    salvarCliente(D.cliid||null,dados);
     semPular(()=>abrirClientes()); toast("Cliente salvo",true); return;
   }
   if(D.macao==="fecharcli"){ semPular(()=>abrirClientes()); return; }
@@ -2467,7 +2536,6 @@ function coresSeg(seg){
 const CORCLI = {
   adriana:  ["#d8ab4c","#8c6a1c"],   // Dinha Mais — dourado
   suelem:   ["#8a3b5e","#4b1930"],   // Suelem — roxo vinho
-  leonardo: ["#2bb7c0","#116169"],   // Leonardo — azul-turquesa
   cynthia:  ["#cbb693","#9a8461"],   // Cynthia — bege
   oceanus:  ["#2a30df","#1414a2"],   // Oceanus — azul da logo
   cli_1786128011208: ["#501e93","#30105c"],  // MK3 — roxo da marca
@@ -2478,7 +2546,7 @@ const coresDe = c => CORCLI[c.id] || coresSeg(c.segmento);
 const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
 const FOTO_FIXA = {
-  cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg", leonardo:"fotos/leonardo.jpg",
+  cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg",
   oceanus:"fotos/oceanus.jpg", adriana:"fotos/dinha.jpg",
   cli_1786128681070:"fotos/tyconnex.jpg",
   cli_1786128011208:"fotos/mk3.jpg",
@@ -2646,8 +2714,22 @@ function seloCliente(c){
     if(n<0)   return '<span class="badge-ativo b-alerta">Contrato venceu</span>';
     if(n<=30) return '<span class="badge-ativo b-aviso">Contrato vence em '+n+(n===1?' dia':' dias')+'</span>'; }
   const o=onboardingDe(c);
-  if(o.total && !o.completo) return '<span class="badge-ativo">Onboarding</span>';
+  if(o.total && !o.completo && mostraOnboarding()) return '<span class="badge-ativo">Onboarding</span>';
   return '';
+}
+/* contrato e mensalidade no card (so para quem cuida do administrativo) */
+function contratoCardHTML(c){
+  if(!mostraFinanceiro()) return '';
+  const m=c.mensalidade||null, r=v=>"R$ "+Number(v||0).toLocaleString("pt-BR");
+  const per=(c.inicioContrato&&c.vencimentoContrato) ? fmt(c.inicioContrato)+" a "+fmt(c.vencimentoContrato)
+           : (c.vencimentoContrato ? "até "+fmt(c.vencimentoContrato) : "sem data de vencimento");
+  return '<div class="ccard-fin">'+
+    '<div class="cf"><span>Contrato</span><b>'+esc(c.contrato||"sem número")+'</b><i>'+esc(per)+'</i></div>'+
+    '<div class="cf"><span>Mensalidade</span>'+(m
+      ? '<b>'+r((m.valorPix||0)+(m.valorPermuta||0))+'</b><i>'+
+          (m.valorPermuta ? Number(m.valorPix||0).toLocaleString("pt-BR")+" PIX + "+Number(m.valorPermuta).toLocaleString("pt-BR")+" permuta" : "PIX")+' · dia '+esc(m.diaVencimento)+'</i>'
+      : '<b>—</b><i>não cadastrada</i>')+'</div>'+
+  '</div>';
 }
 function cardsHTML(){
   /* conta uma vez por cliente: antes o sort refiltrava TODAS a cada comparacao */
@@ -2672,7 +2754,7 @@ function cardsHTML(){
         '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3>'+seloCliente(c)+'</div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
           '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
-      onbBadgeHTML(c)+linksHTML(c,"card")+'</div></a>';
+      contratoCardHTML(c)+onbBadgeHTML(c)+linksHTML(c,"card")+'</div></a>';
   }).join("");
 }
 
@@ -3036,7 +3118,7 @@ function marcarAgendaViva(quando,erro){
   el.title = quando ? ("última leitura "+quando) : "";
 }
 function ligarAgendaAoVivo(){
-  clearInterval(AGENDA_T);
+  clearInterval(AGENDA_T); AGENDA_T=null;
   if(!agendaUrl()) return;
   puxarAgendaAoVivo();
   AGENDA_T=setInterval(()=>{ if(!document.hidden) puxarAgendaAoVivo(); }, 60000);   /* aba escondida nao busca */
@@ -3074,7 +3156,7 @@ function salvarAgendaUrl(){
   toast(v?"Agenda ao vivo ligada":"Agenda ao vivo desligada", true);
 }
 /* ================= RESULTADOS (Reportei) ================= */
-const REPORTEI_PROJ = { leonardo:1100216, suelem:1265569, oceanus:1180490 };   /* cliente do painel -> projeto no Reportei */
+const REPORTEI_PROJ = { suelem:1265569, oceanus:1180490 };   /* cliente do painel -> projeto no Reportei */
 const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
 function mesAtualYM(){ const d=HOJE; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function resultadoDe(cid, ym){
@@ -3129,7 +3211,6 @@ function carimboHTML(t){
 /* links úteis de cada cliente */
 const LINKS_PADRAO = {
   suelem:   {drive:"https://drive.google.com/drive/folders/1O5eYgdfNYqghQnjc0q84_NpBcW9Cr63m", insta:"suelemmartinsgomes", wpp:"27998887565"},
-  leonardo: {drive:"https://drive.google.com/drive/folders/1eadjcdimP-grmxJRpjslvLIHoLZ0fBqp", insta:"leonardodepaulacorretor", wpp:"27998871444"},
   cynthia:  {drive:"https://drive.google.com/drive/folders/1SlPUFY7OOSqso9lhAUfi92dFg2j23Eza", insta:"cynthiadcorretora", wpp:"27999178909"},
   oceanus:  {drive:"https://drive.google.com/drive/folders/1FAUG6fIzv3nIB1bqlUdAkHEX2BFSqQN0", insta:"escolaoceanus", wpp:"27992626014"},
   adriana:  {drive:"https://drive.google.com/drive/folders/1Mr_J56Sp8d2wnaTIfjkOT6BlXQlIXaHf", insta:"adriana.dinhamais", wpp:"27988537167"}
@@ -3168,18 +3249,6 @@ const FICHA_PADRAO = {
     refs:"Suelem, Larissa Moraes (refugios.lar.lare), Carolina Zarch.",
     sucesso:"Um cliente chegar pelo Instagram, e ser reconhecida na região onde mora.",
     recado:"Na imersão você foi clara: não quer seguidor por seguidor, quer gente de Vitória. Hoje boa parte da sua base ainda é de Cachoeiro, e é isso que estamos virando. Cada seguidor novo daqui é alguém que pode visitar um imóvel com você."
-  },
-  leonardo:{
-    frase:"Autenticidade, conhecimento e autoridade no mercado imobiliário. 11 anos no setor, 22 em vendas.",
-    objetivo:"Mais autoridade e mais vendas. Mede por captações e por quanta gente chega até ele.",
-    publico:"Investidores e famílias em evolução, 30 a 50 anos, com filhos e pets, do interior do ES. Pessoas de fé.",
-    tom:"Próximo, humano e técnico na medida. Clareza e objetividade, odeia enrolação.",
-    temas:"Clientes felizes, etapas da compra, dados de mercado, bastidores, família e natureza. Formação em Geoprocessamento é diferencial.",
-    evitar:"Política, futebol e religião de forma polêmica. Mentira, palavrão, tratar cliente como número.",
-    visual:"Ainda sem branding fechado. Deseja estudo de cores e fontes no futuro.",
-    refs:"Jesus, Kleverson.",
-    sucesso:"Comprar a casa, o apartamento e trocar de carro.",
-    recado:"Você mede o resultado pelo tanto de gente que chega até você. É por isso que acompanhamos as visitas ao perfil e não o número de seguidores: cada visita aqui é alguém que viu seu conteúdo e parou para te conhecer antes de falar com você."
   },
   adriana:{
     frase:"Elevando a autoestima da mulher.",
@@ -3387,7 +3456,12 @@ function onboardingDe(c){
   return {itens:itens, feitas:feitas, total:itens.length, criticas:criticas,
           completo: itens.length>0 && feitas===itens.length};
 }
+/* onboarding e trabalho do marketing: so aparece na Visao geral e no Mkt Digital, para quem ve marketing */
+const mostraOnboarding = () => (VISTA.area==="all"||VISTA.area==="mkt") && podeArea("mkt");
+/* contrato e mensalidade sao do administrativo: Visao geral e Financeiro, para quem ve financeiro */
+const mostraFinanceiro = () => (VISTA.area==="all"||VISTA.area==="fin") && podeArea("fin");
 function onbBadgeHTML(c){
+  if(!mostraOnboarding()) return '';
   const o=onboardingDe(c); if(!o.total) return '';
 
   const pct=Math.round(o.feitas/o.total*100);
@@ -3398,6 +3472,7 @@ function onbBadgeHTML(c){
   '</div>';
 }
 function onboardingHTML(c){
+  if(!mostraOnboarding()) return '';
   const o=onboardingDe(c); if(!o.total) return '';
   return '<section class="onb-box'+(o.completo?" ok":"")+'">'+
     '<div class="onb-h"><b>Onboarding</b><span>'+o.feitas+' de '+o.total+' etapas</span>'+
@@ -3419,7 +3494,7 @@ function tarefasDe(nome){
   return TODAS.filter(t=>{
     if(t.fase==="Demanda") return t.resp===nome;      /* demanda tem dono com nome */
     if(p.admin) return false;                          /* admin só conta o que tem o nome dele */
-    return (p.areas||[]).indexOf(t.area)>=0;
+    return (p.areas||[]).some(a=>naArea(t,a));
   });
 }
 function cargaSemana(ts){
@@ -3476,7 +3551,7 @@ function recadoTexto(){
   const donoDe=t=>{
     if(t.fase==="Demanda") return t.resp||"";
     if(t.resp==="Cliente") return "cliente";
-    const p=(ESTADO.pessoas||[]).find(x=>!x.admin && (x.areas||[]).indexOf(t.area)>=0);
+    const p=(ESTADO.pessoas||[]).find(x=>!x.admin && (x.areas||[]).some(a=>naArea(t,a)));
     return p?p.nome:"";
   };
   const linha=t=>{ const d=donoDe(t); return "- "+cli(t)+": "+t.tarefa+(d?" ("+d+")":""); };
@@ -3691,8 +3766,8 @@ function confirmarRemoverPessoa(nome){
 function removePessoa(nome){ snapshot(); ESTADO.pessoas=(ESTADO.pessoas||[]).filter(p=>p.nome!==nome); persist(); rebuild(); render(); }
 function setFotoPessoa(nome,url){ const p=pessoaPorNome(nome); if(!p) return; snapshot(); p.foto=url; persist(); rebuild(); render(); }
 function relevanteBoard(t){
-  if(t.fase==="Demanda") return VISTA.area==="all" || t.area===VISTA.area;
-  if(VISTA.area==="fin" || VISTA.area==="com") return t.area===VISTA.area;
+  if(t.fase==="Demanda") return VISTA.area==="all" || naArea(t,VISTA.area);
+  if(VISTA.area==="fin" || VISTA.area==="com") return naArea(t,VISTA.area);
   return !!EXEC[baseId(t.id)];   // Visão Geral / Marketing: entregas de execução
 }
 function resumoSemanaHTML(){

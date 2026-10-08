@@ -209,7 +209,7 @@ function marcarAgendaViva(quando,erro){
   el.title = quando ? ("última leitura "+quando) : "";
 }
 function ligarAgendaAoVivo(){
-  clearInterval(AGENDA_T);
+  clearInterval(AGENDA_T); AGENDA_T=null;
   if(!agendaUrl()) return;
   puxarAgendaAoVivo();
   AGENDA_T=setInterval(()=>{ if(!document.hidden) puxarAgendaAoVivo(); }, 60000);   /* aba escondida nao busca */
@@ -247,7 +247,7 @@ function salvarAgendaUrl(){
   toast(v?"Agenda ao vivo ligada":"Agenda ao vivo desligada", true);
 }
 /* ================= RESULTADOS (Reportei) ================= */
-const REPORTEI_PROJ = { leonardo:1100216, suelem:1265569, oceanus:1180490 };   /* cliente do painel -> projeto no Reportei */
+const REPORTEI_PROJ = { suelem:1265569, oceanus:1180490 };   /* cliente do painel -> projeto no Reportei */
 const numBR = n => (n==null||isNaN(n)) ? "-" : Number(n).toLocaleString("pt-BR");
 function mesAtualYM(){ const d=HOJE; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function resultadoDe(cid, ym){

@@ -106,8 +106,22 @@ function seloCliente(c){
     if(n<0)   return '<span class="badge-ativo b-alerta">Contrato venceu</span>';
     if(n<=30) return '<span class="badge-ativo b-aviso">Contrato vence em '+n+(n===1?' dia':' dias')+'</span>'; }
   const o=onboardingDe(c);
-  if(o.total && !o.completo) return '<span class="badge-ativo">Onboarding</span>';
+  if(o.total && !o.completo && mostraOnboarding()) return '<span class="badge-ativo">Onboarding</span>';
   return '';
+}
+/* contrato e mensalidade no card (so para quem cuida do administrativo) */
+function contratoCardHTML(c){
+  if(!mostraFinanceiro()) return '';
+  const m=c.mensalidade||null, r=v=>"R$ "+Number(v||0).toLocaleString("pt-BR");
+  const per=(c.inicioContrato&&c.vencimentoContrato) ? fmt(c.inicioContrato)+" a "+fmt(c.vencimentoContrato)
+           : (c.vencimentoContrato ? "até "+fmt(c.vencimentoContrato) : "sem data de vencimento");
+  return '<div class="ccard-fin">'+
+    '<div class="cf"><span>Contrato</span><b>'+esc(c.contrato||"sem número")+'</b><i>'+esc(per)+'</i></div>'+
+    '<div class="cf"><span>Mensalidade</span>'+(m
+      ? '<b>'+r((m.valorPix||0)+(m.valorPermuta||0))+'</b><i>'+
+          (m.valorPermuta ? Number(m.valorPix||0).toLocaleString("pt-BR")+" PIX + "+Number(m.valorPermuta).toLocaleString("pt-BR")+" permuta" : "PIX")+' · dia '+esc(m.diaVencimento)+'</i>'
+      : '<b>—</b><i>não cadastrada</i>')+'</div>'+
+  '</div>';
 }
 function cardsHTML(){
   /* conta uma vez por cliente: antes o sort refiltrava TODAS a cada comparacao */
@@ -132,7 +146,7 @@ function cardsHTML(){
         '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3>'+seloCliente(c)+'</div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
           '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
-      onbBadgeHTML(c)+linksHTML(c,"card")+'</div></a>';
+      contratoCardHTML(c)+onbBadgeHTML(c)+linksHTML(c,"card")+'</div></a>';
   }).join("");
 }
 

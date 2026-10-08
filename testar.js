@@ -77,9 +77,9 @@ __ok("remarcacao vencida vira status proprio", t.st.k==="replan");
 __ok("e diz que venceu de novo", /venceu de novo/.test(t.st.txt));
 __ok("replan esta nos baldes", BUCKETS.indexOf("replan")>=0 && !!ROTULO.replan);
 const wk=segOf(passou);
-ESTADO.obsT[wk]={}; ESTADO.obsT[wk]["leonardo|envPlanej_2026-08|"+passou]={txt:"metade",parcial:true};
-ESTADO.dup=[{cid:"leonardo",tid:"envPlanej_2026-08",dia:passou,orig:"2026-08-24"}]; rebuild();
-t=TODAS.find(x=>x.clienteId==="leonardo"&&x.id==="envPlanej_2026-08");
+ESTADO.obsT[wk]={}; ESTADO.obsT[wk]["cynthia|envPlanej_2026-08|"+passou]={txt:"metade",parcial:true};
+ESTADO.dup=[{cid:"cynthia",tid:"envPlanej_2026-08",dia:passou,orig:"2026-08-24"}]; rebuild();
+t=TODAS.find(x=>x.clienteId==="cynthia"&&x.id==="envPlanej_2026-08");
 __ok("parcial tem prioridade sobre replan", t.st.k!=="replan" && /Parcial/.test(t.st.txt));
 `);
 
@@ -88,7 +88,7 @@ const ag=iso(HOJE);
 ESTADO.log=[
  {ts:new Date().toISOString(),cliente:"suelem",nome:"Criar o planejamento",acao:"concluir",id:"planej_2026-08",data:ag,quem:"Carla"},
  {ts:new Date(Date.now()-3*3600e3).toISOString(),cliente:"suelem",nome:"Mensalidade",acao:"concluir",id:"pag_2026-08-20",data:ag,quem:"Bia"},
- {ts:new Date().toISOString(),cliente:"leonardo",nome:"Acao comercial",acao:"concluir",id:"acaoComercial",data:ag,quem:"Marlon"},
+ {ts:new Date().toISOString(),cliente:"cynthia",nome:"Acao comercial",acao:"concluir",id:"acaoComercial",data:ag,quem:"Marlon"},
  {ts:new Date().toISOString(),cliente:"cynthia",nome:"Cadastro",acao:"cliente-editado",quem:"Guilherme"},
  {ts:new Date().toISOString(),acao:"demanda",id:"dem_1",nome:"Post extra",area:"fin",data:ag,quem:"Bia"},
  {ts:new Date(Date.now()-80*3600e3).toISOString(),cliente:"cynthia",nome:"Antigo",acao:"concluir",id:"z",quem:"Bia"}
@@ -144,18 +144,18 @@ const futuro=addD(iso(HOJE),2), velho=addD(iso(HOJE),-40);
 ESTADO.agenda=[
  {id:"e1",titulo:"GRAVAÇÃO OCEANUS",dia:futuro,hora:"09:00",cliente:"oceanus"},
  {id:"e2",titulo:"Reunião de planejamento",dia:futuro,cliente:"suelem"},
- {id:"e3",titulo:"Gravacao Leo",dia:velho,cliente:"leonardo"}
+ {id:"e3",titulo:"Gravacao Cynthia",dia:velho,cliente:"cynthia"}
 ];
 const mp=gravacoesDaAgenda();
 __ok("acha com acento", !!mp.oceanus && mp.oceanus.dia===futuro);
-__ok("acha sem acento", !!mp.leonardo);
+__ok("acha sem acento", !!mp.cynthia);
 __ok("ignora o que nao e gravacao", !mp.suelem);
 sincronizarGravacoes();
 __ok("preenche o que estava vazio", (ESTADO.datas.oceanus||{}).gravacao===futuro);
 __ok("data futura nao marca como feita",
   (TODAS.find(t=>t.clienteId==="oceanus"&&t.id==="c1_gravacao")||{st:{k:"-"}}).st.k!=="ok");
 __ok("data passada marca como feita",
-  (TODAS.find(t=>t.clienteId==="leonardo"&&t.id==="c1_gravacao")||{st:{k:"-"}}).st.k==="ok");
+  (TODAS.find(t=>t.clienteId==="cynthia"&&t.id==="c1_gravacao")||{st:{k:"-"}}).st.k==="ok");
 __ok("log diz que veio da agenda", ESTADO.log.some(x=>x.quem==="Agenda"));
 ESTADO.datas.oceanus={gravacao:"2026-08-20"}; rebuild();
 __ok("acusa divergencia", divergenciasGravacao().some(x=>x.cid==="oceanus"&&x.agenda===futuro));
@@ -792,27 +792,27 @@ globalThis.firebase=undefined; globalThis.MK3_FIREBASE=undefined;
 bloco("Demanda do cliente nos filtros", M, limpar+`
 USUARIO="Guilherme";
 const dcDia=iso(HOJE);
-const dcId=addDemanda("Planejamento de Setembro","mkt",dcDia,"Carla","","leonardo");
+const dcId=addDemanda("Planejamento de Setembro","mkt",dcDia,"Carla","","cynthia");
 const dcT=TODAS.find(x=>x.id===dcId);
-__ok("a demanda guarda o cliente", dcT && dcT.cliDem==="leonardo");
+__ok("a demanda guarda o cliente", dcT && dcT.cliDem==="cynthia");
 __ok("mas continua no balde das demandas", dcT.clienteId==="_dem");
 __ok("aparece no calendario geral", tarefasArea().some(x=>x.id===dcId));
-__ok("e tambem ao filtrar pelo cliente", tarefasCli(cliente("leonardo")).some(x=>x.id===dcId));
+__ok("e tambem ao filtrar pelo cliente", tarefasCli(cliente("cynthia")).some(x=>x.id===dcId));
 __ok("nao vaza para outro cliente", !tarefasCli(cliente("suelem")).some(x=>x.id===dcId));
 
 /* era exatamente este o furo: aparecia no dia, sumia no filtro.
    abrirDia monta a lista do dia a partir deste mesmo recorte. */
-const doDiaCli = TODAS.filter(x=>ehDoCliente(x,"leonardo")).filter(x=>x.data===dcDia);
+const doDiaCli = TODAS.filter(x=>ehDoCliente(x,"cynthia")).filter(x=>x.data===dcDia);
 __ok("a janela do dia do cliente inclui a demanda", doDiaCli.some(x=>x.id===dcId));
 const doDiaGeral = tarefasArea().filter(x=>x.data===dcDia);
 __ok("e a janela do dia geral continua incluindo", doDiaGeral.some(x=>x.id===dcId));
-__ok("o recorte antigo era o que perdia", !TODAS.filter(x=>x.clienteId==="leonardo").some(x=>x.id===dcId));
+__ok("o recorte antigo era o que perdia", !TODAS.filter(x=>x.clienteId==="cynthia").some(x=>x.id===dcId));
 
 const dcInt=addDemanda("Reuniao interna","mkt",dcDia,"Carla","","");
 const dcTi=TODAS.find(x=>x.id===dcInt);
 __ok("demanda sem cliente nao ganha dono", dcTi && !dcTi.cliDem);
 __ok("e nao entra no filtro de cliente nenhum",
-  !tarefasCli(cliente("leonardo")).some(x=>x.id===dcInt) &&
+  !tarefasCli(cliente("cynthia")).some(x=>x.id===dcInt) &&
   !tarefasCli(cliente("suelem")).some(x=>x.id===dcInt));
 __ok("mas segue visivel na visao geral", tarefasArea().some(x=>x.id===dcInt));
 `);
@@ -1071,6 +1071,61 @@ __ok("sem os dados no codigo, os links continuam iguais", !c0 || JSON.stringify(
 __ok("e a ficha da marca tambem", !f0 || JSON.stringify(fichaDe(f0))===fichaAntes);
 Object.assign(LINKS_PADRAO,JSON.parse(LP)); Object.assign(FICHA_PADRAO,JSON.parse(FP));
 __ok("rodar de novo nao muda nada", migrarDadosDoCodigo()===0);
+`);
+
+bloco("Contratos, administrativo e card do cliente", M, limpar+`
+{
+const T=id=>TODAS.filter(t=>t.clienteId===id);
+__ok("o Leo saiu do sistema", !CLIENTES.some(c=>c.id==="leonardo") && !TODAS.some(t=>t.clienteId==="leonardo"));
+const oc=cliente("oceanus"), cy=cliente("cynthia"), dn=cliente("adriana");
+__ok("Oceanus no contrato novo", oc.contrato==="CS00006/2026" && oc.vencimentoContrato==="2027-08-12" && oc.mensalidade.valorPix===4300);
+__ok("Cynthia no contrato novo", cy.contrato==="CS00007/2026" && cy.inicioContrato==="2026-09-20" && cy.mensalidade.valorPix===3100);
+__ok("Dinha no contrato novo", dn.contrato==="CS00008/2026" && dn.vencimentoContrato==="2027-04-06" && dn.mensalidade.valorPermuta===500);
+const pagOc=T("oceanus").filter(t=>/^pag_/.test(t.id));
+__ok("a mensalidade antiga continua no historico", pagOc.some(t=>t.id==="pag_2026-07-15" && /3\.100/.test(t.tarefa)));
+__ok("e a nova entra com o valor novo", pagOc.some(t=>t.id==="pag_2026-08-15" && /4\.300/.test(t.tarefa)));
+__ok("nenhuma mensalidade repetida", new Set(pagOc.map(t=>t.id)).size===pagOc.length);
+const fimOc=T("oceanus").find(t=>/^fimContrato/.test(t.id));
+__ok("tarefa de contrato leva a data do contrato no id", fimOc && fimOc.id==="fimContrato_2027-08-12");
+__ok("encerramento do contrato e do administrativo", fimOc.area==="fin");
+const acao=T("oceanus").find(t=>/^acaoComercial/.test(t.id));
+__ok("acao comercial aparece para administrativo e comercial", naArea(acao,"fin") && naArea(acao,"com"));
+const renov=T("oceanus").find(t=>/^renov_/.test(t.id));
+__ok("renovacao e do administrativo", renov && renov.area==="fin");
+__ok("a Bia (administrativo) recebe renovacao, encerramento e acao", ["renov_","fimContrato_","acaoComercial_"].every(p=>tarefasDe("Bia").some(t=>t.id.indexOf(p)===0)));
+__ok("o Marlon recebe a acao comercial", tarefasDe("Marlon").some(t=>/^acaoComercial_/.test(t.id)));
+__ok("a Carla nao recebe tarefa de contrato", !tarefasDe("Carla").some(t=>/^(renov|fimContrato|acaoComercial|pag_)/.test(t.id)));
+/* marca antiga sem data no id vale para o contrato certo */
+ESTADO.concluidas.oceanus=[{id:"fimContrato",data:"2026-08-12"}]; rebuild();
+__ok("marca do contrato antigo nao conclui o novo", T("oceanus").find(t=>t.id==="fimContrato_2027-08-12").st.k!=="ok");
+ESTADO.concluidas.oceanus=[{id:"fimContrato",data:"2027-08-10"}]; rebuild();
+__ok("marca antiga perto do vencimento vale para este contrato", T("oceanus").find(t=>t.id==="fimContrato_2027-08-12").st.k==="ok");
+ESTADO.concluidas.oceanus=[]; rebuild();
+/* card: contrato e mensalidade para administrativo; onboarding para marketing */
+USUARIO="Bia"; VISTA.area="fin";
+let h=cardsHTML();
+__ok("a Bia ve contrato e mensalidade no card", /ccard-fin/.test(h) && /R\\$ 4\\.300/.test(h));
+__ok("e nao ve onboarding", !/class="onb/.test(h));
+USUARIO="Carla"; VISTA.area="mkt"; h=cardsHTML();
+__ok("a Carla ve onboarding", /class="onb/.test(h) || !CLIENTES.some(c=>onboardingDe(c).total));
+__ok("e nao ve mensalidade", !/ccard-fin/.test(h));
+USUARIO="Alda"; VISTA.area="all"; h=cardsHTML();
+__ok("a administracao ve os dois na visao geral", /ccard-fin/.test(h) && /class="onb/.test(h));
+VISTA.area="fin"; __ok("no Financeiro some o onboarding", !/class="onb/.test(cardsHTML()));
+VISTA.area="mkt"; __ok("no Mkt Digital some a mensalidade", !/ccard-fin/.test(cardsHTML()));
+VISTA.area="all";
+/* renovacao pelo cadastro guarda o contrato anterior */
+salvarCliente("cynthia",{contrato:"CS00099/2027",inicioContrato:"2027-03-21",vencimentoContrato:"2027-09-21",mensalidade:{valorPix:3500,valorPermuta:0,diaVencimento:20}});
+const c2=cliente("cynthia");
+__ok("renovar pelo painel troca o contrato", c2.contrato==="CS00099/2027" && c2.mensalidade.valorPix===3500);
+__ok("e guarda o anterior com as mensalidades", (c2.contratosAnteriores||[]).some(k=>k.contrato==="CS00007/2026" && k.fim==="2027-03-20")
+   && T("cynthia").some(t=>t.id==="pag_2026-10-20"));
+salvarCliente("cynthia",{nome:"Cynthia Carvalho"});
+__ok("salvar so o nome nao apaga o resto", cliente("cynthia").contrato==="CS00099/2027");
+ESTADO.clientes={}; rebuild();
+/* agenda do Google nao vai para o banco */
+__ok("agenda e so local", caminhosDiff({agenda:[]},{agenda:[{id:"x"}]}).length===0);
+}
 `);
 
 bloco("Rotas e menu", M, limpar+`

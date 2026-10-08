@@ -416,7 +416,7 @@ function abrirClientes(){
       return '<div class="pcard">'+
         '<div class="pc-topo">'+avatarHTML(c,"card-face")+
           '<div class="pc-id"><span class="pc-n">'+esc(c.nome)+(novo?' <i class="cl-novo">novo</i>':'')+'</span>'+
-          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · contrato até '+fmt(c.vencimentoContrato)+
+          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · '+esc(c.contrato||"contrato")+' até '+fmt(c.vencimentoContrato)+
           (objetivoDe(c)?' · objetivo: '+esc((OBJETIVOS.find(o=>o[0]===objetivoDe(c))||["",""])[1].toLowerCase())+(metaDe(c)?' (meta '+numBR(metaDe(c))+')':''):'')+'</span></div>'+
           '<button class="pc-ico" data-clied="'+escAttr(c.id)+'" title="Editar cliente" aria-label="Editar">&#9998;</button>'+
           '<button class="pc-ico rm" data-cliocultar="'+escAttr(c.id)+'" title="Arquivar cliente" aria-label="Arquivar cliente">&#128230;</button>'+
@@ -442,7 +442,16 @@ function abrirClienteForm(id){
     '<label class="mlab">Nome<input type="text" id="clNome" value="'+escAttr(c?c.nome:"")+'" autocomplete="off"></label>'+
     '<label class="mlab">Segmento<select id="clSeg">'+segs.map(s=>'<option'+((c&&c.segmento===s)?" selected":"")+'>'+s+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Entrada (assinatura)<input type="date" id="clEnt" value="'+escAttr(c?c.entrada:iso(HOJE))+'"></label>'+
-    '<label class="mlab">Vencimento do contrato<input type="date" id="clVen" value="'+escAttr(c?(c.vencimentoContrato||""):"")+'"></label>'+
+    '<div class="cl-sec">Contrato vigente</div>'+
+    '<label class="mlab">Número do contrato<input type="text" id="clCon" value="'+escAttr(c?(c.contrato||""):"")+'" placeholder="Ex.: CS00009/2026" autocomplete="off"></label>'+
+    '<div class="cp-linha dois">'+
+      '<label class="mlab">Início<input type="date" id="clIni" value="'+escAttr(c?(c.inicioContrato||""):"")+'"></label>'+
+      '<label class="mlab">Vencimento<input type="date" id="clVen" value="'+escAttr(c?(c.vencimentoContrato||""):"")+'"></label></div>'+
+    '<div class="cp-linha tres">'+
+      '<label class="mlab">Mensalidade PIX (R$)<input type="number" min="0" step="1" id="clPix" value="'+escAttr(c&&c.mensalidade?c.mensalidade.valorPix:"")+'"></label>'+
+      '<label class="mlab">Permuta (R$)<input type="number" min="0" step="1" id="clPerm" value="'+escAttr(c&&c.mensalidade?(c.mensalidade.valorPermuta||0):"")+'"></label>'+
+      '<label class="mlab">Dia do vencimento<input type="number" min="1" max="31" id="clDia" value="'+escAttr(c&&c.mensalidade?c.mensalidade.diaVencimento:"")+'"></label></div>'+
+    (c?'<p class="mhint">Trocou o número do contrato? O anterior fica guardado com as mensalidades dele.</p>':'')+
     '<div class="mbtns"><button data-macao="salvarcli" data-cliid="'+escAttr(c?c.id:"")+'">Salvar</button>'+
     '<button class="sec" data-macao="fecharcli">Cancelar</button></div></div>';
   mostrarModal(true);
@@ -452,6 +461,13 @@ function salvarCliente(id,dados){
   snapshot();
   if(id){
     ESTADO.clientes=ESTADO.clientes||{};
+    const atual=CLIENTES.find(x=>x.id===id);
+    /* contrato renovado: o anterior vai para o historico, com as mensalidades dele */
+    if(atual && dados.contrato && atual.contrato && dados.contrato!==atual.contrato && atual.inicioContrato){
+      const ant={contrato:atual.contrato, inicio:atual.inicioContrato,
+                 fim:addD(dados.inicioContrato||atual.vencimentoContrato||iso(HOJE),-1), mensalidade:atual.mensalidade||null};
+      dados.contratosAnteriores=((ESTADO.clientes[id]||{}).contratosAnteriores||[]).concat([ant]);
+    }
     ESTADO.clientes[id]={...(ESTADO.clientes[id]||{}), ...dados};
     const n=(ESTADO.novosClientes||[]).find(x=>x.id===id);
     if(n) Object.assign(n,dados);
@@ -460,8 +476,8 @@ function salvarCliente(id,dados){
     const novoId="cli_"+Date.now();
     ESTADO.novosClientes=(ESTADO.novosClientes||[]).concat([{
       id:novoId, nome:dados.nome||"Cliente novo", marca:dados.nome||"", segmento:dados.segmento||"",
-      plano:"", entrada:dados.entrada||iso(HOJE), contrato:"", inicioContrato:dados.entrada||iso(HOJE),
-      vencimentoContrato:dados.vencimentoContrato||null, mensalidade:null,
+      plano:"", entrada:dados.entrada||iso(HOJE), contrato:dados.contrato||"", inicioContrato:dados.inicioContrato||dados.entrada||iso(HOJE),
+      vencimentoContrato:dados.vencimentoContrato||null, mensalidade:dados.mensalidade||null,
       escopo:{agendamento:true,calendarioEditorial:false,trafegoPago:false},
       imersao:null, reuniaoPlanejamentoEntrada:null, envioPlanejamento:null, aprovacaoPlanejamento:null,
       envioMidia:null, aprovacaoMidia:null, gravacao:null, artesDependemDaGravacao:false,
@@ -1035,13 +1051,21 @@ function handleModal(D){
   if(D.macao==="salvarnota"){ const tx=($("mnota")&&$("mnota").value)||""; setNota(D.mday,tx); fecharModal(); return; }
   if(D.macao==="addpessoa"){ const n=(($("enome")&&$("enome").value)||"").trim(); if(n) addPessoa(n); semPular(()=>abrirEquipe()); const c=$("modal").querySelector("[data-eq-novo]"); if(c&&c.focus) setTimeout(()=>c.focus(),20); return; }
   if(D.macao==="salvarcli"){
-    salvarCliente(D.cliid||null,{nome:(($("clNome")&&$("clNome").value)||"").trim(),
-      segmento:$("clSeg")&&$("clSeg").value, entrada:$("clEnt")&&$("clEnt").value,
-      vencimentoContrato:($("clVen")&&$("clVen").value)||null,
-      objetivo:($("clObj")&&$("clObj").value)||"",
-      meta:(($("clMeta")&&$("clMeta").value)||"")===""?null:Number($("clMeta").value),
-      drive:($("clDrive")&&$("clDrive").value.trim())||"", insta:($("clInsta")&&$("clInsta").value.trim())||"",
-      wpp:($("clWpp")&&$("clWpp").value.trim())||""});
+    /* so grava o que o formulario tem: antes, salvar apagava objetivo, meta e links (campos que nao estavam na tela) */
+    const val=id=>{ const e=$(id); return e ? String(e.value||"").trim() : undefined; };
+    const dados={};
+    const put=(k,v)=>{ if(v!==undefined) dados[k]=v; };
+    put("nome",val("clNome")); put("segmento",val("clSeg")); put("entrada",val("clEnt"));
+    put("contrato",val("clCon")); put("inicioContrato",val("clIni")||undefined);
+    const ven=val("clVen"); if(ven!==undefined) dados.vencimentoContrato=ven||null;
+    const pix=val("clPix"), perm=val("clPerm"), dia=val("clDia");
+    if(pix!==undefined && pix!==""){
+      if(!(Number(dia)>=1 && Number(dia)<=31)){ toast("Dia do vencimento tem que ser de 1 a 31",false); return; }
+      dados.mensalidade={valorPix:Number(pix)||0, valorPermuta:Number(perm)||0, diaVencimento:Number(dia)};
+    }
+    if(dados.inicioContrato && dados.vencimentoContrato && dados.inicioContrato>dados.vencimentoContrato){
+      toast("O início do contrato está depois do vencimento",false); return; }
+    salvarCliente(D.cliid||null,dados);
     semPular(()=>abrirClientes()); toast("Cliente salvo",true); return;
   }
   if(D.macao==="fecharcli"){ semPular(()=>abrirClientes()); return; }
@@ -1194,7 +1218,6 @@ function coresSeg(seg){
 const CORCLI = {
   adriana:  ["#d8ab4c","#8c6a1c"],   // Dinha Mais — dourado
   suelem:   ["#8a3b5e","#4b1930"],   // Suelem — roxo vinho
-  leonardo: ["#2bb7c0","#116169"],   // Leonardo — azul-turquesa
   cynthia:  ["#cbb693","#9a8461"],   // Cynthia — bege
   oceanus:  ["#2a30df","#1414a2"],   // Oceanus — azul da logo
   cli_1786128011208: ["#501e93","#30105c"],  // MK3 — roxo da marca
@@ -1205,7 +1228,7 @@ const coresDe = c => CORCLI[c.id] || coresSeg(c.segmento);
 const iniciais = n => (n||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 
 const FOTO_FIXA = {
-  cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg", leonardo:"fotos/leonardo.jpg",
+  cynthia:"fotos/cynthia.jpg", suelem:"fotos/suelem.jpg",
   oceanus:"fotos/oceanus.jpg", adriana:"fotos/dinha.jpg",
   cli_1786128681070:"fotos/tyconnex.jpg",
   cli_1786128011208:"fotos/mk3.jpg",

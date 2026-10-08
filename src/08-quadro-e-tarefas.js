@@ -85,8 +85,8 @@ function confirmarRemoverPessoa(nome){
 function removePessoa(nome){ snapshot(); ESTADO.pessoas=(ESTADO.pessoas||[]).filter(p=>p.nome!==nome); persist(); rebuild(); render(); }
 function setFotoPessoa(nome,url){ const p=pessoaPorNome(nome); if(!p) return; snapshot(); p.foto=url; persist(); rebuild(); render(); }
 function relevanteBoard(t){
-  if(t.fase==="Demanda") return VISTA.area==="all" || t.area===VISTA.area;
-  if(VISTA.area==="fin" || VISTA.area==="com") return t.area===VISTA.area;
+  if(t.fase==="Demanda") return VISTA.area==="all" || naArea(t,VISTA.area);
+  if(VISTA.area==="fin" || VISTA.area==="com") return naArea(t,VISTA.area);
   return !!EXEC[baseId(t.id)];   // Visão Geral / Marketing: entregas de execução
 }
 function resumoSemanaHTML(){

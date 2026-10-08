@@ -70,16 +70,24 @@ const BUCKETS = ["atrasado","replan","parcial","hoje","umdia","semana","sem","ok
 /* ---- áreas (Visão Geral = tudo) ---- */
 const AREAS = [{k:"all",rot:"Visão Geral"},{k:"mkt",rot:"Marketing Digital"},
                {k:"fin",rot:"Financeiro"},{k:"com",rot:"Comercial"}];
-function areaBase(id){
-  if(/^pag_/.test(id) || /^fotos_/.test(id) || id==="renov" || id==="renovacao_atrasada") return "fin";
-  if(id==="acaoComercial") return "com";
-  return "mkt";
+/* de que area e cada tarefa. Contrato, mensalidade, renovacao e encerramento sao do
+   administrativo (fin); a acao comercial de renovacao aparece para o administrativo E o comercial. */
+function areasDaTarefa(t){
+  const id=String(t.id||"");
+  if(/^acaoComercial(_|$)/.test(id)) return ["fin","com"];
+  if(/^entregaMateriais(_|$)/.test(id)) return ["mkt"];                 /* entregar o material e trabalho do marketing */
+  if(/^(pag_|fotos_|renov(_|$)|renovacao|fimContrato(_|$))/.test(id)) return ["fin"];
+  if(t.fase==="Contrato") return ["fin"];                                 /* extras de contrato vindos do dados.js */
+  return ["mkt"];
 }
+const areaBase = id => areasDaTarefa({id:id})[0];
+/* a tarefa pertence a area? (algumas pertencem a duas) */
+const naArea = (t,a) => (t.areas||[t.area]).indexOf(a)>=0;
 const areaMatch = t => {
   const permitidas = USUARIO ? areasDe() : ["all","mkt","fin","com"];
   const a = (permitidas.indexOf(VISTA.area)>=0) ? VISTA.area : (permitidas.indexOf("all")>=0?"all":permitidas[0]);
   if(a==="all") return true;
-  return t.area===a;
+  return naArea(t,a);
 };
 
 /* ---- sidebar (estilo Pode Postar) ---- */
@@ -129,7 +137,7 @@ function areasTopoHTML(){
       const on=VISTA.area===a[0];
       /* dentro de um cliente, conta só o que é dele; fora, conta todo mundo */
       const universo = VISTA.escopo ? TODAS.filter(t=>t.clienteId===VISTA.escopo) : TODAS;
-      const n=universo.filter(t=>(a[0]==="all"||t.area===a[0]) && (t.st.k==="atrasado"||t.st.k==="hoje")).length;
+      const n=universo.filter(t=>(a[0]==="all"||naArea(t,a[0])) && (t.st.k==="atrasado"||t.st.k==="hoje")).length;
       return '<a class="abar-b'+(on?" on":"")+'" href="'+rotaDe({area:a[0]})+'" data-area="'+a[0]+'" role="tab" aria-selected="'+on+'"'+(n?' aria-label="'+escAttr(a[1])+', '+n+' urgentes"':'')+'>'+
         '<span class="abar-i">'+a[2]+'</span>'+esc(a[1])+
         (n?'<span class="abar-n">'+n+'</span>':'')+'</a>';
@@ -320,7 +328,10 @@ function rebuildCore(){
     const ov = ed[o.id]||{};
     if(ov.oculto) return;
     const c = JSON.parse(JSON.stringify(o));
-    ["nome","segmento","entrada","vencimentoContrato"].forEach(k=>{ if(ov[k]) c[k]=ov[k]; });
+    ["nome","segmento","entrada","vencimentoContrato","contrato","inicioContrato","mensalidade"].forEach(k=>{ if(ov[k]) c[k]=ov[k]; });
+    /* contratos renovados pelo painel somam ao historico do dados.js */
+    if(ov.contratosAnteriores) c.contratosAnteriores=(c.contratosAnteriores||[]).concat(
+      ov.contratosAnteriores.filter(k=>!(c.contratosAnteriores||[]).some(x=>x.contrato===k.contrato)));
     c.concluidas=(o.concluidas||[]).slice();
     const dd=ESTADO.datas[c.id]||{};
     for(const k in dd){ if(dd[k]) c[k]=dd[k]; }
@@ -332,7 +343,7 @@ function rebuildCore(){
     }
     CLIENTES.push(c);
   });
-  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>ajustarParcial(ajustarReplan({...t, st:status(t), area:areaBase(t.id)}))))
+  TODAS = CLIENTES.flatMap(c=>regras(c).map(t=>{ const as=areasDaTarefa(t); return ajustarParcial(ajustarReplan({...t, st:status(t), area:as[0], areas:as})); }))
     .filter(t=>((ESTADO.excluidas||{})[t.clienteId]||[]).indexOf(t.id)<0)
     .map(t=>{ const nv=((ESTADO.titulos||{})[t.clienteId]||{})[t.id];
               return nv ? {...t, tarefa:nv, tituloOriginal:t.tarefa} : t; });

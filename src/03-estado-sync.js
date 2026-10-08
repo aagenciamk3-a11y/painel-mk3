@@ -39,12 +39,15 @@ const igual = (a,b) => chaveCanon(a)===chaveCanon(b);
 /* ate que nivel cada parte do estado desce: onde varios clientes dividem o mesmo objeto
    (semana -> cliente|tarefa|dia), descer mais evita que duas pessoas se atropelem */
 const PROF = {semanal:3, obsT:3, datas:3, ficha:3, clientes:3, plano:3, portais:3, resultados:2};
+/* o que nunca vai para o banco: a agenda e lida do Google por cada navegador, a cada minuto */
+const SO_LOCAL = new Set(["agenda"]);
 function caminhosDiff(a,b){
   const out=[];
   const desce=(x,y,pre)=>{
     const lim=PROF[pre[0]]||2;
     const ks=new Set(Object.keys(x||{}).concat(Object.keys(y||{})));
     ks.forEach(k=>{
+      if(!pre.length && SO_LOCAL.has(k)) return;
       const u=(x||{})[k], w=(y||{})[k], p=pre.concat(k);
       if(igual(u,w)) return;
       if(ehObj(u) && ehObj(w) && p.length<lim) desce(u,w,p);
@@ -134,8 +137,13 @@ function aplicarRemoto(novo, caminhos){
       o.log=somarLog(o.log, novo.log); pilha[i]=JSON.stringify(o); }catch(e){} });
     fix(UNDO); fix(REDO);
   }
+  /* o que e so local (agenda do Google) continua o que este navegador leu */
+  SO_LOCAL.forEach(k=>{ if(ESTADO && ESTADO[k]!==undefined) novo[k]=ESTADO[k]; });
+  const urlAntes = ESTADO && ESTADO.agendaUrl;
   ESTADO=novo;
   try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){}
+  /* o endereco da agenda pode chegar so agora (navegador novo, cache limpo): liga a leitura na hora */
+  if(typeof ligarAgendaAoVivo==="function" && ESTADO.agendaUrl && (ESTADO.agendaUrl!==urlAntes || !AGENDA_T)) ligarAgendaAoVivo();
   const pinAberto = document.getElementById("pinInput");          /* nao redesenha a tela de PIN no meio da digitacao */
   rebuild(); if(!(pinAberto && !USUARIO)) render();
   SYNC_APLICANDO=false;
@@ -237,6 +245,15 @@ function publicarEspelho(){
       base.child(cfg.ativo).update({...dados, ativo:cfg.ativo});
       (cfg.revogados||[]).forEach(tk=>{ base.child(tk).remove(); });
     });
+    /* cliente que saiu do sistema (tirado do dados.js): o link do portal sai do ar, como no arquivar */
+    const existe=new Set(ORIG.concat(ESTADO.novosClientes||[]).map(c=>c.id));
+    let mudou=false;
+    Object.keys(ESTADO.portais||{}).forEach(cid=>{
+      const cfg=ESTADO.portais[cid];
+      if(existe.has(cid) || !cfg || !cfg.ativo || cfg.desligado) return;
+      desligarPortal(cid); mudou=true;
+    });
+    if(mudou){ try{ localStorage.setItem("mk3_estado", JSON.stringify(ESTADO)); }catch(e){} syncEnviar(); }
   }catch(e){}
 }
 function agendarEspelho(){ clearTimeout(ESPELHO_T); ESPELHO_T=setTimeout(publicarEspelho,1500); }

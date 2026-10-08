@@ -13,19 +13,24 @@ const CLIENTES = [
     marca: "Loja Dinha Mais",
 
     segmento: "Varejo",                   // loja Dinha Mais / Dinha Sports
-    plano: "6 artes + 2 Reels/mês",       // contrato CS00003/2025, cláusula 1.1
+    plano: "Essência Avançado · 8 artes + 3 Reels/mês",   // contrato CS00008/2026, cláusula 1.1
     entrada: "2026-06-22",
 
-    /* CONTRATO CS00003/2025 — vigência 20/06/2026 a 20/09/2026 (3 meses) */
-    contrato: "CS00003/2025",
-    inicioContrato: "2026-07-20",          // 1ª mensalidade em 20/07 (a de 20/06 estava errada)
-    vencimentoContrato: "2026-09-20",
-    mensalidade: {valorPix: 1000, valorPermuta: 500, diaVencimento: 20},
+    /* CONTRATO CS00008/2026 (M R Confecções, dona da Dinha Mais e Dinha Sports)
+       vigência 06/10/2026 a 06/04/2027 (6 meses) · tráfego de cortesia 06/10/2026 a 06/01/2027 */
+    contrato: "CS00008/2026",
+    inicioContrato: "2026-10-06",
+    vencimentoContrato: "2027-04-06",
+    mensalidade: {valorPix: 1400, valorPermuta: 500, diaVencimento: 20},
+    /* o contrato anterior continua gerando as mensalidades dele (historico de pagamento) */
+    contratosAnteriores: [
+      {contrato:"CS00003/2025", inicio:"2026-07-20", fim:"2026-09-20", mensalidade:{valorPix:1000, valorPermuta:500, diaVencimento:20}}
+    ],
 
     /* O contrato CS00003/2025 exclui o agendamento (cláusula 1.1), mas a MK3
        decidiu agendar para todos os clientes. Padrão do painel: agendar.
        O contrato dos próximos precisa refletir isso. */
-    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:false},
+    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:true},   // tráfego: cortesia até 06/01/2027
 
     imersao: "2026-06-22",
     reuniaoPlanejamentoEntrada: "2026-06-30",
@@ -126,65 +131,6 @@ const CLIENTES = [
     ]
   },
 
-  /* ─────────────── LEONARDO DE PAULA · CORRETOR ─────────────── */
-  {
-    id: "leonardo",
-    nome: "Leonardo de Paula",
-    marca: "Leonardo de Paula Negócios Imobiliários",
-
-    segmento: "Corretor",                       // Cariacica / Grande Vitória · ES
-    plano: "8 artes + 3 Reels/mês",             // contrato CS00012/2025
-    /* cliente desde jan/2026; ancorado no ponto atual (renovação pendente) */
-    entrada: "2026-01-14",
-
-    /* CONTRATO CS00012/2025 — vigência original 14/01 a 14/07/2026 (6 meses),
-       VENCIDO em 14/07. Renovação registrada como pendência atrasada (tarefasExtras).
-       Vencimento abaixo é uma continuação PROVISÓRIA (6 meses, mesmo valor) só para
-       manter o fluxo normal deste cliente até a renovação ser fechada. */
-    contrato: "CS00012/2025 (vencido 14/07 · renovação pendente)",
-    inicioContrato: "2026-07-15",
-    vencimentoContrato: "2027-01-14",
-    mensalidade: {valorPix: 1980, valorPermuta: 0, diaVencimento: 15},
-
-    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:false},
-
-    /* cliente antigo: sem nova imersão. Âncora do ciclo atual = envio do
-       planejamento (09/07). Enviado 09/07, cobrado e aprovado 13/07. */
-    imersao: null,
-    reuniaoPlanejamentoEntrada: "2026-07-09",
-
-    envioPlanejamento:     "2026-07-09",
-    aprovacaoPlanejamento: "2026-07-13",
-    envioMidia:            "2026-07-14",   // artes entregues terça
-    aprovacaoMidia:        "2026-07-16",   // artes aprovadas
-    alteracaoPedida:       "2026-07-17",   // cliente pediu alteração hoje · 2 dias úteis p/ devolver
-
-    gravacao: null,
-    artesDependemDaGravacao: false,
-
-    /* novo ciclo (relatório + reunião + planejamento) a partir de agosto */
-    inicioCicloPadrao: "2026-08",
-
-    justificados: [],
-
-    /* renovação do contrato entra como pendência ATRASADA */
-    tarefasExtras: [
-      {id:"renovacao_atrasada", fase:"Contrato", tarefa:"Renovar contrato (venceu 14/07)", detalhe:"CS00012/2025 encerrou 14/07/2026 · renovação pendente", data:"2026-07-14", resp:"Gestão"}
-    ],
-
-    concluidas: ["pasta","planilha","grupo","boasvindas","onboarding","acessos","prints","reserva",
-                 "pesq1","pesq2","imersao","imersaoDoc","reuniaoPlan",
-                 "c1_plan","c1_lembPlan","c1_aprPlan","c1_roteiro","c1_artes",
-                 "c1_lembMid","c1_aprMid","c1_podepostar","c1_calendario","reserva3m","pesq6m"],
-
-    marcos: [
-      {data:"2026-01-14", titulo:"Cliente desde 2026",     detalhe:"Contrato CS00012/2025"},
-      {data:"2026-07-09", titulo:"Planejamento enviado",   detalhe:"Conteúdo escrito enviado para aprovação"},
-      {data:"2026-07-13", titulo:"Planejamento aprovado",  detalhe:"Cobrado dia 13 e aprovado; 1 publicação marcada em ajuste (cliente não informou o que ajustar)"},
-      {data:"2026-07-14", titulo:"Artes entregues",        detalhe:"Enviadas para aprovação; aguardando retorno"}
-    ]
-  },
-
   /* ─────────────── CYNTHIA CARVALHO · CORRETORA (VITÓRIA) ─────────────── */
   {
     id: "cynthia",
@@ -192,16 +138,20 @@ const CLIENTES = [
     marca: "Cynthia Carvalho — Corretora de Imóveis",
 
     segmento: "Corretor",                      // Vitória/ES · Remax Foccus · médio/alto padrão
-    plano: "6 artes + 2 Reels/mês",            // contrato CS00004/2025
+    plano: "10 artes + 5 Reels/mês + stories + tráfego básico",   // contrato CS00007/2026
     entrada: "2026-06-22",                      // grupo criado + onboarding enviado
 
-    contrato: "CS00004/2025",
-    inicioContrato: "2026-07-15",               // contrato alterado (data mudada a pedido dela)
-    vencimentoContrato: "2026-10-15",
-    mensalidade: {valorPix: 1500, valorPermuta: 0, diaVencimento: 20},
+    /* CONTRATO CS00007/2026 — 6 meses, de 20/09/2026 a 20/03/2027 (cláusula 2.1) */
+    contrato: "CS00007/2026",
+    inicioContrato: "2026-09-20",
+    vencimentoContrato: "2027-03-20",
+    mensalidade: {valorPix: 3100, valorPermuta: 0, diaVencimento: 20},
+    contratosAnteriores: [
+      {contrato:"CS00004/2025", inicio:"2026-07-15", fim:"2026-09-19", mensalidade:{valorPix:1500, valorPermuta:0, diaVencimento:20}}
+    ],
 
-    /* o contrato exclui agendamento, mas a MK3 agenda para todos (Pode Postar) */
-    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:false},
+    /* tráfego pago básico (3 campanhas/mês); não inclui calendário editorial */
+    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:true},
 
     /* imersão remarcada 2x por falta da cliente; realizada em 06/07 (a pedido dela) */
     imersao: "2026-07-06",
@@ -245,15 +195,19 @@ const CLIENTES = [
     marca: "Escola Oceanus",
 
     segmento: "Escola",                          // Serra/ES
-    plano: "Plano Básico + 1 diária de captação/mês",  // contrato CS00016/2026
+    plano: "10 artes + 7 Reels/mês + 2 diárias de captação + tráfego",  // contrato CS00006/2026
     entrada: "2026-02-12",
 
-    contrato: "CS00016/2026",
-    inicioContrato: "2026-02-12",
-    vencimentoContrato: "2026-08-12",
-    mensalidade: {valorPix: 3100, valorPermuta: 0, diaVencimento: 15},
+    /* CONTRATO CS00006/2026 — 12 meses, de 12/08/2026 a 12/08/2027, em continuidade ao CS00016/2026 */
+    contrato: "CS00006/2026",
+    inicioContrato: "2026-08-12",
+    vencimentoContrato: "2027-08-12",
+    mensalidade: {valorPix: 4300, valorPermuta: 0, diaVencimento: 15},
+    contratosAnteriores: [
+      {contrato:"CS00016/2026", inicio:"2026-02-12", fim:"2026-08-11", mensalidade:{valorPix:3100, valorPermuta:0, diaVencimento:15}}
+    ],
 
-    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:false},
+    escopo: {agendamento:true, calendarioEditorial:true, trafegoPago:true},
 
     /* cliente antiga (desde fev). Sem novo 1º ciclo; o planejamento do mês
        corrente está em atraso, registrado abaixo em tarefasExtras. */

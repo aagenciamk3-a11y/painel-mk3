@@ -16,7 +16,6 @@ function carimboHTML(t){
 /* links úteis de cada cliente */
 const LINKS_PADRAO = {
   suelem:   {drive:"https://drive.google.com/drive/folders/1O5eYgdfNYqghQnjc0q84_NpBcW9Cr63m", insta:"suelemmartinsgomes", wpp:"27998887565"},
-  leonardo: {drive:"https://drive.google.com/drive/folders/1eadjcdimP-grmxJRpjslvLIHoLZ0fBqp", insta:"leonardodepaulacorretor", wpp:"27998871444"},
   cynthia:  {drive:"https://drive.google.com/drive/folders/1SlPUFY7OOSqso9lhAUfi92dFg2j23Eza", insta:"cynthiadcorretora", wpp:"27999178909"},
   oceanus:  {drive:"https://drive.google.com/drive/folders/1FAUG6fIzv3nIB1bqlUdAkHEX2BFSqQN0", insta:"escolaoceanus", wpp:"27992626014"},
   adriana:  {drive:"https://drive.google.com/drive/folders/1Mr_J56Sp8d2wnaTIfjkOT6BlXQlIXaHf", insta:"adriana.dinhamais", wpp:"27988537167"}
@@ -55,18 +54,6 @@ const FICHA_PADRAO = {
     refs:"Suelem, Larissa Moraes (refugios.lar.lare), Carolina Zarch.",
     sucesso:"Um cliente chegar pelo Instagram, e ser reconhecida na região onde mora.",
     recado:"Na imersão você foi clara: não quer seguidor por seguidor, quer gente de Vitória. Hoje boa parte da sua base ainda é de Cachoeiro, e é isso que estamos virando. Cada seguidor novo daqui é alguém que pode visitar um imóvel com você."
-  },
-  leonardo:{
-    frase:"Autenticidade, conhecimento e autoridade no mercado imobiliário. 11 anos no setor, 22 em vendas.",
-    objetivo:"Mais autoridade e mais vendas. Mede por captações e por quanta gente chega até ele.",
-    publico:"Investidores e famílias em evolução, 30 a 50 anos, com filhos e pets, do interior do ES. Pessoas de fé.",
-    tom:"Próximo, humano e técnico na medida. Clareza e objetividade, odeia enrolação.",
-    temas:"Clientes felizes, etapas da compra, dados de mercado, bastidores, família e natureza. Formação em Geoprocessamento é diferencial.",
-    evitar:"Política, futebol e religião de forma polêmica. Mentira, palavrão, tratar cliente como número.",
-    visual:"Ainda sem branding fechado. Deseja estudo de cores e fontes no futuro.",
-    refs:"Jesus, Kleverson.",
-    sucesso:"Comprar a casa, o apartamento e trocar de carro.",
-    recado:"Você mede o resultado pelo tanto de gente que chega até você. É por isso que acompanhamos as visitas ao perfil e não o número de seguidores: cada visita aqui é alguém que viu seu conteúdo e parou para te conhecer antes de falar com você."
   },
   adriana:{
     frase:"Elevando a autoestima da mulher.",
@@ -274,7 +261,12 @@ function onboardingDe(c){
   return {itens:itens, feitas:feitas, total:itens.length, criticas:criticas,
           completo: itens.length>0 && feitas===itens.length};
 }
+/* onboarding e trabalho do marketing: so aparece na Visao geral e no Mkt Digital, para quem ve marketing */
+const mostraOnboarding = () => (VISTA.area==="all"||VISTA.area==="mkt") && podeArea("mkt");
+/* contrato e mensalidade sao do administrativo: Visao geral e Financeiro, para quem ve financeiro */
+const mostraFinanceiro = () => (VISTA.area==="all"||VISTA.area==="fin") && podeArea("fin");
 function onbBadgeHTML(c){
+  if(!mostraOnboarding()) return '';
   const o=onboardingDe(c); if(!o.total) return '';
 
   const pct=Math.round(o.feitas/o.total*100);
@@ -285,6 +277,7 @@ function onbBadgeHTML(c){
   '</div>';
 }
 function onboardingHTML(c){
+  if(!mostraOnboarding()) return '';
   const o=onboardingDe(c); if(!o.total) return '';
   return '<section class="onb-box'+(o.completo?" ok":"")+'">'+
     '<div class="onb-h"><b>Onboarding</b><span>'+o.feitas+' de '+o.total+' etapas</span>'+
@@ -306,7 +299,7 @@ function tarefasDe(nome){
   return TODAS.filter(t=>{
     if(t.fase==="Demanda") return t.resp===nome;      /* demanda tem dono com nome */
     if(p.admin) return false;                          /* admin só conta o que tem o nome dele */
-    return (p.areas||[]).indexOf(t.area)>=0;
+    return (p.areas||[]).some(a=>naArea(t,a));
   });
 }
 function cargaSemana(ts){
@@ -363,7 +356,7 @@ function recadoTexto(){
   const donoDe=t=>{
     if(t.fase==="Demanda") return t.resp||"";
     if(t.resp==="Cliente") return "cliente";
-    const p=(ESTADO.pessoas||[]).find(x=>!x.admin && (x.areas||[]).indexOf(t.area)>=0);
+    const p=(ESTADO.pessoas||[]).find(x=>!x.admin && (x.areas||[]).some(a=>naArea(t,a)));
     return p?p.nome:"";
   };
   const linha=t=>{ const d=donoDe(t); return "- "+cli(t)+": "+t.tarefa+(d?" ("+d+")":""); };
