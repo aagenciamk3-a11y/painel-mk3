@@ -13,8 +13,8 @@
  * 4. Implantar > Nova implantação > tipo "App da Web".
  *      Executar como: Eu (aagencia.mk3@gmail.com)
  *      Quem pode acessar: Qualquer pessoa
- * 5. Rode a função  conectarPainel : ela grava o endereço e a chave no painel,
- *    para a equipe toda. Ninguém precisa copiar nem colar nada.
+ * 5. Rode  configurar  de novo (ou  conectarPainel ): grava o endereço e a chave
+ *    no painel, para a equipe toda. Ninguém precisa copiar nem colar nada.
  *
  * Para atualizar o código depois SEM trocar o endereço:
  * Implantar > Gerenciar implantações > lápis > Versão: "Nova versão".
@@ -36,7 +36,9 @@ function configurar() {
   if (!props.getProperty('CHAVE')) props.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, ''));
   // testa o acesso à agenda e ao serviço avançado
   Calendar.Events.list(AGENDA_ID, { maxResults: 1, timeMin: new Date().toISOString() });
-  Logger.log('Agenda acessível e chave criada. Agora implante como App da Web e rode conectarPainel.');
+  const url = ScriptApp.getService().getUrl() || '';
+  if (/\/exec$/.test(url)) { conectarPainel(); return; }   // já implantado: liga o painel na mesma hora
+  Logger.log('Agenda acessível e chave criada. Agora implante como App da Web e rode configurar de novo (ou conectarPainel).');
 }
 
 /** Rode depois de implantar: o painel passa a usar este script, para todo mundo. */
