@@ -218,7 +218,6 @@ function addDemanda(texto,area,data,resp,obs,cli,feitaEm){
   }
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
-  if(!(feitaEm && feitaEm<=iso(HOJE))) demandaParaGoogle(id);     /* vai para o Google Agenda tambem */
   return id;
 }
 /* a administracao apaga qualquer uma; os demais, so a que criaram */
@@ -231,7 +230,6 @@ function removeDemanda(id){
   const x=(ESTADO.demandas||[]).find(d=>d.id===id);
   if(!podeApagarDem(x)){ toast("Só dá para remover demanda que você mesmo criou",false); return; }
   snapshot();
-  demandaSaiDoGoogle(x);
   ESTADO.demandas=(ESTADO.demandas||[]).filter(d=>d.id!==id);
   ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demandax",id:id,nome:x.texto,area:x.area,quem:USUARIO||null});
   ESTADO.log=ESTADO.log.slice(0,300);
@@ -632,9 +630,7 @@ function editarDemanda(id,campos){
   if(campos.resp) dm.resp=campos.resp;
   if(campos.cli!==undefined) dm.cli=campos.cli||null;
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:"_dem",acao:"editar",id:id,nome:dm.texto,data:dm.data,quem:USUARIO||null});
-  if(dm.foraAgenda && dm.data>=iso(HOJE)) delete dm.foraAgenda;   /* editou: volta a valer na agenda */
   persist(); rebuild(); render();
-  demandaParaGoogle(id);
 }
 function abrirObsDemanda(id, editar){
   const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
@@ -655,7 +651,6 @@ function abrirObsDemanda(id, editar){
 function setObsDemanda(id,txt){
   const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
   snapshot(); dm.obs=(txt||"").trim(); persist(); rebuild(); render();
-  if(dm.gid) demandaParaGoogle(id);
 }
 function abrirDemanda(diaSugerido){
   const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]];

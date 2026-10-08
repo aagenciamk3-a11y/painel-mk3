@@ -1564,51 +1564,6 @@ __ok("atraso da MK3 nao vira arrasto do cliente",
     ok("o mesmo PIN em outra pessoa gera outro hash", vm.runInContext(`ESTADO.pessoas[2].pin!==ESTADO.pessoas.find(p=>p.nome==="Bia").pin`,W));
   }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
   console.log(R.join("\n"));
-
-  /* ---- demanda vai para o Google Agenda (e volta) ---- */
-  const R2=[]; const ok2=(n,c)=>{ R2.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
-  console.log("\nDemandas no Google Agenda");
-  try{
-    const enviados=[]; let n=0;
-    const A=contexto(["dados.js","motor.js"], null, {fetch:(u,o)=>{ const b=JSON.parse(o&&o.body||"{}"); enviados.push(b); n++;
-      return Promise.resolve({ok:true,json:()=>Promise.resolve(b.acao==="apagar"?{ok:true}:{ok:true,id:"ev"+n+"@google.com"})}); }});
-    const ra=c=>vm.runInContext(c,A);
-    ra(`USUARIO="Guilherme"; ESTADO.agendaUrl="https://script.google.com/macros/s/X/exec"; ESTADO.agendaChave="k1"; ESTADO.demandas=[]; ESTADO.cobrancas={};`);
-    ra(`ESTADO.pessoas=(ESTADO.pessoas&&ESTADO.pessoas.length)?ESTADO.pessoas:SEED_PESSOAS.map(p=>({...p}));`);
-    const dia=ra(`diasDe(iso(HOJE),3)`);
-    const id=ra(`addDemanda("Reunião Adriadma","mkt","`+dia+`","Alda","levar proposta","cynthia")`);
-    await new Promise(r=>setImmediate(r)); await new Promise(r=>setImmediate(r));
-    const c1=enviados[0]||{};
-    ok2("criar demanda cria evento de dia inteiro no Google", c1.titulo==="Reunião Adriadma" && c1.dia===dia && c1.hora==="" && !c1.acao && c1.chave==="k1");
-    ok2("vai com cliente, responsavel e observacao, sem mandar e-mail", c1.cliente==="cynthia" && c1.responsavel==="Alda" && /levar proposta/.test(c1.obs) && c1.avisar===false);
-    ok2("guarda o id do evento na demanda", ra(`ESTADO.demandas[0].gid`)==="ev1");
-    ra(`editarDemanda("`+id+`",{data:diasDe(iso(HOJE),5),texto:"Reunião Adriadma (nova data)"})`);
-    await new Promise(r=>setImmediate(r));
-    const c2=enviados[1]||{};
-    ok2("editar muda o mesmo evento", c2.acao==="editar" && c2.gid==="ev1" && c2.dia===ra(`diasDe(iso(HOJE),5)`) && enviados.length===2);
-    ra(`setObsDemanda("`+id+`","outra obs")`); await new Promise(r=>setImmediate(r));
-    ok2("observacao tambem vai", (enviados[2]||{}).acao==="editar" && /outra obs/.test((enviados[2]||{}).obs));
-    ra(`ESTADO.demandas[0].gidEm=0;`);
-    const evs=ra(`[{id:"x@google.com",gid:"ev1",titulo:"Reunião Adriadma - mudou no Google",dia:diasDe(iso(HOJE),6),hora:"",diaInteiro:true,convidados:[]},
-                   {id:"y",gid:"outro",titulo:"Gravação",dia:iso(HOJE),hora:"09:00",convidados:[]}]`);
-    ra(`demandasDoGoogle(`+JSON.stringify(evs)+`)`);
-    ok2("mudou titulo e dia no Google, a demanda acompanha", ra(`ESTADO.demandas[0].texto`)==="Reunião Adriadma - mudou no Google" && ra(`ESTADO.demandas[0].data`)===ra(`diasDe(iso(HOJE),6)`));
-    ok2("evento que e demanda nao aparece duplicado na agenda", ra(`(function(){const g=gidsDeDemanda(); return `+JSON.stringify(evs)+`.filter(e=>!g[e.gid]).map(e=>e.gid).join()})()`)==="outro");
-    ra(`demandasDoGoogle([])`);
-    ok2("apagado no Google: a demanda fica no painel, sem ser recriada", ra(`!ESTADO.demandas[0].gid && ESTADO.demandas[0].foraAgenda===true`));
-    ra(`ESTADO.demandas[0].gid="ev1"; delete ESTADO.demandas[0].foraAgenda;`);
-    ra(`removeDemanda("`+id+`")`); await new Promise(r=>setImmediate(r));
-    const cx=enviados[enviados.length-1]||{};
-    ok2("remover a demanda apaga do Google", cx.acao==="apagar" && cx.gid==="ev1");
-    ra(`ESTADO.demandas=[{id:"d_velha",texto:"antiga",data:"2026-01-05",area:"mkt",resp:"Alda"},{id:"d_futura",texto:"futura",data:diasDe(iso(HOJE),2),area:"mkt",resp:"Alda"}];`);
-    const antes=enviados.length;
-    ra(`mandarDemandasPendentes()`); await new Promise(r=>setImmediate(r)); await new Promise(r=>setImmediate(r)); await new Promise(r=>setImmediate(r));
-    const novos=enviados.slice(antes).map(b=>b.titulo);
-    ok2("demanda futura que ainda nao estava na agenda vai; a antiga nao", novos.join()==="futura");
-    const d0=enviados.length; ra(`addDemanda("ja feita","mkt",iso(HOJE),"Alda","",null,iso(HOJE))`); await new Promise(r=>setImmediate(r));
-    ok2("demanda registrada como ja feita nao vai para a agenda", enviados.length===d0);
-  }catch(e){ R2.push("  FALHA (erro) "+e.message); total++; falhas++; }
-  console.log(R2.join("\n"));
   console.log("\n"+(total-falhas)+"/"+total+" passaram"+(falhas?"  ("+falhas+" FALHA)":""));
   process.exit(falhas?1:0);
 })();
