@@ -73,7 +73,42 @@ function exportarEstado() {
   if (id) { try { arq = DriveApp.getFileById(id); if (arq.isTrashed()) arq = null; } catch (e) { arq = null; } }
   if (arq) arq.setContent(txt);
   else { arq = DriveApp.createFile(ARQUIVO_ESTADO, txt, 'application/json'); props.setProperty('ARQ_ESTADO', arq.getId()); }
+  // relatório pronto, calculado com as mesmas regras do painel (dados.js + motor.js do repositório)
+  try { salvarArquivo_('ARQ_RELATORIO', ARQUIVO_RELATORIO, montarRelatorio_(txt), 'text/plain'); }
+  catch (e) { salvarArquivo_('ARQ_RELATORIO', ARQUIVO_RELATORIO, 'ERRO ao montar o relatório: ' + e.message, 'text/plain'); }
   return arq.getId();
+}
+const ARQUIVO_RELATORIO = 'painel-mk3-relatorio.txt';
+const REPO_RAW = 'https://raw.githubusercontent.com/aagenciamk3-a11y/painel-mk3/main/';
+function salvarArquivo_(prop, nome, conteudo, tipo) {
+  const props = PropertiesService.getScriptProperties();
+  let arq = null; const id = props.getProperty(prop);
+  if (id) { try { arq = DriveApp.getFileById(id); if (arq.isTrashed()) arq = null; } catch (e) { arq = null; } }
+  if (arq) arq.setContent(conteudo);
+  else { arq = DriveApp.createFile(nome, conteudo, tipo); props.setProperty(prop, arq.getId()); }
+}
+/** Roda o motor do painel aqui dentro, com um navegador de mentira, e devolve texto + JSON. */
+function montarRelatorio_(estadoTxt) {
+  const fonte = f => {
+    const r = UrlFetchApp.fetch(REPO_RAW + f, { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) throw new Error('não baixei ' + f + ' (' + r.getResponseCode() + ')');
+    return r.getContentText();
+  };
+  const el = () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    setAttribute() {}, appendChild() {}, addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], innerHTML: '', dataset: {} });
+  const doc = { getElementById: () => el(), querySelector: () => null, querySelectorAll: () => [], createElement: () => el(),
+    addEventListener() {}, body: el(), documentElement: el() };
+  const win = { addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }), document: doc };
+  const nada = () => 0;
+  const rodar = new Function('document', 'window', 'localStorage', 'location', 'history', 'navigator',
+    'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', '__bruto',
+    fonte('dados.js') + '\n' + fonte('motor.js') +
+    '\n;ESTADO=normalizarEstado(JSON.parse(__bruto)); rebuild(); var __r=relatorioDiario();' +
+    ' return { r: __r, texto: textoReuniao(__r) };');
+  const out = rodar(doc, win, { getItem: () => null, setItem() {}, removeItem() {} }, { hash: '', pathname: '/', href: '' },
+    { pushState() {}, replaceState() {} }, {}, nada, nada, nada, nada, estadoTxt);
+  const quando = Utilities.formatDate(new Date(), FUSO, 'dd/MM/yyyy HH:mm');
+  return 'Gerado em ' + quando + '\n\n' + out.texto + '\n\n---JSON---\n' + JSON.stringify(out.r);
 }
 function instalarExportacao() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'exportarEstado').forEach(t => ScriptApp.deleteTrigger(t));

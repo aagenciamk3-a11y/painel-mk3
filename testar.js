@@ -1170,7 +1170,7 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
   let urlScript="https://script.google.com/macros/s/XYZ/dev";
   const fmtData=(d,tz,f)=>{ const x=new Date(d.getTime()-3*3600e3); const p=n=>String(n).padStart(2,"0");
     return f.replace("yyyy",x.getUTCFullYear()).replace("MM",p(x.getUTCMonth()+1)).replace("dd",p(x.getUTCDate())).replace("HH",p(x.getUTCHours())).replace("mm",p(x.getUTCMinutes())); };
-  const G={console,JSON,Date,Math,String,Number,Object,Array,RegExp,
+  const G={console,JSON,Date,Math,String,Number,Object,Array,RegExp,Function,Boolean,Promise,Set,Map,Error,isNaN,parseInt,parseFloat,Proxy,encodeURIComponent,decodeURIComponent,
     Utilities:{formatDate:fmtData,getUuid:()=>"uuid-1"},
     PropertiesService:{getScriptProperties:()=>({getProperty:k=>props[k],setProperty:(k,v)=>{props[k]=v;}})},
     CacheService:{getScriptCache:()=>({get:()=>cache,put:(k,v)=>{cache=v;},remove:()=>{cache=null;}})},
@@ -1191,9 +1191,12 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
     ScriptApp:{getService:()=>({getUrl:()=>urlScript}), getProjectTriggers:()=>gatilhos.slice(),
       deleteTrigger:t=>{ gatilhos.splice(gatilhos.indexOf(t),1); },
       newTrigger:f=>({timeBased:()=>({everyHours:h=>({create:()=>{ gatilhos.push({getHandlerFunction:()=>f, h:h}); }})})})},
-    DriveApp:{createFile:(n,c,m)=>{ const f={id:"arq1",nome:n,conteudo:c,getId:()=>"arq1",isTrashed:()=>false,setContent:x=>{f.conteudo=x;}}; arquivos.arq1=f; return f; },
+    DriveApp:{createFile:(n,c,m)=>{ const id="arq"+(Object.keys(arquivos).length+1); const f={id:id,nome:n,conteudo:c,getId:()=>id,isTrashed:()=>false,setContent:x=>{f.conteudo=x;}}; arquivos[id]=f; return f; },
       getFileById:id=>{ if(!arquivos[id]) throw new Error("nao achou"); return arquivos[id]; }},
-    UrlFetchApp:{fetch:(u,o)=>{ if(o && o.method==="patch") enviados.push({u,o}); return {getResponseCode:()=>200,getContentText:()=>'{"demandas":[]}'}; }}};
+    UrlFetchApp:{fetch:(u,o)=>{ if(o && o.method==="patch") enviados.push({u,o});
+      const m=/painel-mk3\/main\/(dados\.js|motor\.js)$/.exec(u);
+      if(m) return {getResponseCode:()=>200,getContentText:()=>fs.readFileSync(path.join(raiz,m[1]),"utf8")};
+      return {getResponseCode:()=>200,getContentText:()=>'{"demandas":[]}'}; }}};
   vm.createContext(G); vm.runInContext(fonte,G,{filename:"agenda-ao-vivo.gs"});
   const R=[]; const ok=(n,c)=>{ R.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
   console.log("\nScript da agenda (Google)");
@@ -1255,7 +1258,9 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
     ok("configurar liga a copia do painel no Drive, de hora em hora, sem duplicar o gatilho",
        gatilhos.length===1 && gatilhos[0].getHandlerFunction()==="exportarEstado" && gatilhos[0].h===1 && arquivos.arq1 && arquivos.arq1.nome==="painel-mk3-estado.json");
     vm.runInContext("configurar()",G);
-    ok("rodar de novo atualiza o mesmo arquivo e mantem um gatilho so", gatilhos.length===1 && Object.keys(arquivos).length===1 && /demandas/.test(arquivos.arq1.conteudo));
+    const rel=(Object.values(arquivos).find(f=>f.nome==="painel-mk3-relatorio.txt")||{}).conteudo||"";
+    ok("monta o relatorio pronto com as regras do painel", /reunião de pendências/.test(rel) && /---JSON---/.test(rel) && JSON.parse(rel.split("---JSON---")[1]).totalAtrasadas>0);
+    ok("rodar de novo atualiza os mesmos arquivos e mantem um gatilho so", gatilhos.length===1 && Object.keys(arquivos).length===2 && /demandas/.test(arquivos.arq1.conteudo));
   }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
   console.log(R.join("\n"));
 }
