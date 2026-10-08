@@ -26,6 +26,10 @@ compromissos por ela. As instruções de publicação estão no topo do arquivo.
 a função `conectarPainel` grava o endereço e a chave no banco do painel, e a equipe toda passa
 a usar sem colar nada.
 
+Toda demanda criada no painel (de hoje em diante) também vira um evento de dia inteiro no Google Agenda,
+e editar, mudar a data, escrever observação ou remover a demanda muda o evento. Se alguém mudar o título
+ou o dia do evento no Google, a demanda acompanha. O id do evento fica em `gid` dentro da demanda.
+
 ## Publicar
 
 ```

@@ -1539,6 +1539,7 @@ function addDemanda(texto,area,data,resp,obs,cli,feitaEm){
   }
   ESTADO.log=ESTADO.log.slice(0,300);
   persist(); rebuild(); render();
+  if(!(feitaEm && feitaEm<=iso(HOJE))) demandaParaGoogle(id);     /* vai para o Google Agenda tambem */
   return id;
 }
 /* a administracao apaga qualquer uma; os demais, so a que criaram */
@@ -1551,6 +1552,7 @@ function removeDemanda(id){
   const x=(ESTADO.demandas||[]).find(d=>d.id===id);
   if(!podeApagarDem(x)){ toast("Só dá para remover demanda que você mesmo criou",false); return; }
   snapshot();
+  demandaSaiDoGoogle(x);
   ESTADO.demandas=(ESTADO.demandas||[]).filter(d=>d.id!==id);
   ESTADO.log.unshift({ts:new Date().toISOString(),acao:"demandax",id:id,nome:x.texto,area:x.area,quem:USUARIO||null});
   ESTADO.log=ESTADO.log.slice(0,300);
@@ -1951,7 +1953,9 @@ function editarDemanda(id,campos){
   if(campos.resp) dm.resp=campos.resp;
   if(campos.cli!==undefined) dm.cli=campos.cli||null;
   ESTADO.log.unshift({ts:new Date().toISOString(),cliente:"_dem",acao:"editar",id:id,nome:dm.texto,data:dm.data,quem:USUARIO||null});
+  if(dm.foraAgenda && dm.data>=iso(HOJE)) delete dm.foraAgenda;   /* editou: volta a valer na agenda */
   persist(); rebuild(); render();
+  demandaParaGoogle(id);
 }
 function abrirObsDemanda(id, editar){
   const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
@@ -1972,6 +1976,7 @@ function abrirObsDemanda(id, editar){
 function setObsDemanda(id,txt){
   const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
   snapshot(); dm.obs=(txt||"").trim(); persist(); rebuild(); render();
+  if(dm.gid) demandaParaGoogle(id);
 }
 function abrirDemanda(diaSugerido){
   const areas=[["mkt","Marketing Digital"],["fin","Financeiro"],["com","Comercial"]];
@@ -3199,7 +3204,11 @@ function puxarAgendaAoVivo(){
     .then(j=>{
       if(!j || !Array.isArray(j.eventos)) return;
       const antes=JSON.stringify(ESTADO.agenda||[]);
-      ESTADO.agenda=j.eventos.map(enriquecerEvento);   /* só na memória: não grava nem sincroniza */
+      const evs=j.eventos.map(enriquecerEvento);
+      demandasDoGoogle(evs);                            /* mudou no Google? a demanda acompanha */
+      const gids=gidsDeDemanda();
+      ESTADO.agenda=evs.filter(e=>!gids[e.gid]);        /* evento que e demanda aparece uma vez so, como demanda */
+      if(ehAdmin()) mandarDemandasPendentes();
       if(JSON.stringify(ESTADO.agenda)!==antes){ if(ehAdmin()) sincronizarGravacoes(); marcarAgendaViva(j.lido); semPular(render); }
       else marcarAgendaViva(j.lido);
     })
@@ -3287,6 +3296,84 @@ function resultadosPainelHTML(){
 
 
 
+
+
+/* ================= DEMANDAS NO GOOGLE AGENDA =================
+   Toda demanda do painel vira um evento de dia inteiro na agenda da MK3.
+   Criar, editar, mudar a data, escrever observacao e remover: o Google acompanha.
+   E o caminho de volta: mudou o titulo ou o dia no Google, a demanda acompanha.
+   dm.gid guarda o id do evento; dm.gidEm, quando foi criado. */
+const DEM_GOOGLE_DESDE="2026-10-08";     /* demandas antigas (ja passadas) nao vao para a agenda */
+function diasDe(isoD,n){ const x=new Date(isoD+"T12:00:00Z"); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); }
+function gidsDeDemanda(){ const o={}; (ESTADO.demandas||[]).forEach(d=>{ if(d.gid) o[d.gid]=d.id; }); return o; }
+function corpoDemanda(dm){
+  const linhas=[]; if(dm.obs) linhas.push(dm.obs); linhas.push("Demanda do Painel de Prazos");
+  return { chave:(ESTADO.agendaChave||""), titulo:dm.texto, dia:dm.data, hora:"", cliente:dm.cli||"",
+           responsavel:dm.resp||"", avisar:false, meet:false, obs:linhas.join(" · ") };
+}
+function postAgenda(corpo){
+  if(typeof fetch!=="function" || !agendaUrl()) return Promise.resolve(null);
+  return fetch(agendaUrl(),{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(corpo)})
+    .then(r=>r.json()).catch(()=>null);
+}
+/* o Google devolve o iCalUID "<id>@google.com" de evento criado por aqui */
+function gidDoRetorno(j){ return j && j.ok && j.id ? String(j.id).replace(/@google\.com$/,"") : ""; }
+const DEM_ENVIANDO={};
+function demandaParaGoogle(id){
+  const dm=(ESTADO.demandas||[]).find(x=>x.id===id);
+  if(!dm || !agendaUrl() || dm.foraAgenda || !dm.data || !dm.texto) return Promise.resolve(false);
+  if(DEM_ENVIANDO[id]) return Promise.resolve(false);
+  DEM_ENVIANDO[id]=true;
+  const fim=v=>{ delete DEM_ENVIANDO[id]; return v; };
+  if(dm.gid){
+    return postAgenda({...corpoDemanda(dm), acao:"editar", gid:dm.gid}).then(j=>fim(!!(j&&j.ok)));
+  }
+  /* trava no servidor: dois navegadores nao criam o mesmo evento duas vezes */
+  return reservarCobranca("dem|"+id).then(ok=>{
+    if(!ok) return fim(false);
+    return postAgenda(corpoDemanda(dm)).then(j=>{
+      const g=gidDoRetorno(j);
+      const atual=(ESTADO.demandas||[]).find(x=>x.id===id);
+      if(g && atual){ atual.gid=g; atual.gidEm=Date.now(); persist(); }
+      else if(SYNC) SYNC.child("cobrancas/dem|"+id).remove().catch(()=>{});   /* falhou: solta para tentar de novo */
+      return fim(!!g);
+    });
+  });
+}
+function demandaSaiDoGoogle(dm){
+  if(!dm || !dm.gid || !agendaUrl()) return;
+  postAgenda({chave:(ESTADO.agendaChave||""), acao:"apagar", gid:dm.gid});
+}
+/* demanda de hoje em diante que ainda nao esta na agenda: manda (a administracao faz, uma por vez) */
+let DEM_FILA=false;
+function mandarDemandasPendentes(){
+  if(DEM_FILA || !agendaUrl() || !ESTADO.agendaChave) return;
+  const hoje=iso(HOJE);
+  const fila=(ESTADO.demandas||[]).filter(d=>!d.gid && !d.foraAgenda && d.data && d.data>=hoje && d.data>=DEM_GOOGLE_DESDE
+    && !demConcluida(d.id) && !(ESTADO.cobrancas||{})["dem|"+d.id]).map(d=>d.id);
+  if(!fila.length) return;
+  DEM_FILA=true;
+  fila.reduce((p,id)=>p.then(()=>demandaParaGoogle(id)), Promise.resolve()).then(()=>{ DEM_FILA=false; });
+}
+/* volta do Google: mudou titulo ou dia, a demanda muda; apagado la, a demanda fica so no painel */
+function demandasDoGoogle(evs){
+  const porGid={}; evs.forEach(e=>{ if(e.gid && !porGid[e.gid]) porGid[e.gid]=e; });
+  const hoje=iso(HOJE); let mudou=false;
+  (ESTADO.demandas||[]).forEach(dm=>{
+    if(!dm.gid) return;
+    const e=porGid[dm.gid];
+    if(!e){
+      /* so conta como apagado se ja deu tempo de aparecer e se o dia esta na janela que o script le */
+      if(Date.now()-(dm.gidEm||0) > 120000 && dm.data>=diasDe(hoje,-40) && dm.data<=diasDe(hoje,170)){
+        delete dm.gid; dm.foraAgenda=true; mudou=true;
+      }
+      return;
+    }
+    if(e.titulo && e.titulo!==dm.texto){ dm.texto=e.titulo; mudou=true; }
+    if(e.dia && e.dia!==dm.data && !e.varios){ dm.data=e.dia; mudou=true; }
+  });
+  if(mudou){ persist(); rebuild(); }
+}
 /* ================= FICHA DA MARCA, LINKS E CARIMBO ================= */
 /* quem marcou a tarefa como feita, lido do próprio log */
 function carimboDe(cid,tid){
