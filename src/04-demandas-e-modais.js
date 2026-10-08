@@ -692,7 +692,7 @@ function abrirDia(dayIso){
   const mm=$("modal");
   mm.innerHTML='<div class="mbox diamodal"><h3>'+esc(titulo)+'</h3>'+
     (ags.length?'<div class="diaag">'+ags.map(e=>'<div class="diaag-l">&#9679; '+esc(e.titulo)+(e.diaInteiro?'':' · '+esc(e.hora||''))+
-      ' '+donoHTML(e)+(e.meet?' <span class="ag-m" role="link" tabindex="0" data-abrir="'+escAttr(e.meet)+'">Meet</span>':'')+'</div>').join("")+'</div>':'')+
+      ' '+donoHTML(e)+(e.meet?' <span class="ag-m" role="link" tabindex="0" data-abrir="'+escAttr(e.meet)+'">Meet</span>':'')+' '+btEditarAg(e)+'</div>').join("")+'</div>':'')+
     (mks.length?'<div class="diamarco">'+mks.map(m=>"&#9670; "+esc(m.titulo)).join("<br>")+'</div>':'')+
     (base.length?'<div class="dia-lista">'+base.map(t=>diaItem(t,showCli)).join("")+'</div>'
                :'<div class="vazio">Nada marcado neste dia. Bom lugar para encaixar uma demanda.</div>')+
@@ -1072,6 +1072,7 @@ function handleModal(D){
   if(D.macao==="salvarficha"){ salvarFicha(D.cliid); return; }
   if(D.macao==="salvaragenda"){ salvarAgendaUrl(); return; }
   if(D.macao==="criarcomp"){ criarCompromisso(); return; }
+  if(D.macao==="apagarcomp"){ apagarCompromisso(); return; }
   if(D.macao==="salvarplano"){
     salvarPlano(D.mcid, D.mym, {estrategia:($("plEstr")||{}).value, esperado:($("plEsp")||{}).value, base:($("plBase")||{}).value});
     fecharModal(); return;

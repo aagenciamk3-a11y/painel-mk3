@@ -20,10 +20,11 @@ Regras extraídas do Manual de Processos Internos v1.0.
 
 ## Agenda ao vivo
 
-`apps-script/agenda-ao-vivo.gs` é a ponte com o Google Agenda da MK3: o painel lê por ela
-a cada minuto e cria compromissos por ela. As instruções de publicação estão no topo do arquivo.
-Depois de publicado, o endereço e a chave são colados uma vez em Administração → Agenda ao vivo
-e ficam valendo para a equipe toda.
+`apps-script/agenda-ao-vivo.gs` é a ponte com o Google Agenda da MK3, nos dois sentidos:
+o painel lê a agenda por ela a cada 20 segundos (com a aba aberta) e cria, edita e apaga
+compromissos por ela. As instruções de publicação estão no topo do arquivo. Depois de implantar,
+a função `conectarPainel` grava o endereço e a chave no banco do painel, e a equipe toda passa
+a usar sem colar nada.
 
 ## Publicar
 

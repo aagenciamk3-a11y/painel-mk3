@@ -1157,7 +1157,8 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
 /* ---- o script do Google (apps-script/agenda-ao-vivo.gs) rodando com servicos de mentira ---- */
 {
   const fonte=fs.readFileSync(path.join(raiz,"apps-script","agenda-ao-vivo.gs"),"utf8");
-  const inseridos=[]; const props={CHAVE:"abc123"}; let cache=null;
+  const inseridos=[], editados=[], apagados=[], enviados=[]; const props={CHAVE:"abc123"}; let cache=null;
+  let urlScript="https://script.google.com/macros/s/XYZ/dev";
   const fmtData=(d,tz,f)=>{ const x=new Date(d.getTime()-3*3600e3); const p=n=>String(n).padStart(2,"0");
     return f.replace("yyyy",x.getUTCFullYear()).replace("MM",p(x.getUTCMonth()+1)).replace("dd",p(x.getUTCDate())).replace("HH",p(x.getUTCHours())).replace("mm",p(x.getUTCMinutes())); };
   const G={console,JSON,Date,Math,String,Number,Object,Array,RegExp,
@@ -1174,8 +1175,12 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
         {id:"c",summary:"cancelado",status:"cancelled",start:{date:"2026-10-07"},end:{date:"2026-10-08"}},
         {id:"d",summary:"Cobrar aprovação",description:"Enviado em 11/08.\n#cliente:Suelem\n#resp:Bia",start:{dateTime:"2026-10-09T09:00:00-03:00"},end:{dateTime:"2026-10-09T09:15:00-03:00"}}
       ]}),
-      insert:(ev,cal,op)=>{ inseridos.push({ev,op}); return {iCalUID:"novo@google.com",hangoutLink:op.conferenceDataVersion?"https://meet.google.com/novo":""}; }
-    }}};
+      insert:(ev,cal,op)=>{ inseridos.push({ev,op}); return {iCalUID:"novo@google.com",hangoutLink:op.conferenceDataVersion?"https://meet.google.com/novo":""}; },
+      patch:(ev,cal,gid,op)=>{ editados.push({ev,gid,op}); return {iCalUID:gid+"@google.com"}; },
+      remove:(cal,gid,op)=>{ apagados.push({gid,op}); }
+    }},
+    ScriptApp:{getService:()=>({getUrl:()=>urlScript})},
+    UrlFetchApp:{fetch:(u,o)=>{ enviados.push({u,o}); return {getResponseCode:()=>200,getContentText:()=>"{}"}; }}};
   vm.createContext(G); vm.runInContext(fonte,G,{filename:"agenda-ao-vivo.gs"});
   const R=[]; const ok=(n,c)=>{ R.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
   console.log("\nScript da agenda (Google)");
@@ -1202,6 +1207,23 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
     ok("criar limpa o cache da leitura", cache===null);
     post({chave:"abc123",titulo:"Tarde",dia:"2026-10-21",hora:"23:30"});
     ok("23h30 sem fim termina 23h59, sem virar o dia", (inseridos[2]||{ev:{end:{}}}).ev.end.dateTime==="2026-10-21T23:59:00");
+    ok("evento traz o id do Google para editar", reu && reu.gid==="a");
+    ok("observacao vem sem as marcas", (r.eventos.find(e=>e.titulo==="Cobrar aprovação")||{}).obs==="Enviado em 11/08.");
+    ok("evento de varios dias vem marcado", r.eventos.filter(e=>e.titulo==="Gravação - Oceanus").every(e=>e.varios===true) && !reu.varios);
+    const n0=inseridos.length;
+    const ed=post({chave:"abc123",acao:"editar",gid:"d",titulo:"Cobrar aprovação (2ª vez)",dia:"2026-10-10",hora:"09:00",cliente:"suelem",obs:"Enviado em 11/08."});
+    ok("editar muda o evento que ja existe, sem criar outro", ed.ok && editados.length===1 && editados[0].gid==="d" && inseridos.length===n0 && editados[0].ev.summary==="Cobrar aprovação (2ª vez)");
+    ok("editar sem pedir Meet nao cria Meet novo", !editados[0].ev.conferenceData && editados[0].op.conferenceDataVersion===0);
+    ok("apagar sem a chave nao apaga", post({chave:"x",acao:"apagar",gid:"d"}).ok===false && apagados.length===0);
+    const ap=post({chave:"abc123",acao:"apagar",gid:"d"});
+    ok("apagar com a chave remove do Google, sem mandar e-mail", ap.ok && apagados.length===1 && apagados[0].gid==="d" && apagados[0].op.sendUpdates==="none");
+    let erroConectar=""; try{ vm.runInContext("conectarPainel()",G); }catch(e){ erroConectar=e.message; }
+    ok("conectar antes de implantar avisa e nao grava nada", /\/exec/.test(erroConectar) && enviados.length===0);
+    urlScript="https://script.google.com/macros/s/XYZ/exec";
+    vm.runInContext("conectarPainel()",G);
+    const env=enviados[0]||{o:{}}; const corpo=JSON.parse(env.o.payload||"{}");
+    ok("conectar grava endereco e chave no painel, so esses dois campos", /painel\/estado\.json$/.test(env.u) && env.o.method==="patch" &&
+       corpo.agendaUrl===urlScript && corpo.agendaChave==="abc123" && Object.keys(corpo).length===2);
   }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
   console.log(R.join("\n"));
 }

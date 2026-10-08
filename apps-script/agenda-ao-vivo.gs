@@ -1,23 +1,20 @@
 /**
  * AGENDA AO VIVO — ponte entre o Google Agenda da MK3 e o Painel de Prazos
  * =========================================================================
- * O painel lê a agenda por aqui a cada minuto (doGet) e cria compromissos
- * por aqui (doPost). Este script só entrega e grava os dados: quem descobre
- * de qual cliente e de quem é cada evento é o próprio painel. Entrou ou saiu
- * cliente? Não precisa mexer aqui.
+ * O painel lê a agenda por aqui a cada 20 segundos (doGet) e cria, edita ou
+ * apaga compromissos por aqui (doPost). Este script só entrega e grava os
+ * dados: quem descobre de qual cliente e de quem é cada evento é o próprio
+ * painel. Entrou ou saiu cliente? Não precisa mexer aqui.
  *
  * COMO PUBLICAR (uma vez só, logado na conta aagencia.mk3@gmail.com)
  * 1. script.google.com > Novo projeto. Cole este arquivo inteiro.
- * 2. À esquerda, em "Serviços", clique em + e adicione "Google Calendar API"
- *    (é ele que traz o link do Meet e cria eventos com Meet).
- * 3. No seletor de função, escolha  configurar  e clique em Executar.
- *    Autorize o acesso. O log mostra a CHAVE (guarde para o passo 6).
+ * 2. À esquerda, em "Serviços", clique em + e adicione "Google Calendar API".
+ * 3. Rode a função  configurar  e autorize o acesso.
  * 4. Implantar > Nova implantação > tipo "App da Web".
  *      Executar como: Eu (aagencia.mk3@gmail.com)
  *      Quem pode acessar: Qualquer pessoa
- * 5. Copie o endereço que termina em /exec.
- * 6. No painel: Administração > Agenda ao vivo. Cole o endereço e a chave.
- *    Isso fica salvo para a equipe toda: ninguém mais precisa digitar nada.
+ * 5. Rode a função  conectarPainel : ela grava o endereço e a chave no painel,
+ *    para a equipe toda. Ninguém precisa copiar nem colar nada.
  *
  * Para atualizar o código depois SEM trocar o endereço:
  * Implantar > Gerenciar implantações > lápis > Versão: "Nova versão".
@@ -30,22 +27,33 @@ const AGENDA_ID = 'primary';        // a agenda principal da conta que publica
 const FUSO = 'America/Sao_Paulo';
 const DIAS_ANTES = 45;              // quanto do passado o painel enxerga
 const DIAS_DEPOIS = 180;            // quanto do futuro
-const CACHE_SEG = 25;               // a equipe toda lendo a cada minuto não estoura a cota
+const CACHE_SEG = 10;               // a equipe toda lendo a cada 20 s não estoura a cota
+const BANCO_PAINEL = 'https://painel-mk3-default-rtdb.firebaseio.com/painel/estado.json';
 
-/** Rode uma vez: cria a chave que o painel usa para criar eventos. */
+/** Rode uma vez: cria a chave que o painel usa para gravar na agenda. */
 function configurar() {
   const props = PropertiesService.getScriptProperties();
-  let chave = props.getProperty('CHAVE');
-  if (!chave) {
-    chave = Utilities.getUuid().replace(/-/g, '');
-    props.setProperty('CHAVE', chave);
-  }
+  if (!props.getProperty('CHAVE')) props.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, ''));
   // testa o acesso à agenda e ao serviço avançado
   Calendar.Events.list(AGENDA_ID, { maxResults: 1, timeMin: new Date().toISOString() });
-  Logger.log('Tudo certo. CHAVE para colar no painel: ' + chave);
+  Logger.log('Agenda acessível e chave criada. Agora implante como App da Web e rode conectarPainel.');
 }
 
-/** Leitura: o painel chama a cada minuto. */
+/** Rode depois de implantar: o painel passa a usar este script, para todo mundo. */
+function conectarPainel() {
+  const chave = PropertiesService.getScriptProperties().getProperty('CHAVE');
+  if (!chave) throw new Error('Rode configurar primeiro.');
+  const url = ScriptApp.getService().getUrl() || '';
+  if (!/\/exec$/.test(url)) throw new Error('Implante como App da Web antes (o endereço precisa terminar em /exec). Recebi: ' + url);
+  const r = UrlFetchApp.fetch(BANCO_PAINEL, {
+    method: 'patch', contentType: 'application/json', muteHttpExceptions: true,
+    payload: JSON.stringify({ agendaUrl: url, agendaChave: chave })
+  });
+  if (r.getResponseCode() !== 200) throw new Error('O banco do painel recusou: ' + r.getResponseCode() + ' ' + r.getContentText());
+  Logger.log('Painel conectado. Endereço: ' + url);
+}
+
+/** Leitura: o painel chama a cada 20 segundos, com a aba aberta. */
 function doGet() {
   const cache = CacheService.getScriptCache();
   const guardado = cache.get('eventos');
@@ -85,10 +93,12 @@ function eventoParaPainel_(ev) {
     .map(a => String(a.email || '').split('@')[0].toLowerCase()).filter(Boolean);
   const base = {
     id: ev.iCalUID || ev.id,
+    gid: ev.id,                       // o id que o Google usa para editar e apagar
     titulo: ev.summary || '(sem título)',
     meet: meet,
     tagCliente: tag('cliente'),
     tagResp: tag('resp'),
+    obs: obsDe_(desc),                // a descrição sem as marcas, para editar sem perder nada
     convidados: convidados
   };
   if (ev.start.date) {                       // dia inteiro (o fim do Google é exclusivo)
@@ -98,6 +108,7 @@ function eventoParaPainel_(ev) {
       out.push(Object.assign({}, base, { id: base.id + (i ? '#' + i : ''), dia: d, hora: '', fim: '', diaInteiro: true }));
       d = somaDia_(d);
     }
+    if (out.length > 1) out.forEach(x => { x.varios = true; });   // vários dias: o painel manda editar no Google
     return out;
   }
   const a = new Date(ev.start.dateTime), b = new Date(ev.end.dateTime);
@@ -109,12 +120,20 @@ function eventoParaPainel_(ev) {
   })];
 }
 
-/** Criação: o painel manda {chave, titulo, dia, hora, fim, cliente, responsavel, convidados, avisar, meet, obs}. */
+/** Gravação: o painel manda {chave, acao, gid, titulo, dia, hora, fim, cliente, responsavel, convidados, avisar, meet, obs}.
+ *  acao: 'criar' (padrão), 'editar' (com gid) ou 'apagar' (com gid). */
 function doPost(e) {
   let p;
   try { p = JSON.parse(e.postData.contents); } catch (x) { return json_({ ok: false, erro: 'pedido ilegível' }); }
   const chave = PropertiesService.getScriptProperties().getProperty('CHAVE');
   if (!chave || p.chave !== chave) return json_({ ok: false, erro: 'chave da agenda não confere (Administração > Agenda ao vivo)' });
+  const cache = CacheService.getScriptCache();
+  if (p.acao === 'apagar') {
+    if (!p.gid) return json_({ ok: false, erro: 'falta o evento' });
+    Calendar.Events.remove(AGENDA_ID, String(p.gid), { sendUpdates: p.avisar ? 'all' : 'none' });
+    cache.remove('eventos');
+    return json_({ ok: true });
+  }
   if (!p.titulo || !/^\d{4}-\d{2}-\d{2}$/.test(String(p.dia || ''))) return json_({ ok: false, erro: 'falta título ou dia' });
 
   const linhas = [];
@@ -136,14 +155,21 @@ function doPost(e) {
   if (emails.length) ev.attendees = emails.map(x => ({ email: x }));
   if (p.meet) ev.conferenceData = { createRequest: { requestId: Utilities.getUuid(), conferenceSolutionKey: { type: 'hangoutsMeet' } } };
 
-  const criado = Calendar.Events.insert(ev, AGENDA_ID, {
-    sendUpdates: p.avisar ? 'all' : 'none',
-    conferenceDataVersion: p.meet ? 1 : 0
-  });
-  CacheService.getScriptCache().remove('eventos');    // a próxima leitura já traz o evento novo
+  const opcoes = { sendUpdates: p.avisar ? 'all' : 'none', conferenceDataVersion: p.meet ? 1 : 0 };
+  const criado = (p.acao === 'editar' && p.gid)
+    ? Calendar.Events.patch(ev, AGENDA_ID, String(p.gid), opcoes)
+    : Calendar.Events.insert(ev, AGENDA_ID, opcoes);
+  cache.remove('eventos');                            // a próxima leitura já traz o evento novo
   return json_({ ok: true, id: criado.iCalUID || criado.id, meet: criado.hangoutLink || '' });
 }
 
+function obsDe_(desc) {
+  return String(desc || '')
+    .replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/#(cliente|resp):[^\n#]*/gi, '')
+    .split('\n').map(l => l.trim()).filter(Boolean).join(' · ').slice(0, 1000);
+}
 function somaDia_(iso) {
   const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);

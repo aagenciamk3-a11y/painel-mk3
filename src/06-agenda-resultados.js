@@ -13,6 +13,9 @@ function evAgenda(e){
     '<div class="ev-tt">&#9679; '+esc(e.titulo)+'</div>'+
     '<div class="ev-meta"><span class="ev-dot"></span>'+esc(h||"agenda")+'</div></div>';
 }
+function btEditarAg(e){
+  return (ehAdmin() && e.gid && agendaUrl()) ? '<span class="ag-ed" role="button" tabindex="0" data-agedit="'+escAttr(e.id)+'" data-tt="Editar ou apagar no Google Agenda">editar</span>' : '';
+}
 function proximosAgendaHTML(){
   const hoje=iso(HOJE);
   const l=(ESTADO.agenda||[]).filter(e=>e.dia>=hoje).sort((a,b)=>(a.dia+(a.hora||"")).localeCompare(b.dia+(b.hora||""))).slice(0,5);
@@ -25,6 +28,7 @@ function proximosAgendaHTML(){
         '<span class="ag-d">'+esc(quando)+(e.diaInteiro?'':' <i>'+esc(e.hora||"")+'</i>')+'</span>'+
         '<span class="ag-t">'+esc(e.titulo)+'</span>'+donoHTML(e)+
         (e.meet?'<span class="ag-m" role="link" tabindex="0" data-abrir="'+escAttr(e.meet)+'" data-tt="Entrar no Meet">Meet</span>':'')+
+        btEditarAg(e)+
       '</div>';
     }).join("")+'</div>';
 }
@@ -32,13 +36,22 @@ function proximosAgendaHTML(){
 
 
 /* ---- criar compromisso na agenda pelo painel ---- */
-function abrirCompromisso(diaPre){
+let COMP_EDIT=null;   /* evento do Google sendo editado (null = novo) */
+function eventoAgenda(id){ return (ESTADO.agenda||[]).find(e=>e.id===id)||null; }
+function editarCompromisso(id){
+  const e=eventoAgenda(id); if(!e) return;
+  if(!e.gid){ toast("Este evento ainda não pode ser editado pelo painel. Recarregue a página.",false); return; }
+  if(e.varios){ toast("Evento de vários dias: edite direto no Google Agenda",false); return; }
+  abrirCompromisso(e.dia, e);
+}
+function abrirCompromisso(diaPre, evEd){
   if(!ehAdmin()) return;
+  COMP_EDIT=evEd||null;
   if(!agendaUrl()){ toast("Ligue a agenda ao vivo primeiro",false); abrirAgendaConfig(); return; }
   const hoje=iso(HOJE);
   const cls=CLIENTES.map(c=>'<option value="'+escAttr(c.id)+'">'+esc(c.nome)+'</option>').join("");
-  $("modal").innerHTML='<div class="mbox compform"><h3>Novo compromisso na agenda</h3>'+
-    '<p class="msub">Cria direto no Google Agenda da MK3. O cliente e o responsável ficam gravados no evento, então o painel já sabe de quem é.</p>'+
+  $("modal").innerHTML='<div class="mbox compform"><h3>'+(COMP_EDIT?'Editar compromisso':'Novo compromisso na agenda')+'</h3>'+
+    '<p class="msub">'+(COMP_EDIT?'Salvou aqui, mudou no Google Agenda da MK3 na hora.':'Cria direto no Google Agenda da MK3. O cliente e o responsável ficam gravados no evento, então o painel já sabe de quem é.')+'</p>'+
     '<label class="mlab">O que é<input type="text" id="cpTit" placeholder="Gravação, reunião, visita..." autocomplete="off"></label>'+
     '<div class="cp-linha tres">'+
       '<label class="mlab">Dia<input type="date" id="cpDia" value="'+escAttr(diaPre||hoje)+'"></label>'+
@@ -65,9 +78,38 @@ function abrirCompromisso(diaPre){
         '<span>Para reunião on-line. O link aparece no painel e no convite.</span></div>'+
     '</div>'+
     '<label class="mlab">Observação<input type="text" id="cpObs" placeholder="opcional" autocomplete="off"></label>'+
-    '<div class="mbtns"><button data-macao="criarcomp">Criar na agenda</button>'+
+    '<div class="mbtns"><button data-macao="criarcomp">'+(COMP_EDIT?'Salvar na agenda':'Criar na agenda')+'</button>'+
+    (COMP_EDIT?'<button class="sec perigo" data-macao="apagarcomp">Apagar da agenda</button>':'')+
     '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
   mostrarModal(true);
+  if(COMP_EDIT) preencherCompromisso(COMP_EDIT);
+}
+function preencherCompromisso(e){
+  const pe=(id,v)=>{ const el=$(id); if(el) el.value=v||""; };
+  pe("cpTit",e.titulo); pe("cpDia",e.dia);
+  if(!e.diaInteiro){ pe("cpHora",e.hora); pe("cpFim",e.fim); }
+  pe("cpCli", e.cliente && CLIENTES.some(c=>c.id===e.cliente) ? e.cliente : "");
+  pe("cpObs",e.obs);
+  const resp=String(e.tagResp||"").split(/\s*,\s*/).filter(Boolean);
+  document.querySelectorAll("#cpResp .cp-p").forEach(b=>{ if(resp.indexOf(b.dataset.resp)>=0) b.classList.add("on"); });
+  const cv=$("cpConv"); if(cv) cv.placeholder = (e.convidados||[]).length ? "já convidados: "+e.convidados.join(", ")+" (novos e-mails aqui)" : "e-mails separados por vírgula";
+  if(e.meet){ const m=$("cpMeet"); if(m){ m.classList.add("on"); m.setAttribute("aria-checked","true"); m.disabled=true; } }
+}
+function apagarCompromisso(){
+  if(!ehAdmin()||!COMP_EDIT) return;
+  const bt=document.querySelector('[data-macao="apagarcomp"]');
+  if(bt && !bt.classList.contains("confirma")){ bt.classList.add("confirma"); bt.textContent="Clique de novo para apagar"; return; }
+  if(bt){ bt.disabled=true; bt.textContent="Apagando..."; }
+  const e=COMP_EDIT;
+  fetch(agendaUrl(), {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify({chave:(ESTADO.agendaChave||""), acao:"apagar", gid:e.gid})})
+    .then(r=>r.json())
+    .then(j=>{
+      if(j && j.ok){ ESTADO.agenda=(ESTADO.agenda||[]).filter(x=>x.gid!==e.gid); COMP_EDIT=null; fecharModal(); render();
+        toast("Apagado do Google Agenda",false); puxarAgendaAoVivo(); }
+      else { toast("Não deu: "+((j&&j.erro)||"resposta inesperada"),false); if(bt){ bt.disabled=false; bt.textContent="Apagar da agenda"; bt.classList.remove("confirma"); } }
+    })
+    .catch(()=>{ toast("Não consegui falar com a agenda",false); if(bt){ bt.disabled=false; bt.textContent="Apagar da agenda"; bt.classList.remove("confirma"); } });
 }
 function criarCompromisso(){
   if(!ehAdmin()) return;
@@ -80,18 +122,21 @@ function criarCompromisso(){
   const corpo={ chave:(ESTADO.agendaChave||""), titulo:titulo, dia:dia, hora:v("cpHora"),
     fim:v("cpFim"), cliente:v("cpCli"), responsavel:resp,
     convidados:v("cpConv"), avisar:!!(av && av.classList.contains("on")),
-    meet:!!($("cpMeet") && $("cpMeet").classList.contains("on")), obs:v("cpObs") };
+    meet:!!($("cpMeet") && $("cpMeet").classList.contains("on") && !(COMP_EDIT && COMP_EDIT.meet)), obs:v("cpObs") };
+  if(COMP_EDIT){ corpo.acao="editar"; corpo.gid=COMP_EDIT.gid; }
+  const rotulo = COMP_EDIT ? "Salvar na agenda" : "Criar na agenda";
   const bt=document.querySelector('[data-macao="criarcomp"]');
-  if(bt){ bt.disabled=true; bt.textContent="Criando..."; }
+  if(bt){ bt.disabled=true; bt.textContent= COMP_EDIT ? "Salvando..." : "Criando..."; }
   fetch(agendaUrl(), {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify(corpo)})
     .then(r=>r.json())
     .then(j=>{
-      if(j && j.ok){ fecharModal(); toast("Compromisso criado na agenda do Google",false); puxarAgendaAoVivo(); setTimeout(puxarAgendaAoVivo,4000); }
+      if(j && j.ok){ const ed=!!COMP_EDIT; COMP_EDIT=null; fecharModal();
+        toast(ed?"Alterado no Google Agenda":"Compromisso criado na agenda do Google",false); puxarAgendaAoVivo(); setTimeout(puxarAgendaAoVivo,4000); }
       else { toast("Não deu: "+((j&&j.erro)||"resposta inesperada"),false);
-             if(bt){ bt.disabled=false; bt.textContent="Criar na agenda"; } }
+             if(bt){ bt.disabled=false; bt.textContent=rotulo; } }
     })
     .catch(()=>{ toast("Não consegui falar com a agenda",false);
-      if(bt){ bt.disabled=false; bt.textContent="Criar na agenda"; } });
+      if(bt){ bt.disabled=false; bt.textContent=rotulo; } });
 }
 /* ---- cobranca de aprovacao: o painel cria o lembrete na agenda sozinho ----
    Regra do manual: 1 dia util depois do envio, um evento avisa a equipe de
@@ -257,7 +302,7 @@ function ligarAgendaAoVivo(){
   clearInterval(AGENDA_T); AGENDA_T=null;
   if(!agendaUrl()) return;
   puxarAgendaAoVivo();
-  AGENDA_T=setInterval(()=>{ if(!document.hidden) puxarAgendaAoVivo(); }, 60000);   /* aba escondida nao busca */
+  AGENDA_T=setInterval(()=>{ if(!document.hidden) puxarAgendaAoVivo(); }, 20000);   /* a cada 20 s; aba escondida nao busca */
 }
 /* um ouvinte so (antes cada salvamento da agenda somava mais um) */
 document.addEventListener("visibilitychange",()=>{
