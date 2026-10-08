@@ -1146,6 +1146,15 @@ __ok("evento de cliente cai no marketing", ev("Gravação - Oceanus").area==="mk
 __ok("script antigo (ja com cliente) continua valendo", enriquecerEvento({titulo:"Qualquer",cliente:"cynthia",pessoa:"Carla"}).cliente==="cynthia");
 `);
 
+bloco("Relatorio diario (reuniao de pendencias)", M, limpar+`
+const r=relatorioDiario();
+__ok("conta as atrasadas e agrupa por cliente e mes", r.totalAtrasadas===r.atrasadas.length && r.grupos.every(g=>g.itens.every(x=>x.cliente===g.cliente && x.data.slice(0,7)===g.mes)));
+__ok("lista contrato que vence em ate 30 dias", r.contratos.every(c=>c.dias>=0 && c.dias<=30));
+const tx=textoReuniao(r);
+__ok("o texto do evento chama para o chat", /reunião de pendências/.test(tx));
+__ok("nao leva login, senha nem PIN", !/senha|pin|login/i.test(tx.replace(/Pode Postar/g,"")));
+`);
+
 bloco("Suelem sai sem renovar", M, limpar+`
 const ts=regras(CLIENTES.find(c=>c.id==="suelem")).map(t=>t.id);
 __ok("nao cobra renovacao", !ts.some(id=>/^renov/.test(id)));
@@ -1157,7 +1166,7 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
 /* ---- o script do Google (apps-script/agenda-ao-vivo.gs) rodando com servicos de mentira ---- */
 {
   const fonte=fs.readFileSync(path.join(raiz,"apps-script","agenda-ao-vivo.gs"),"utf8");
-  const inseridos=[], editados=[], apagados=[], enviados=[]; const props={CHAVE:"abc123"}; let cache=null;
+  const inseridos=[], editados=[], apagados=[], enviados=[], gatilhos=[], arquivos={}; const props={CHAVE:"abc123"}; let cache=null;
   let urlScript="https://script.google.com/macros/s/XYZ/dev";
   const fmtData=(d,tz,f)=>{ const x=new Date(d.getTime()-3*3600e3); const p=n=>String(n).padStart(2,"0");
     return f.replace("yyyy",x.getUTCFullYear()).replace("MM",p(x.getUTCMonth()+1)).replace("dd",p(x.getUTCDate())).replace("HH",p(x.getUTCHours())).replace("mm",p(x.getUTCMinutes())); };
@@ -1179,8 +1188,12 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
       patch:(ev,cal,gid,op)=>{ editados.push({ev,gid,op}); return {iCalUID:gid+"@google.com"}; },
       remove:(cal,gid,op)=>{ apagados.push({gid,op}); }
     }},
-    ScriptApp:{getService:()=>({getUrl:()=>urlScript})},
-    UrlFetchApp:{fetch:(u,o)=>{ enviados.push({u,o}); return {getResponseCode:()=>200,getContentText:()=>"{}"}; }}};
+    ScriptApp:{getService:()=>({getUrl:()=>urlScript}), getProjectTriggers:()=>gatilhos.slice(),
+      deleteTrigger:t=>{ gatilhos.splice(gatilhos.indexOf(t),1); },
+      newTrigger:f=>({timeBased:()=>({everyHours:h=>({create:()=>{ gatilhos.push({getHandlerFunction:()=>f, h:h}); }})})})},
+    DriveApp:{createFile:(n,c,m)=>{ const f={id:"arq1",nome:n,conteudo:c,getId:()=>"arq1",isTrashed:()=>false,setContent:x=>{f.conteudo=x;}}; arquivos.arq1=f; return f; },
+      getFileById:id=>{ if(!arquivos[id]) throw new Error("nao achou"); return arquivos[id]; }},
+    UrlFetchApp:{fetch:(u,o)=>{ if(o && o.method==="patch") enviados.push({u,o}); return {getResponseCode:()=>200,getContentText:()=>'{"demandas":[]}'}; }}};
   vm.createContext(G); vm.runInContext(fonte,G,{filename:"agenda-ao-vivo.gs"});
   const R=[]; const ok=(n,c)=>{ R.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
   console.log("\nScript da agenda (Google)");
@@ -1239,6 +1252,10 @@ __ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c
     vm.runInContext("configurar()",G);
     const env2=JSON.parse((enviados[1]||{o:{}}).o.payload||"{}");
     ok("pelo editor (so /dev), usa o endereco salvo e configurar ja conecta", env2.agendaUrl===props.URL && env2.agendaChave==="abc123");
+    ok("configurar liga a copia do painel no Drive, de hora em hora, sem duplicar o gatilho",
+       gatilhos.length===1 && gatilhos[0].getHandlerFunction()==="exportarEstado" && gatilhos[0].h===1 && arquivos.arq1 && arquivos.arq1.nome==="painel-mk3-estado.json");
+    vm.runInContext("configurar()",G);
+    ok("rodar de novo atualiza o mesmo arquivo e mantem um gatilho so", gatilhos.length===1 && Object.keys(arquivos).length===1 && /demandas/.test(arquivos.arq1.conteudo));
   }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
   console.log(R.join("\n"));
 }

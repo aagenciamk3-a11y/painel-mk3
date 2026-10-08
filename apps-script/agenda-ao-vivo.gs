@@ -39,6 +39,7 @@ function configurar() {
   if (!props.getProperty('CHAVE')) props.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, ''));
   // testa o acesso à agenda e ao serviço avançado
   Calendar.Events.list(AGENDA_ID, { maxResults: 1, timeMin: new Date().toISOString() });
+  instalarExportacao();                                                     // cópia do painel no Drive, a cada hora
   if (/\/exec$/.test(enderecoPublicado_())) { conectarPainel(); return; }   // já implantado: liga o painel na mesma hora
   Logger.log('Agenda acessível e chave criada. Agora implante como App da Web e rode configurar de novo (ou conectarPainel).');
 }
@@ -55,6 +56,29 @@ function conectarPainel() {
   });
   if (r.getResponseCode() !== 200) throw new Error('O banco do painel recusou: ' + r.getResponseCode() + ' ' + r.getContentText());
   Logger.log('Painel conectado. Endereço: ' + url);
+}
+
+/** CÓPIA DO PAINEL NO DRIVE
+ *  A rotina diária do Claudinho (reunião de pendências) roda na nuvem e não alcança o banco
+ *  do painel. Por isso, a cada hora, este script copia o estado do painel para o arquivo
+ *  painel-mk3-estado.json no Drive da MK3, que a rotina lê pelo conector do Drive. */
+const ARQUIVO_ESTADO = 'painel-mk3-estado.json';
+function exportarEstado() {
+  const r = UrlFetchApp.fetch(BANCO_PAINEL, { muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) throw new Error('Não consegui ler o painel: ' + r.getResponseCode());
+  const txt = r.getContentText();
+  const props = PropertiesService.getScriptProperties();
+  let arq = null;
+  const id = props.getProperty('ARQ_ESTADO');
+  if (id) { try { arq = DriveApp.getFileById(id); if (arq.isTrashed()) arq = null; } catch (e) { arq = null; } }
+  if (arq) arq.setContent(txt);
+  else { arq = DriveApp.createFile(ARQUIVO_ESTADO, txt, 'application/json'); props.setProperty('ARQ_ESTADO', arq.getId()); }
+  return arq.getId();
+}
+function instalarExportacao() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'exportarEstado').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('exportarEstado').timeBased().everyHours(1).create();
+  exportarEstado();
 }
 
 /** O endereço /exec da implantação. Rodando pelo editor, o Google às vezes só devolve o /dev:

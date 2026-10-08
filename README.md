@@ -34,6 +34,14 @@ que vai direto para o Google). Prazos e demandas ficam nas outras abas.
 que recebe o aviso por e-mail. O e-mail dela fica na propriedade `EMAIL_FINANCEIRO` do script
 (fora do repositório e do banco). Enquanto ela não estiver configurada, os prazos não são enviados.
 
+## Reunião de pendências (rotina diária)
+
+Toda manhã de dia útil, uma tarefa agendada do Claudinho lê a cópia do painel no Drive
+(`painel-mk3-estado.json`, que o script do Google atualiza a cada hora), roda
+`node relatorio.js painel-mk3-estado.json --texto` e, se houver pendência, marca na agenda da MK3
+a "Reunião de pendências" com a lista na descrição. Na reunião, a equipe abre o chat do projeto
+JARVIS e diz "reunião de pendências": o Claudinho pergunta item por item e atualiza o painel.
+
 ## Publicar
 
 ```
