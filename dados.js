@@ -80,8 +80,10 @@ const CLIENTES = [
        usamos a assinatura de hoje como âncora do contrato atual. */
     entrada: "2026-07-15",
 
-    /* RENOVAÇÃO 07/2026 — aguardando assinatura. Vigência 3 meses. */
-    contrato: "Renovação 07/2026 (aguardando assinatura)",
+    /* Contrato de 07/2026, vigência 3 meses. Confirmado em 08/10/2026: NÃO vai renovar,
+       a Suelem sai no fim da vigência (15/10/2026). */
+    contrato: "Contrato 07/2026 (sem renovação)",
+    semRenovacao: true,
     inicioContrato: "2026-07-15",
     vencimentoContrato: "2026-10-15",
     mensalidade: {valorPix: 2200, valorPermuta: 0, diaVencimento: 20},

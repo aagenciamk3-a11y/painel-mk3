@@ -18,6 +18,13 @@ Regras extraídas do Manual de Processos Internos v1.0.
 - `comercial.js` — funil de vendas
 - `portal.css` + `portal.js` → `c/index.html`, gerado por `node gerar_portal.js`
 
+## Agenda ao vivo
+
+`apps-script/agenda-ao-vivo.gs` é a ponte com o Google Agenda da MK3: o painel lê por ela
+a cada minuto e cria compromissos por ela. As instruções de publicação estão no topo do arquivo.
+Depois de publicado, o endereço e a chave são colados uma vez em Administração → Agenda ao vivo
+e ficam valendo para a equipe toda.
+
 ## Publicar
 
 ```

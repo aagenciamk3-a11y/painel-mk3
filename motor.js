@@ -180,9 +180,12 @@ function regras(c){
       c.concluidas=(c.concluidas||[]).concat([{id:idC(b),data:x.data}]);
   };
   ["renov","acaoComercial","fimContrato","entregaMateriais"].forEach(herdar);
-  add(idC("renov"),"Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
+  /* cliente que ja avisou que nao renova: sem cobranca de renovacao nem acao comercial,
+     ficam so o encerramento e a entrega dos materiais */
+  if(!c.semRenovacao)
+    add(idC("renov"),"Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
       venc?addD(venc,-20):null,"Gestão");
-  if(venc)
+  if(venc && !c.semRenovacao)
     add(idC("acaoComercial"),"Contrato","Ação comercial — contrato encerra em 1 semana",
         "Contato para renovação/negociação com o cliente",addD(venc,-7),"Gestão");
   add(idC("fimContrato"),"Contrato","Encerramento do contrato",
@@ -2712,7 +2715,7 @@ function seloCliente(c){
   const v=c.vencimentoContrato;
   if(v){ const n=dias(v);
     if(n<0)   return '<span class="badge-ativo b-alerta">Contrato venceu</span>';
-    if(n<=30) return '<span class="badge-ativo b-aviso">Contrato vence em '+n+(n===1?' dia':' dias')+'</span>'; }
+    if(n<=30) return '<span class="badge-ativo b-aviso">'+(c.semRenovacao?'Sai em ':'Contrato vence em ')+n+(n===1?' dia':' dias')+'</span>'; }
   const o=onboardingDe(c);
   if(o.total && !o.completo && mostraOnboarding()) return '<span class="badge-ativo">Onboarding</span>';
   return '';
@@ -2968,6 +2971,11 @@ function abrirCompromisso(diaPre){
       '<div class="cp-aviso-t"><b>Avisar os convidados por e-mail</b>'+
         '<span>Desligado, eles entram no evento sem receber nada.</span></div>'+
     '</div>'+
+    '<div class="cp-aviso">'+
+      '<button type="button" class="cp-sw" id="cpMeet" data-avisar="1" role="switch" aria-checked="false"><i></i></button>'+
+      '<div class="cp-aviso-t"><b>Criar link do Meet</b>'+
+        '<span>Para reunião on-line. O link aparece no painel e no convite.</span></div>'+
+    '</div>'+
     '<label class="mlab">Observação<input type="text" id="cpObs" placeholder="opcional" autocomplete="off"></label>'+
     '<div class="mbtns"><button data-macao="criarcomp">Criar na agenda</button>'+
     '<button class="sec" data-macao="fechar">Cancelar</button></div></div>';
@@ -2983,13 +2991,14 @@ function criarCompromisso(){
   const resp=[...document.querySelectorAll("#cpResp .cp-p.on")].map(b=>b.dataset.resp).join(", ");
   const corpo={ chave:(ESTADO.agendaChave||""), titulo:titulo, dia:dia, hora:v("cpHora"),
     fim:v("cpFim"), cliente:v("cpCli"), responsavel:resp,
-    convidados:v("cpConv"), avisar:!!(av && av.classList.contains("on")), obs:v("cpObs") };
+    convidados:v("cpConv"), avisar:!!(av && av.classList.contains("on")),
+    meet:!!($("cpMeet") && $("cpMeet").classList.contains("on")), obs:v("cpObs") };
   const bt=document.querySelector('[data-macao="criarcomp"]');
   if(bt){ bt.disabled=true; bt.textContent="Criando..."; }
   fetch(agendaUrl(), {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify(corpo)})
     .then(r=>r.json())
     .then(j=>{
-      if(j && j.ok){ fecharModal(); toast("Compromisso criado na agenda",true); setTimeout(puxarAgendaAoVivo,1200); }
+      if(j && j.ok){ fecharModal(); toast("Compromisso criado na agenda do Google",false); puxarAgendaAoVivo(); setTimeout(puxarAgendaAoVivo,4000); }
       else { toast("Não deu: "+((j&&j.erro)||"resposta inesperada"),false);
              if(bt){ bt.disabled=false; bt.textContent="Criar na agenda"; } }
     })
@@ -3098,6 +3107,45 @@ function donoHTML(e){
 /* ---- agenda ao vivo: o painel lê o Google Agenda direto, sem intermediário ---- */
 let AGENDA_T=null;
 function agendaUrl(){ return (ESTADO.agendaUrl||"").trim(); }
+/* ---- de quem e o evento: o painel descobre sozinho ----
+   O script da agenda so entrega o evento cru (titulo, convidados, tags #cliente/#resp).
+   Cliente: pela tag ou pelo nome no titulo ("Gravação - Oceanus", "Planejamento - Dinha").
+   Pessoa: pela tag ou pelo convidado cujo e-mail comeca com o nome da pessoa (carla..., alda...). */
+const semAcento = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const palavras = s => semAcento(s).replace(/['’`]/g,"").split(/[^a-z0-9]+/).filter(Boolean);
+const PALAVRA_FRACA = new Set(["a","o","as","os","de","da","do","das","dos","e","escola","mk3","marketing","digital","grupo","loja","lojas"]);
+function chavesDoCliente(c){
+  const ks=new Set([semAcento(c.id)]);
+  [c.nome,c.marca].forEach(n=>palavras(n).forEach(w=>{ if(w.length>=4 && !PALAVRA_FRACA.has(w)) ks.add(w); }));
+  return ks;
+}
+function clienteDoEvento(e){
+  if(e.cliente && CLIENTES.some(c=>c.id===e.cliente)) return e.cliente;       /* script antigo ja mandava o id */
+  const tag=palavras(e.tagCliente||"");
+  const tit=new Set(palavras((e.titulo||"")+" "+(e.tagCliente||"")));
+  for(const c of CLIENTES){
+    const ks=chavesDoCliente(c);
+    if(tag.length && (tag.join(" ")===semAcento(c.id) || palavras(c.nome).join(" ")===tag.join(" "))) return c.id;
+    for(const k of ks){ if(tit.has(k)) return c.id; }
+  }
+  return "";
+}
+function pessoasDoEvento(e){
+  if(e.pessoa) return e.pessoa;                                               /* script antigo */
+  const ps=ESTADO.pessoas||[];
+  const daTag=String(e.tagResp||"").split(/\s*,\s*/).filter(n=>ps.some(p=>p.nome===n));
+  if(daTag.length) return daTag.join(", ");
+  const conv=(e.convidados||[]).map(semAcento);
+  const achou=ps.filter(p=>{ const n=semAcento(p.nome); return n.length>=3 && conv.some(c=>c.indexOf(n)===0); }).map(p=>p.nome);
+  return achou.join(", ");
+}
+function enriquecerEvento(e){
+  const x={...e};
+  x.cliente=clienteDoEvento(e);
+  x.pessoa=pessoasDoEvento(e);
+  if(!x.area) x.area = x.cliente ? "mkt" : "";
+  return x;
+}
 function puxarAgendaAoVivo(){
   const u=agendaUrl(); if(!u) return;
   fetch(u+(u.indexOf("?")<0?"?":"&")+"ts="+Date.now())
@@ -3105,7 +3153,7 @@ function puxarAgendaAoVivo(){
     .then(j=>{
       if(!j || !Array.isArray(j.eventos)) return;
       const antes=JSON.stringify(ESTADO.agenda||[]);
-      ESTADO.agenda=j.eventos;                     /* só na memória: não grava nem sincroniza */
+      ESTADO.agenda=j.eventos.map(enriquecerEvento);   /* só na memória: não grava nem sincroniza */
       if(JSON.stringify(ESTADO.agenda)!==antes){ if(ehAdmin()) sincronizarGravacoes(); marcarAgendaViva(j.lido); semPular(render); }
       else marcarAgendaViva(j.lido);
     })
@@ -4250,7 +4298,7 @@ document.addEventListener("click", function(ev){
   if(D.compromisso){ abrirCompromisso(VISTA.dia||null); return; }
   if(D.resp!==undefined && alvo.classList.contains("cp-p")){ ev.preventDefault();
     if(alvo.classList.contains("on")) alvo.classList.remove("on"); else alvo.classList.add("on"); return; }
-  if(D.avisar){ ev.preventDefault(); const el=$("cpAvisar");
+  if(D.avisar){ ev.preventDefault(); const el=alvo;          /* cada interruptor liga o proprio (avisar, Meet) */
     if(el){ const on=el.classList.contains("on");
       if(on) el.classList.remove("on"); else el.classList.add("on");
       el.setAttribute("aria-checked", String(!on)); } return; }

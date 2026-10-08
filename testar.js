@@ -1128,6 +1128,84 @@ __ok("agenda e so local", caminhosDiff({agenda:[]},{agenda:[{id:"x"}]}).length==
 }
 `);
 
+bloco("Agenda: de quem e cada evento", M, limpar+`
+/* titulos reais da agenda da MK3 em outubro, do jeito que o script novo entrega */
+const ev=(titulo,extra)=>enriquecerEvento({id:"x",titulo:titulo,dia:"2026-10-01",convidados:[],...(extra||{})});
+__ok("Gravação - Escola Oceanus vira oceanus", ev("Gravação - Escola Oceanus | Diária 2").cliente==="oceanus");
+__ok("Oceanu's com apostrofo tambem", ev("Entrega das fotos Oceanu's ").cliente==="oceanus");
+__ok("Planejamento Outubro - Dinha vira a cliente da Dinha", ev("Planejamento Outubro - Dinha").cliente===CLIENTES.find(c=>/dinha/i.test(c.nome)).id);
+__ok("Produção Suelem Martins vira suelem", ev("Produção Suelem Martins — Vídeo — 05/10").cliente==="suelem");
+__ok("Gravação de vídeo — Cynthia Carvalho vira cynthia", ev("Gravação de vídeo — Cynthia Carvalho").cliente==="cynthia");
+__ok("evento da produtora fica sem cliente", ev("IMERSÃO SOLUTION").cliente==="");
+__ok("tag #cliente vale mais que o titulo", ev("Reunião",{tagCliente:"marroquina"}).cliente==="marroquina");
+__ok("tag com o nome do cliente tambem", ev("Cobrar aprovação de mídia",{tagCliente:"Suelem"}).cliente==="suelem");
+__ok("convidado carlarnasc vira Carla", ev("Gravação - Oceanus",{convidados:["carlarnasc","contato"]}).pessoa==="Carla");
+__ok("dois da equipe ficam os dois", /Alda/.test(ev("x",{convidados:["aldamarilia08","carlarnasc"]}).pessoa) && /Carla/.test(ev("x",{convidados:["aldamarilia08","carlarnasc"]}).pessoa));
+__ok("tag #resp manda", ev("x",{tagResp:"Bia",convidados:["carlarnasc"]}).pessoa==="Bia");
+__ok("evento de cliente cai no marketing", ev("Gravação - Oceanus").area==="mkt");
+__ok("script antigo (ja com cliente) continua valendo", enriquecerEvento({titulo:"Qualquer",cliente:"cynthia",pessoa:"Carla"}).cliente==="cynthia");
+`);
+
+bloco("Suelem sai sem renovar", M, limpar+`
+const ts=regras(CLIENTES.find(c=>c.id==="suelem")).map(t=>t.id);
+__ok("nao cobra renovacao", !ts.some(id=>/^renov/.test(id)));
+__ok("nem acao comercial", !ts.some(id=>/^acaoComercial/.test(id)));
+__ok("mas tem encerramento e entrega dos materiais", ts.some(id=>/^fimContrato/.test(id)) && ts.some(id=>/^entregaMateriais/.test(id)));
+__ok("quem renova continua com a tarefa de renovacao", regras(CLIENTES.find(c=>c.id==="cynthia")).some(t=>/^renov/.test(t.id)));
+`);
+
+/* ---- o script do Google (apps-script/agenda-ao-vivo.gs) rodando com servicos de mentira ---- */
+{
+  const fonte=fs.readFileSync(path.join(raiz,"apps-script","agenda-ao-vivo.gs"),"utf8");
+  const inseridos=[]; const props={CHAVE:"abc123"}; let cache=null;
+  const fmtData=(d,tz,f)=>{ const x=new Date(d.getTime()-3*3600e3); const p=n=>String(n).padStart(2,"0");
+    return f.replace("yyyy",x.getUTCFullYear()).replace("MM",p(x.getUTCMonth()+1)).replace("dd",p(x.getUTCDate())).replace("HH",p(x.getUTCHours())).replace("mm",p(x.getUTCMinutes())); };
+  const G={console,JSON,Date,Math,String,Number,Object,Array,RegExp,
+    Utilities:{formatDate:fmtData,getUuid:()=>"uuid-1"},
+    PropertiesService:{getScriptProperties:()=>({getProperty:k=>props[k],setProperty:(k,v)=>{props[k]=v;}})},
+    CacheService:{getScriptCache:()=>({get:()=>cache,put:(k,v)=>{cache=v;},remove:()=>{cache=null;}})},
+    ContentService:{MimeType:{JSON:"json"},createTextOutput:t=>({setMimeType:()=>({texto:t})})},
+    Logger:{log(){}},
+    Calendar:{Events:{
+      list:()=>({items:[
+        {id:"a",iCalUID:"a@google.com",summary:"Reunião - Imersão Solution | Planejamento",start:{dateTime:"2026-10-01T13:00:00-03:00"},end:{dateTime:"2026-10-01T14:30:00-03:00"},
+         hangoutLink:"https://meet.google.com/umg-tyem-bdy",attendees:[{email:"aagencia.mk3@gmail.com",self:true},{email:"carlarnasc@gmail.com"}]},
+        {id:"b",summary:"Gravação - Oceanus",start:{date:"2026-10-07"},end:{date:"2026-10-10"}},
+        {id:"c",summary:"cancelado",status:"cancelled",start:{date:"2026-10-07"},end:{date:"2026-10-08"}},
+        {id:"d",summary:"Cobrar aprovação",description:"Enviado em 11/08.\n#cliente:Suelem\n#resp:Bia",start:{dateTime:"2026-10-09T09:00:00-03:00"},end:{dateTime:"2026-10-09T09:15:00-03:00"}}
+      ]}),
+      insert:(ev,cal,op)=>{ inseridos.push({ev,op}); return {iCalUID:"novo@google.com",hangoutLink:op.conferenceDataVersion?"https://meet.google.com/novo":""}; }
+    }}};
+  vm.createContext(G); vm.runInContext(fonte,G,{filename:"agenda-ao-vivo.gs"});
+  const R=[]; const ok=(n,c)=>{ R.push((c?"  ok    ":"  FALHA ")+n); total++; if(!c) falhas++; };
+  console.log("\nScript da agenda (Google)");
+  try{
+    const r=JSON.parse(vm.runInContext("doGet()",G).texto);
+    const reu=r.eventos.find(e=>/Imersão Solution/.test(e.titulo));
+    ok("traz a reuniao que o script antigo deixava de fora", !!reu && reu.dia==="2026-10-01" && reu.hora==="13:00" && reu.fim==="14:30");
+    ok("com o link do Meet", reu && reu.meet==="https://meet.google.com/umg-tyem-bdy");
+    ok("convidado vai so com a parte antes do @, sem a propria MK3", reu && JSON.stringify(reu.convidados)==='["carlarnasc"]');
+    ok("evento de 3 dias inteiros aparece nos 3 dias", r.eventos.filter(e=>e.titulo==="Gravação - Oceanus").map(e=>e.dia).join(",")==="2026-10-07,2026-10-08,2026-10-09");
+    ok("cancelado nao aparece", !r.eventos.some(e=>e.titulo==="cancelado"));
+    ok("le as tags #cliente e #resp", r.eventos.some(e=>e.tagCliente==="Suelem" && e.tagResp==="Bia"));
+    const post=b=>JSON.parse(vm.runInContext("doPost("+JSON.stringify({postData:{contents:JSON.stringify(b)}})+")",G).texto);
+    ok("sem a chave certa nao cria nada", post({chave:"errada",titulo:"x",dia:"2026-10-20"}).ok===false && inseridos.length===0);
+    const c1=post({chave:"abc123",titulo:"Reunião mensal",dia:"2026-10-20",hora:"10:00",cliente:"cynthia",responsavel:"Carla",convidados:"a@b.com",avisar:false,meet:true});
+    const i1=inseridos[0]||{ev:{},op:{}};
+    ok("com a chave cria o evento", c1.ok===true && i1.ev.summary==="Reunião mensal");
+    ok("sem hora de fim dura 1 hora", i1.ev.start.dateTime==="2026-10-20T10:00:00" && i1.ev.end.dateTime==="2026-10-20T11:00:00");
+    ok("grava cliente e responsavel na descricao", /#cliente:cynthia/.test(i1.ev.description) && /#resp:Carla/.test(i1.ev.description));
+    ok("cria o Meet quando pedido e nao manda e-mail se avisar esta desligado", !!i1.ev.conferenceData && i1.op.conferenceDataVersion===1 && i1.op.sendUpdates==="none" && c1.meet);
+    post({chave:"abc123",titulo:"Gravação",dia:"2026-10-31"});
+    const i2=inseridos[1]||{ev:{}};
+    ok("sem hora vira dia inteiro (fim no dia seguinte)", i2.ev.start && i2.ev.start.date==="2026-10-31" && i2.ev.end.date==="2026-11-01");
+    ok("criar limpa o cache da leitura", cache===null);
+    post({chave:"abc123",titulo:"Tarde",dia:"2026-10-21",hora:"23:30"});
+    ok("23h30 sem fim termina 23h59, sem virar o dia", (inseridos[2]||{ev:{end:{}}}).ev.end.dateTime==="2026-10-21T23:59:00");
+  }catch(e){ R.push("  FALHA (erro) "+e.message); total++; falhas++; }
+  console.log(R.join("\n"));
+}
+
 bloco("Rotas e menu", M, limpar+`
 USUARIO="Guilherme";
 location.hash="#/feed"; __ok("rota #/feed", aplicarRota()===true && VISTA.modo==="feed");

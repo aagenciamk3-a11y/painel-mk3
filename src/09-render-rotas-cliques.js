@@ -244,7 +244,7 @@ document.addEventListener("click", function(ev){
   if(D.compromisso){ abrirCompromisso(VISTA.dia||null); return; }
   if(D.resp!==undefined && alvo.classList.contains("cp-p")){ ev.preventDefault();
     if(alvo.classList.contains("on")) alvo.classList.remove("on"); else alvo.classList.add("on"); return; }
-  if(D.avisar){ ev.preventDefault(); const el=$("cpAvisar");
+  if(D.avisar){ ev.preventDefault(); const el=alvo;          /* cada interruptor liga o proprio (avisar, Meet) */
     if(el){ const on=el.classList.contains("on");
       if(on) el.classList.remove("on"); else el.classList.add("on");
       el.setAttribute("aria-checked", String(!on)); } return; }

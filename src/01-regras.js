@@ -180,9 +180,12 @@ function regras(c){
       c.concluidas=(c.concluidas||[]).concat([{id:idC(b),data:x.data}]);
   };
   ["renov","acaoComercial","fimContrato","entregaMateriais"].forEach(herdar);
-  add(idC("renov"),"Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
+  /* cliente que ja avisou que nao renova: sem cobranca de renovacao nem acao comercial,
+     ficam so o encerramento e a entrega dos materiais */
+  if(!c.semRenovacao)
+    add(idC("renov"),"Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
       venc?addD(venc,-20):null,"Gestão");
-  if(venc)
+  if(venc && !c.semRenovacao)
     add(idC("acaoComercial"),"Contrato","Ação comercial — contrato encerra em 1 semana",
         "Contato para renovação/negociação com o cliente",addD(venc,-7),"Gestão");
   add(idC("fimContrato"),"Contrato","Encerramento do contrato",

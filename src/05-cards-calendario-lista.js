@@ -104,7 +104,7 @@ function seloCliente(c){
   const v=c.vencimentoContrato;
   if(v){ const n=dias(v);
     if(n<0)   return '<span class="badge-ativo b-alerta">Contrato venceu</span>';
-    if(n<=30) return '<span class="badge-ativo b-aviso">Contrato vence em '+n+(n===1?' dia':' dias')+'</span>'; }
+    if(n<=30) return '<span class="badge-ativo b-aviso">'+(c.semRenovacao?'Sai em ':'Contrato vence em ')+n+(n===1?' dia':' dias')+'</span>'; }
   const o=onboardingDe(c);
   if(o.total && !o.completo && mostraOnboarding()) return '<span class="badge-ativo">Onboarding</span>';
   return '';
