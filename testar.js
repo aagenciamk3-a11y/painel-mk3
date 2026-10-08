@@ -1083,7 +1083,7 @@ __ok("Cynthia no contrato novo", cy.contrato==="CS00007/2026" && cy.inicioContra
 __ok("Dinha no contrato novo", dn.contrato==="CS00008/2026" && dn.vencimentoContrato==="2027-04-06" && dn.mensalidade.valorPermuta===500);
 const pagOc=T("oceanus").filter(t=>/^pag_/.test(t.id));
 __ok("a mensalidade antiga continua no historico", pagOc.some(t=>t.id==="pag_2026-07-15" && /3\.100/.test(t.tarefa)));
-__ok("e a nova entra com o valor novo", pagOc.some(t=>t.id==="pag_2026-08-15" && /4\.300/.test(t.tarefa)));
+__ok("e a nova entra com o valor novo, no dia 5", pagOc.some(t=>t.id==="pag_2026-09-05" && /4\.300/.test(t.tarefa)));
 __ok("nenhuma mensalidade repetida", new Set(pagOc.map(t=>t.id)).size===pagOc.length);
 const fimOc=T("oceanus").find(t=>/^fimContrato/.test(t.id));
 __ok("tarefa de contrato leva a data do contrato no id", fimOc && fimOc.id==="fimContrato_2027-08-12");

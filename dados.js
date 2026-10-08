@@ -204,7 +204,7 @@ const CLIENTES = [
     contrato: "CS00006/2026",
     inicioContrato: "2026-08-12",
     vencimentoContrato: "2027-08-12",
-    mensalidade: {valorPix: 4300, valorPermuta: 0, diaVencimento: 15},
+    mensalidade: {valorPix: 4300, valorPermuta: 0, diaVencimento: 5},
     contratosAnteriores: [
       {contrato:"CS00016/2026", inicio:"2026-02-12", fim:"2026-08-11", mensalidade:{valorPix:3100, valorPermuta:0, diaVencimento:15}}
     ],
@@ -257,7 +257,7 @@ const CLIENTES = [
     contrato: "CS00008/2026",
     inicioContrato: "2026-10-01",
     vencimentoContrato: "2027-10-01",
-    mensalidade: {valorPix: 3610, valorPermuta: 0, diaVencimento: 1},
+    mensalidade: {valorPix: 3610, valorPermuta: 0, diaVencimento: 7},
 
     escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:true},
 
