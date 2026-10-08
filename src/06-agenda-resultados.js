@@ -47,7 +47,7 @@ function editarCompromisso(id){
 function abrirCompromisso(diaPre, evEd){
   if(!ehAdmin()) return;
   COMP_EDIT=evEd||null;
-  if(!agendaUrl()){ toast("Ligue a agenda ao vivo primeiro",false); abrirAgendaConfig(); return; }
+  if(!agendaUrl()){ toast("A agenda do Google ainda não está ligada ao painel",false); return; }
   const hoje=iso(HOJE);
   const cls=CLIENTES.map(c=>'<option value="'+escAttr(c.id)+'">'+esc(c.nome)+'</option>').join("");
   $("modal").innerHTML='<div class="mbox compform"><h3>'+(COMP_EDIT?'Editar compromisso':'Novo compromisso na agenda')+'</h3>'+

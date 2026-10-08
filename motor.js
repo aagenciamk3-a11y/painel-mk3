@@ -607,7 +607,7 @@ function sidebarHTML(){
     h+='<div class="side-sec">Administração</div>';
     h+=bt('data-clientes="1"',"Cadastro de clientes",IC.cadastro,"","Cadastrar, editar e arquivar clientes");
     h+=bt('data-equipe="1"',"Permissões da equipe",IC.cadeado,"","Quem vê o quê, PIN e foto de cada pessoa");
-    h+=bt('data-agenda="1"',"Agenda ao vivo",IC.aovivo,"","Ligar a agenda do Google ao painel");
+    /* a agenda ao vivo se liga sozinha pelo script do Google (conectarPainel): sem botão no menu */
     h+='<a class="snav'+(!c&&VISTA.modo==="portais"?" on":"")+'" href="'+rotaDe({modo:"portais",escopo:null})+'" data-portais="1" title="O que o cliente vê no portal dele" aria-label="Visão do cliente"'+(!c&&VISTA.modo==="portais"?' aria-current="page"':'')+'><span class="snav-i">'+IC.olho+'</span><span class="snav-t">Visão do cliente</span></a>';
     const nx=nExcluidas();
     if(nx) h+='<button class="snav" data-lixeira="1" title="Ver tarefas excluídas" aria-label="Tarefas excluídas ('+nx+')"><span class="snav-i">'+IC.lixo+'</span><span class="snav-t">Excluídas</span><span class="snav-b neutro">'+nx+'</span></button>';
@@ -2960,7 +2960,7 @@ function editarCompromisso(id){
 function abrirCompromisso(diaPre, evEd){
   if(!ehAdmin()) return;
   COMP_EDIT=evEd||null;
-  if(!agendaUrl()){ toast("Ligue a agenda ao vivo primeiro",false); abrirAgendaConfig(); return; }
+  if(!agendaUrl()){ toast("A agenda do Google ainda não está ligada ao painel",false); return; }
   const hoje=iso(HOJE);
   const cls=CLIENTES.map(c=>'<option value="'+escAttr(c.id)+'">'+esc(c.nome)+'</option>').join("");
   $("modal").innerHTML='<div class="mbox compform"><h3>'+(COMP_EDIT?'Editar compromisso':'Novo compromisso na agenda')+'</h3>'+
