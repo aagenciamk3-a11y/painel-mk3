@@ -866,12 +866,15 @@ function merge3(base,mine,cur){
   return out;
 }
 /* o log e de todos: soma as entradas novas em vez de sobrescrever a lista */
-const chaveLog = l => (l&&l.ts||"")+"|"+(l&&l.acao||"")+"|"+(l&&l.id||"")+"|"+(l&&l.quem||"");
+/* a mesma marcacao e identificada por instante + acao + tarefa; o autor nao entra na chave,
+   senao uma correcao de autor virava uma segunda linha no feed */
+const chaveLog = l => (l&&l.ts||"")+"|"+(l&&l.acao||"")+"|"+(l&&l.id||"");
 function somarLog(a,b){
-  const vistos=new Set(), out=[];
+  const porChave=new Map();
   const lista=v=>Array.isArray(v)?v:(ehObj(v)?Object.values(v):[]);
-  lista(a).concat(lista(b)).forEach(l=>{ if(!l) return; const k=chaveLog(l); if(vistos.has(k)) return; vistos.add(k); out.push(l); });
-  return out.sort((x,y)=>String(y.ts||"").localeCompare(String(x.ts||""))).slice(0,300);
+  lista(a).concat(lista(b)).forEach(l=>{ if(!l) return; const k=chaveLog(l); const j=porChave.get(k);
+    if(!j || (!j.quem && l.quem)) porChave.set(k,l); });      /* entre duas versoes, fica a que tem autor */
+  return [...porChave.values()].sort((x,y)=>String(y.ts||"").localeCompare(String(x.ts||""))).slice(0,300);
 }
 
 let SYNC=null, SYNC_APLICANDO=false, SYNC_ON=false;

@@ -1172,6 +1172,8 @@ __ok("prazo financeiro espelhado no Google nao aparece duas vezes fora da aba Ag
 VISTA.escopo=null; VISTA.area="all";
 __ok("mas continua na aba Agenda", agendaDaArea().length===2);
 ESTADO.agenda=[];
+const lg=somarLog([{ts:"2026-10-08T20:50:00Z",acao:"concluir",id:"x",quem:""}],[{ts:"2026-10-08T20:50:00Z",acao:"concluir",id:"x",quem:"Alda"}]);
+__ok("corrigir o autor de uma marcacao nao duplica a linha no feed", lg.length===1 && lg[0].quem==="Alda");
 __ok("o painel nao fala em e-mail para o cliente", !/por e-mail/.test(regras(CLIENTES.find(c=>c.id==="marroquina")).map(t=>t.detalhe).join(" ")));
 `);
 
