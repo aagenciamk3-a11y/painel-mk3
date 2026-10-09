@@ -416,7 +416,7 @@ function abrirClientes(){
       return '<div class="pcard">'+
         '<div class="pc-topo">'+avatarHTML(c,"card-face")+
           '<div class="pc-id"><span class="pc-n">'+esc(c.nome)+(novo?' <i class="cl-novo">novo</i>':'')+'</span>'+
-          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · '+esc(c.contrato||"contrato")+' até '+fmt(c.vencimentoContrato)+
+          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · '+(c.vencimentoContrato?esc(c.contrato||"contrato")+' até '+fmt(c.vencimentoContrato):'sem contrato cadastrado')+
           (objetivoDe(c)?' · objetivo: '+esc((OBJETIVOS.find(o=>o[0]===objetivoDe(c))||["",""])[1].toLowerCase())+(metaDe(c)?' (meta '+numBR(metaDe(c))+')':''):'')+'</span></div>'+
           '<button class="pc-ico" data-clied="'+escAttr(c.id)+'" title="Editar cliente" aria-label="Editar">&#9998;</button>'+
           '<button class="pc-ico rm" data-cliocultar="'+escAttr(c.id)+'" title="Arquivar cliente" aria-label="Arquivar cliente">&#128230;</button>'+
@@ -663,7 +663,7 @@ function abrirDemanda(diaSugerido){
     '<label class="mlab">Área<select id="darea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Data<input type="date" id="ddata" value="'+(diaSugerido||iso(HOJE))+'"></label>'+
     (ehAdmin()
-      ? '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option>'+esc(p)+'</option>').join("")+'</select></label>'
+      ? '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option'+(p===USUARIO?" selected":"")+'>'+esc(p)+'</option>').join("")+'</select></label>'
       : '<label class="mlab">Responsável<input type="text" id="dresp" value="'+escAttr(USUARIO||"")+'" disabled>'+
         '<span class="mhint">Você cria demanda para você mesmo. Para passar para outra pessoa, peça à administração.</span></label>')+
     '<label class="mlab">Observações <i class="opt-l">(opcional)</i><textarea id="dobs" rows="2" placeholder="Ex.: primeira vez da Carla acompanhando a gravação sozinha"></textarea></label>'+
@@ -1177,6 +1177,10 @@ function mergeEstado(a,b){
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
   for(const k in (b.notas||{})) r.notas[k]=b.notas[k];
+  /* o que nao esta na lista acima (agendaUrl, agendaChave, cobrancas, plano, recorrentes...)
+     vem inteiro do cache: antes se perdia ate o servidor responder, e a agenda "sumia" na abertura */
+  for(const k in b){ if(r[k]===undefined && b[k]!==undefined) r[k]=b[k]; }
+  for(const k in a){ if(r[k]===undefined && a[k]!==undefined) r[k]=a[k]; }
   return r;
 }
 async function init(){

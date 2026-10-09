@@ -310,13 +310,18 @@ function tarefasHTML(c){
 /* ---------------- HISTÓRICO DO CLIENTE ---------------- */
 function histHTML(c){
   const hojeIso = iso(HOJE);
-  const ms = [...c.marcos].sort((a,b)=>a.data.localeCompare(b.data));
+  /* renovacoes de contrato entram no historico sozinhas, a partir dos contratos anteriores */
+  const renov=(c.contratosAnteriores||[]).length && c.inicioContrato
+    ? [{data:c.inicioContrato, titulo:"Contrato renovado", detalhe:(c.contrato||"")+(c.vencimentoContrato?" · até "+fmt(c.vencimentoContrato):"")}] : [];
+  const ms = [...c.marcos, ...renov.filter(r=>!c.marcos.some(m=>m.data===r.data && /renov/i.test(m.titulo)))]
+    .sort((a,b)=>a.data.localeCompare(b.data));
   if(!ms.length) return '<div class="vazio">Sem marcos registrados para '+esc(c.nome)+'.</div>';
+  const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
   return '<div class="hist"><ol>'+ms.map(m=>{
     const passado = m.data <= hojeIso;
     const cls = m.data===hojeIso ? "hj" : (passado ? "feito" : "");
     return '<li class="'+cls+'">'+
-      '<div class="qd">'+d(m.data).toLocaleDateString("pt-BR",{weekday:"long"})+'</div>'+
+      '<div class="qd">'+cap(d(m.data).toLocaleDateString("pt-BR",{weekday:"long"}))+'</div>'+
       '<div class="tt">'+esc(m.titulo)+(passado?"":'<span class="prev">previsto</span>')+'</div>'+
       '<div class="dt">'+d(m.data).toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})+
       (m.detalhe?" · "+esc(m.detalhe):"")+'</div></li>';

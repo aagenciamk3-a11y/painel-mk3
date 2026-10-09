@@ -240,7 +240,7 @@ function donoHTML(e){
   }
   if(!ehAdmin()) return '<span class="ag-p sem">sem responsável</span>';
   const opts=(ESTADO.pessoas||[]).map(p=>'<option value="'+escAttr(p.nome)+'">'+esc(p.nome)+'</option>').join("");
-  return '<span class="ag-atrib"><label>Atribuir tarefa para:'+
+  return '<span class="ag-atrib"><label>Responsável:'+
     '<select data-atribuir="'+escAttr(e.id)+'"><option value="">escolha</option>'+opts+'</select></label></span>';
 }
 /* ---- agenda ao vivo: o painel lê o Google Agenda direto, sem intermediário ---- */

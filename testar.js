@@ -1155,6 +1155,21 @@ __ok("o texto do evento chama para o chat", /reunião de pendências/.test(tx));
 __ok("nao leva login, senha nem PIN", !/senha|pin|login/i.test(tx.replace(/Pode Postar/g,"")));
 `);
 
+bloco("Ajustes de interface (auditoria 09/10)", M, limpar+`
+const mg=mergeEstado({concluidas:{},datas:{},log:[]},{agendaUrl:"https://x/exec",agendaChave:"k",cobrancas:{a:1},plano:{b:2},recorrentes:[{id:"r"}],concluidas:{},datas:{}});
+__ok("o cache local nao perde agendaUrl, chave, cobrancas, plano e recorrentes", mg.agendaUrl==="https://x/exec" && mg.agendaChave==="k" && mg.cobrancas.a===1 && mg.plano.b===2 && mg.recorrentes.length===1);
+USUARIO="Alda"; const __modal={innerHTML:"",querySelector:()=>null,querySelectorAll:()=>[],classList:{add(){},remove(){},contains(){return false}},style:{},removeAttribute(){},setAttribute(){},focus(){}};
+const __gE=document.getElementById; document.getElementById=id=> id==="modal" ? __modal : __gE(id);
+abrirDemanda(); document.getElementById=__gE;
+__ok("nova demanda ja vem com quem esta logado como responsavel", __modal.innerHTML.indexOf("<option selected>Alda</option>")>=0);
+USUARIO="Guilherme";
+const hh=histHTML(CLIENTES.find(c=>c.id==="oceanus"));
+__ok("renovacao de contrato entra no historico sozinha", /Contrato renovado/.test(hh) && /CS00006\\/2026/.test(hh));
+__ok("dia da semana so com a primeira maiuscula", hh.indexOf('class="qd">Quinta-feira<')>=0);
+__ok("recado escreve AMANHÃ com acento", !/AMANHA\\b/.test(recadoTexto()));
+__ok("o painel nao fala em e-mail para o cliente", !/por e-mail/.test(regras(CLIENTES.find(c=>c.id==="marroquina")).map(t=>t.detalhe).join(" ")));
+`);
+
 bloco("Suelem sai sem renovar", M, limpar+`
 const ts=regras(CLIENTES.find(c=>c.id==="suelem")).map(t=>t.id);
 __ok("nao cobra renovacao", !ts.some(id=>/^renov/.test(id)));

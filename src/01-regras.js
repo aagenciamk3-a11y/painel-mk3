@@ -84,7 +84,7 @@ function regras(c){
   add("pasta","Entrada","Duplicar pasta modelo e renomear","[SEGMENTO] "+c.nome,D0,"Estagiário");
   add("grupo","Entrada","Criar grupo de WhatsApp","MK3 - "+c.nome.toUpperCase()+", com foto da marca",D0,"Estagiário");
   add("boasvindas","Entrada","Mensagem de boas-vindas","No grupo, com os próximos passos",D0,"Estagiário");
-  add("onboarding","Entrada","Enviar onboarding","Por WhatsApp e por e-mail",D0,"Estagiário");
+  add("onboarding","Entrada","Enviar onboarding","Mensagem e PDF no grupo de WhatsApp",D0,"Estagiário");
   add("acessos","Entrada","Coletar acessos","Instagram, Facebook, LinkedIn e demais",D0,"Estagiário");
   {
     add("planilha","Entrada","Planilha de acessos","E-mail, senha, 2FA e códigos de reserva · 01. ACESSOS",D0,"Estagiário");
@@ -96,7 +96,7 @@ function regras(c){
   const antesIm = c.imersao ? addD(c.imersao,-1) : null;
   add("pesq1","Entrada","Pesquisa de comportamento de consumo","Antes da imersão",antesIm,"Analista");
   add("pesq2","Entrada","Pesquisa de mercado e demanda","Antes da imersão",antesIm,"Analista");
-  add("imersao","Entrada","Reunião de imersão","Google Agenda · convite por e-mail e WhatsApp",c.imersao,"Analista");
+  add("imersao","Entrada","Reunião de imersão","Google Meet · link enviado no grupo de WhatsApp",c.imersao,"Analista");
   add("imersaoDoc","Entrada","Tratar o documento da imersão","IA organiza, analista revisa · 03. Imersão",
       c.imersao?uteis(c.imersao,1):null,"Analista");
   add("reuniaoPlan","Entrada","Reunião de planejamento (entrada)","Temas, datas do negócio, tráfego",

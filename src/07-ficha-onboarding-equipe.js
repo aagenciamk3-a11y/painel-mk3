@@ -240,7 +240,7 @@ const ONBOARDING = [
   ["fotoMarca","Foto da marca salva como arquivo"],
   ["grupo","Grupo de WhatsApp criado"],
   ["boasvindas","Boas-vindas enviadas no grupo"],
-  ["onboarding","Onboarding por WhatsApp e por e-mail"],
+  ["onboarding","Onboarding enviado no grupo (mensagem e PDF)"],
   ["prints","Prints das redes na chegada", true],
   ["reserva","Códigos de reserva 2FA", true],
   ["pesq2","Pesquisa de mercado e demanda", true],
@@ -374,7 +374,7 @@ function recadoTexto(){
   s+=bloco("ATRASADO", atras, t=>linha(t)+" - venceu "+fmt(t.data));
   s+=bloco("FEITO PELA METADE", parc, t=>linha(t)+" - resto em "+fmt(t.st.resto));
   s+=bloco("VENCE HOJE", hoje, linha);
-  s+=bloco("AMANHA", amanha, linha);
+  s+=bloco("AMANHÃ", amanha, linha);
   s+=bloco("COBRAR O CLIENTE", cobrar, t=>"- "+cli(t)+": "+t.tarefa+" - prazo "+fmt(t.data));
   if(!atras.length && !parc.length && !hoje.length && !amanha.length){ s+="\nNada vencendo hoje nem amanha. Dia livre para adiantar o que vem.\n"; }
   return s.trim();
@@ -390,11 +390,23 @@ function abrirRecado(){
     '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal(true);
 }
+/* o que cada numero do dashboard quer dizer (aparece ao passar o mouse) */
+const KPI_DICA={
+  atrasado:"Passou da data e ainda não foi marcado como feito",
+  replan:"Foi replanejado e venceu de novo",
+  parcial:"Feito em parte: falta terminar",
+  hoje:"Vence hoje",
+  umdia:"Vence amanhã",
+  semana:"Vence nos próximos 7 dias",
+  sem:"Etapas de ciclos futuros que ainda dependem de uma data real (envio, aprovação, gravação). Ganham data quando o ciclo anterior anda.",
+  ok:"Concluídas"
+};
 function dashboardHTML(completo){
   const ts=tarefasArea();
   const n=k=>ts.filter(t=>t.st.k===k).length;
   const cards=BUCKETS.map((k,i)=>
-    '<button class="kpi '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'" style="animation-delay:'+(i*45)+'ms">'+
+    '<button class="kpi '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'" style="animation-delay:'+(i*45)+'ms"'+
+      (KPI_DICA[k]?' data-tt="'+escAttr(KPI_DICA[k])+'"':'')+'>'+
       '<b data-num="'+n(k)+'">0</b><small>'+ROTULO[k]+'</small></button>').join("");
 
   const esper=(VISTA.escopo?[cliente(VISTA.escopo)]:CLIENTES).flatMap(contadores);

@@ -84,7 +84,7 @@ function regras(c){
   add("pasta","Entrada","Duplicar pasta modelo e renomear","[SEGMENTO] "+c.nome,D0,"Estagiário");
   add("grupo","Entrada","Criar grupo de WhatsApp","MK3 - "+c.nome.toUpperCase()+", com foto da marca",D0,"Estagiário");
   add("boasvindas","Entrada","Mensagem de boas-vindas","No grupo, com os próximos passos",D0,"Estagiário");
-  add("onboarding","Entrada","Enviar onboarding","Por WhatsApp e por e-mail",D0,"Estagiário");
+  add("onboarding","Entrada","Enviar onboarding","Mensagem e PDF no grupo de WhatsApp",D0,"Estagiário");
   add("acessos","Entrada","Coletar acessos","Instagram, Facebook, LinkedIn e demais",D0,"Estagiário");
   {
     add("planilha","Entrada","Planilha de acessos","E-mail, senha, 2FA e códigos de reserva · 01. ACESSOS",D0,"Estagiário");
@@ -96,7 +96,7 @@ function regras(c){
   const antesIm = c.imersao ? addD(c.imersao,-1) : null;
   add("pesq1","Entrada","Pesquisa de comportamento de consumo","Antes da imersão",antesIm,"Analista");
   add("pesq2","Entrada","Pesquisa de mercado e demanda","Antes da imersão",antesIm,"Analista");
-  add("imersao","Entrada","Reunião de imersão","Google Agenda · convite por e-mail e WhatsApp",c.imersao,"Analista");
+  add("imersao","Entrada","Reunião de imersão","Google Meet · link enviado no grupo de WhatsApp",c.imersao,"Analista");
   add("imersaoDoc","Entrada","Tratar o documento da imersão","IA organiza, analista revisa · 03. Imersão",
       c.imersao?uteis(c.imersao,1):null,"Analista");
   add("reuniaoPlan","Entrada","Reunião de planejamento (entrada)","Temas, datas do negócio, tráfego",
@@ -1737,7 +1737,7 @@ function abrirClientes(){
       return '<div class="pcard">'+
         '<div class="pc-topo">'+avatarHTML(c,"card-face")+
           '<div class="pc-id"><span class="pc-n">'+esc(c.nome)+(novo?' <i class="cl-novo">novo</i>':'')+'</span>'+
-          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · '+esc(c.contrato||"contrato")+' até '+fmt(c.vencimentoContrato)+
+          '<span class="pc-c">'+esc(c.segmento||"sem segmento")+' · '+(c.vencimentoContrato?esc(c.contrato||"contrato")+' até '+fmt(c.vencimentoContrato):'sem contrato cadastrado')+
           (objetivoDe(c)?' · objetivo: '+esc((OBJETIVOS.find(o=>o[0]===objetivoDe(c))||["",""])[1].toLowerCase())+(metaDe(c)?' (meta '+numBR(metaDe(c))+')':''):'')+'</span></div>'+
           '<button class="pc-ico" data-clied="'+escAttr(c.id)+'" title="Editar cliente" aria-label="Editar">&#9998;</button>'+
           '<button class="pc-ico rm" data-cliocultar="'+escAttr(c.id)+'" title="Arquivar cliente" aria-label="Arquivar cliente">&#128230;</button>'+
@@ -1984,7 +1984,7 @@ function abrirDemanda(diaSugerido){
     '<label class="mlab">Área<select id="darea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Data<input type="date" id="ddata" value="'+(diaSugerido||iso(HOJE))+'"></label>'+
     (ehAdmin()
-      ? '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option>'+esc(p)+'</option>').join("")+'</select></label>'
+      ? '<label class="mlab">Responsável<select id="dresp">'+pessoas.map(p=>'<option'+(p===USUARIO?" selected":"")+'>'+esc(p)+'</option>').join("")+'</select></label>'
       : '<label class="mlab">Responsável<input type="text" id="dresp" value="'+escAttr(USUARIO||"")+'" disabled>'+
         '<span class="mhint">Você cria demanda para você mesmo. Para passar para outra pessoa, peça à administração.</span></label>')+
     '<label class="mlab">Observações <i class="opt-l">(opcional)</i><textarea id="dobs" rows="2" placeholder="Ex.: primeira vez da Carla acompanhando a gravação sozinha"></textarea></label>'+
@@ -2498,6 +2498,10 @@ function mergeEstado(a,b){
   for(const k in (b.datas||{})) r.datas[k]={...(a.datas[k]||{}),...b.datas[k]};
   for(const k in (b.semanal||{})) r.semanal[k]={...((a.semanal&&a.semanal[k])||{}),...b.semanal[k]};
   for(const k in (b.notas||{})) r.notas[k]=b.notas[k];
+  /* o que nao esta na lista acima (agendaUrl, agendaChave, cobrancas, plano, recorrentes...)
+     vem inteiro do cache: antes se perdia ate o servidor responder, e a agenda "sumia" na abertura */
+  for(const k in b){ if(r[k]===undefined && b[k]!==undefined) r[k]=b[k]; }
+  for(const k in a){ if(r[k]===undefined && a[k]!==undefined) r[k]=a[k]; }
   return r;
 }
 async function init(){
@@ -3154,7 +3158,7 @@ function donoHTML(e){
   }
   if(!ehAdmin()) return '<span class="ag-p sem">sem responsável</span>';
   const opts=(ESTADO.pessoas||[]).map(p=>'<option value="'+escAttr(p.nome)+'">'+esc(p.nome)+'</option>').join("");
-  return '<span class="ag-atrib"><label>Atribuir tarefa para:'+
+  return '<span class="ag-atrib"><label>Responsável:'+
     '<select data-atribuir="'+escAttr(e.id)+'"><option value="">escolha</option>'+opts+'</select></label></span>';
 }
 /* ---- agenda ao vivo: o painel lê o Google Agenda direto, sem intermediário ---- */
@@ -3619,7 +3623,7 @@ const ONBOARDING = [
   ["fotoMarca","Foto da marca salva como arquivo"],
   ["grupo","Grupo de WhatsApp criado"],
   ["boasvindas","Boas-vindas enviadas no grupo"],
-  ["onboarding","Onboarding por WhatsApp e por e-mail"],
+  ["onboarding","Onboarding enviado no grupo (mensagem e PDF)"],
   ["prints","Prints das redes na chegada", true],
   ["reserva","Códigos de reserva 2FA", true],
   ["pesq2","Pesquisa de mercado e demanda", true],
@@ -3753,7 +3757,7 @@ function recadoTexto(){
   s+=bloco("ATRASADO", atras, t=>linha(t)+" - venceu "+fmt(t.data));
   s+=bloco("FEITO PELA METADE", parc, t=>linha(t)+" - resto em "+fmt(t.st.resto));
   s+=bloco("VENCE HOJE", hoje, linha);
-  s+=bloco("AMANHA", amanha, linha);
+  s+=bloco("AMANHÃ", amanha, linha);
   s+=bloco("COBRAR O CLIENTE", cobrar, t=>"- "+cli(t)+": "+t.tarefa+" - prazo "+fmt(t.data));
   if(!atras.length && !parc.length && !hoje.length && !amanha.length){ s+="\nNada vencendo hoje nem amanha. Dia livre para adiantar o que vem.\n"; }
   return s.trim();
@@ -3769,11 +3773,23 @@ function abrirRecado(){
     '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal(true);
 }
+/* o que cada numero do dashboard quer dizer (aparece ao passar o mouse) */
+const KPI_DICA={
+  atrasado:"Passou da data e ainda não foi marcado como feito",
+  replan:"Foi replanejado e venceu de novo",
+  parcial:"Feito em parte: falta terminar",
+  hoje:"Vence hoje",
+  umdia:"Vence amanhã",
+  semana:"Vence nos próximos 7 dias",
+  sem:"Etapas de ciclos futuros que ainda dependem de uma data real (envio, aprovação, gravação). Ganham data quando o ciclo anterior anda.",
+  ok:"Concluídas"
+};
 function dashboardHTML(completo){
   const ts=tarefasArea();
   const n=k=>ts.filter(t=>t.st.k===k).length;
   const cards=BUCKETS.map((k,i)=>
-    '<button class="kpi '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'" style="animation-delay:'+(i*45)+'ms">'+
+    '<button class="kpi '+k+' '+(VISTA.filtro===k?"on":"")+'" data-bucket="'+k+'" style="animation-delay:'+(i*45)+'ms"'+
+      (KPI_DICA[k]?' data-tt="'+escAttr(KPI_DICA[k])+'"':'')+'>'+
       '<b data-num="'+n(k)+'">0</b><small>'+ROTULO[k]+'</small></button>').join("");
 
   const esper=(VISTA.escopo?[cliente(VISTA.escopo)]:CLIENTES).flatMap(contadores);
@@ -4175,13 +4191,18 @@ function tarefasHTML(c){
 /* ---------------- HISTÓRICO DO CLIENTE ---------------- */
 function histHTML(c){
   const hojeIso = iso(HOJE);
-  const ms = [...c.marcos].sort((a,b)=>a.data.localeCompare(b.data));
+  /* renovacoes de contrato entram no historico sozinhas, a partir dos contratos anteriores */
+  const renov=(c.contratosAnteriores||[]).length && c.inicioContrato
+    ? [{data:c.inicioContrato, titulo:"Contrato renovado", detalhe:(c.contrato||"")+(c.vencimentoContrato?" · até "+fmt(c.vencimentoContrato):"")}] : [];
+  const ms = [...c.marcos, ...renov.filter(r=>!c.marcos.some(m=>m.data===r.data && /renov/i.test(m.titulo)))]
+    .sort((a,b)=>a.data.localeCompare(b.data));
   if(!ms.length) return '<div class="vazio">Sem marcos registrados para '+esc(c.nome)+'.</div>';
+  const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
   return '<div class="hist"><ol>'+ms.map(m=>{
     const passado = m.data <= hojeIso;
     const cls = m.data===hojeIso ? "hj" : (passado ? "feito" : "");
     return '<li class="'+cls+'">'+
-      '<div class="qd">'+d(m.data).toLocaleDateString("pt-BR",{weekday:"long"})+'</div>'+
+      '<div class="qd">'+cap(d(m.data).toLocaleDateString("pt-BR",{weekday:"long"}))+'</div>'+
       '<div class="tt">'+esc(m.titulo)+(passado?"":'<span class="prev">previsto</span>')+'</div>'+
       '<div class="dt">'+d(m.data).toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})+
       (m.detalhe?" · "+esc(m.detalhe):"")+'</div></li>';
