@@ -1136,7 +1136,7 @@ __ok("Oceanu's com apostrofo tambem", ev("Entrega das fotos Oceanu's ").cliente=
 __ok("Planejamento Outubro - Dinha vira a cliente da Dinha", ev("Planejamento Outubro - Dinha").cliente===CLIENTES.find(c=>/dinha/i.test(c.nome)).id);
 __ok("Produção Suelem Martins vira suelem", ev("Produção Suelem Martins — Vídeo — 05/10").cliente==="suelem");
 __ok("Gravação de vídeo — Cynthia Carvalho vira cynthia", ev("Gravação de vídeo — Cynthia Carvalho").cliente==="cynthia");
-__ok("evento da produtora fica sem cliente", ev("IMERSÃO SOLUTION").cliente==="");
+__ok("evento da Solution agora cai na Solution Filmes", ev("IMERSÃO SOLUTION").cliente==="solution");
 __ok("tag #cliente vale mais que o titulo", ev("Reunião",{tagCliente:"marroquina"}).cliente==="marroquina");
 __ok("tag com o nome do cliente tambem", ev("Cobrar aprovação de mídia",{tagCliente:"Suelem"}).cliente==="suelem");
 __ok("convidado carlarnasc vira Carla", ev("Gravação - Oceanus",{convidados:["carlarnasc","contato"]}).pessoa==="Carla");
@@ -1178,6 +1178,9 @@ __ok("toda acao gravada no log tem um verbo no feed", ["mover","demandax","plano
 __ok("12/10 (Aparecida) e Sexta-feira Santa sao feriado", feriado("2026-10-12")==="Nossa Senhora Aparecida" && feriado("2026-04-03")==="Sexta-feira Santa" && feriado("2027-03-26")==="Sexta-feira Santa" && !feriado("2026-10-13"));
 __ok("2 dias uteis depois de sexta 09/10 caem na quarta 14/10 (pula o feriado de 12/10)", uteis("2026-10-09",2)==="2026-10-14");
 __ok("20/11 e 02/11 nao sao dia util", !ehUtil(d("2026-11-20")) && !ehUtil(d("2026-11-02")) && ehUtil(d("2026-11-03")));
+const sol=regras(CLIENTES.find(c=>c.id==="solution")).map(t=>t.id);
+__ok("Solution Filmes entra como cliente interno: sem renovacao, encerramento nem mensalidade", sol.length>0 && !sol.some(id=>/^(renov|fimContrato|acaoComercial|pag_)/.test(id)));
+__ok("e com o onboarding, o 1o ciclo e o LinkedIn", sol.includes("imersaoDoc") && sol.includes("c1_plan") && sol.includes("linkedin"));
 __ok("o painel nao fala em e-mail para o cliente", !/por e-mail/.test(regras(CLIENTES.find(c=>c.id==="marroquina")).map(t=>t.detalhe).join(" ")));
 `);
 

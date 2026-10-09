@@ -296,4 +296,55 @@ const CLIENTES = [
       {data:"2026-12-08", titulo:"Evento Henrique (a confirmar)",  detalhe:"Formato de participação em definição"}
     ]
   },
+
+  /* ─────────────── SOLUTION FILMES · PRODUTORA AUDIOVISUAL ─────────────── */
+  {
+    id: "solution",
+    nome: "Solution Filmes",
+    marca: "Solution Filmes",
+
+    segmento: "Audiovisual",                // produtora: foto e vídeo institucional, VT, websérie, mobile
+    plano: "Interno",                       // empresa dos sócios da MK3: sem contrato e sem mensalidade
+    entrada: "2026-10-01",                  // imersão parte 1
+
+    contrato: "",
+    inicioContrato: "2026-10-01",
+    vencimentoContrato: null,
+    mensalidade: null,
+
+    escopo: {agendamento:true, calendarioEditorial:true, trafegoPago:true},
+
+    imersao: "2026-10-01",                  // parte 1 · parte 2 em 06/10
+    reuniaoPlanejamentoEntrada: "2026-10-06",
+
+    /* datas REAIS — a cadeia se re-ancora a partir delas */
+    envioPlanejamento:     null,
+    aprovacaoPlanejamento: null,
+    envioMidia:            null,
+    aprovacaoMidia:        null,
+
+    gravacao: null,
+    artesDependemDaGravacao: false,
+
+    /* 1º ciclo rodando em outubro; ciclo padrão começa em novembro */
+    inicioCicloPadrao: "2026-11",
+
+    justificados: [],
+
+    tarefasExtras: [
+      {id:"linkedin", fase:"1º ciclo", tarefa:"Criar e configurar o LinkedIn da Solution", detalhe:"Canal desejado na imersão · perfil da empresa", data:"2026-10-20", resp:"Analista"},
+      {id:"formatos", fase:"1º ciclo", tarefa:"Reunião de formatos de conteúdo", detalhe:"Combinada na reunião de 06/10 · definir os formatos fixos do Instagram", data:"2026-10-16", resp:"Analista"}
+    ],
+
+    concluidas: ["pasta","planilha",
+                 {id:"imersao", data:"2026-10-01"},
+                 {id:"imersaoDoc", data:"2026-10-09"},
+                 {id:"reuniaoPlan", data:"2026-10-06"}],
+
+    marcos: [
+      {data:"2026-10-01", titulo:"Entrada do cliente",        detalhe:"Cliente interno · produtora dos sócios da MK3 · conteúdo, agendamento, tráfego pago e LinkedIn"},
+      {data:"2026-10-01", titulo:"Imersão (parte 1)",         detalhe:"Marca, objetivos e público · foco em agências e empresas, sem conteúdo para filmmaker"},
+      {data:"2026-10-06", titulo:"Imersão (parte 2) e planejamento", detalhe:"Outubro Rosa com o case Sicoob, Dia das Crianças com fotos de infância x IA, DiskPan 30 anos, websérie SBL"}
+    ]
+  },
 ];

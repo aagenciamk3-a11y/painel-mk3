@@ -650,14 +650,17 @@ function regras(c){
   ["renov","acaoComercial","fimContrato","entregaMateriais"].forEach(herdar);
   /* cliente que ja avisou que nao renova: sem cobranca de renovacao nem acao comercial,
      ficam so o encerramento e a entrega dos materiais */
-  if(!c.semRenovacao)
+  /* cliente interno (empresa dos socios, plano "Interno"): sem contrato, sem renovacao e sem encerramento */
+  const interno = /^interno/i.test(String(c.plano||""));
+  if(!c.semRenovacao && !interno)
     add(idC("renov"),"Recorrente","Renovação de contrato (administrativo)","20 dias antes do vencimento",
       venc?addD(venc,-20):null,"Gestão");
   if(venc && !c.semRenovacao)
     add(idC("acaoComercial"),"Contrato","Ação comercial — contrato encerra em 1 semana",
         "Contato para renovação/negociação com o cliente",addD(venc,-7),"Gestão");
-  add(idC("fimContrato"),"Contrato","Encerramento do contrato",
-      c.contrato?("Contrato "+c.contrato):"",venc,"Gestão");
+  if(!interno || venc)
+    add(idC("fimContrato"),"Contrato","Encerramento do contrato",
+        c.contrato?("Contrato "+c.contrato):"",venc,"Gestão");
 
   if(venc){
     /* entrega integral dos materiais: até o fim da vigência,
