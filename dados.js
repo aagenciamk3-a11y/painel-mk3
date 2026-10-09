@@ -304,7 +304,7 @@ const CLIENTES = [
     marca: "Solution Filmes",
 
     segmento: "Audiovisual",                // produtora: foto e vídeo institucional, VT, websérie, mobile
-    plano: "Interno",                       // empresa dos sócios da MK3: sem contrato e sem mensalidade
+    plano: "Interno · Impulso Básico · 10 artes + 5 Reels/mês + stories, sem tráfego",                       // empresa dos sócios da MK3: sem contrato e sem mensalidade
     entrada: "2026-10-01",                  // imersão parte 1
 
     contrato: "",
@@ -312,7 +312,7 @@ const CLIENTES = [
     vencimentoContrato: null,
     mensalidade: null,
 
-    escopo: {agendamento:true, calendarioEditorial:true, trafegoPago:true},
+    escopo: {agendamento:true, calendarioEditorial:false, trafegoPago:false},   // tráfego fora por enquanto
 
     imersao: "2026-10-01",                  // parte 1 · parte 2 em 06/10
     reuniaoPlanejamentoEntrada: "2026-10-06",
@@ -348,7 +348,8 @@ const CLIENTES = [
       {data:"2026-10-09", titulo:"Boas-vindas e PDF de onboarding", detalhe:"Não se aplicam (cliente interno) · só o grupo de WhatsApp entra"},
       {data:"2026-10-09", titulo:"Grupo de WhatsApp criado", detalhe:"MK3 - SOLUTION FILMES · Marlon e Bia (Solution) · foto entra quando a logo chegar"},
       {data:"2026-10-09", titulo:"Cliente criado no Pode Postar", detalhe:"SOLUTION FILMES · segmento Audiovisual"},
-      {data:"2026-10-09", titulo:"Pesquisas de mercado e de comportamento", detalhe:"Salvas em 02. Informações da Marca → 2026 → Outubro · ponto de atenção: percepção de ligação com a MK3 junto a agências"}
+      {data:"2026-10-09", titulo:"Pesquisas de mercado e de comportamento", detalhe:"Salvas em 02. Informações da Marca → 2026 → Outubro · ponto de atenção: percepção de ligação com a MK3 junto a agências"},
+      {data:"2026-10-09", titulo:"Plano definido", detalhe:"Impulso Básico · 10 artes + 5 Reels/mês + stories · sem tráfego pago por enquanto"}
     ]
   },
 ];
