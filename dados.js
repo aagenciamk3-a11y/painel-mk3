@@ -336,7 +336,7 @@ const CLIENTES = [
       {id:"formatos", fase:"1º ciclo", tarefa:"Reunião de formatos de conteúdo", detalhe:"Combinada na reunião de 06/10 · definir os formatos fixos do Instagram", data:"2026-10-16", resp:"Analista"}
     ],
 
-    concluidas: ["pasta","planilha",{id:"grupo",data:"2026-10-09"},{id:"boasvindas",data:"2026-10-01"},{id:"onboarding",data:"2026-10-01"},
+    concluidas: ["pasta","planilha",{id:"pesq1",data:"2026-10-09"},{id:"pesq2",data:"2026-10-09"},{id:"grupo",data:"2026-10-09"},{id:"boasvindas",data:"2026-10-01"},{id:"onboarding",data:"2026-10-01"},
                  {id:"imersao", data:"2026-10-01"},
                  {id:"imersaoDoc", data:"2026-10-09"},
                  {id:"reuniaoPlan", data:"2026-10-06"}],
@@ -346,7 +346,9 @@ const CLIENTES = [
       {data:"2026-10-01", titulo:"Imersão (parte 1)",         detalhe:"Marca, objetivos e público · foco em agências e empresas, sem conteúdo para filmmaker"},
       {data:"2026-10-06", titulo:"Imersão (parte 2) e planejamento", detalhe:"Outubro Rosa com o case Sicoob, Dia das Crianças com fotos de infância x IA, DiskPan 30 anos, websérie SBL"},
       {data:"2026-10-09", titulo:"Boas-vindas e PDF de onboarding", detalhe:"Não se aplicam (cliente interno) · só o grupo de WhatsApp entra"},
-      {data:"2026-10-09", titulo:"Grupo de WhatsApp criado", detalhe:"MK3 - SOLUTION FILMES · Marlon e Bia (Solution) · foto entra quando a logo chegar"}
+      {data:"2026-10-09", titulo:"Grupo de WhatsApp criado", detalhe:"MK3 - SOLUTION FILMES · Marlon e Bia (Solution) · foto entra quando a logo chegar"},
+      {data:"2026-10-09", titulo:"Cliente criado no Pode Postar", detalhe:"SOLUTION FILMES · segmento Audiovisual"},
+      {data:"2026-10-09", titulo:"Pesquisas de mercado e de comportamento", detalhe:"Salvas em 02. Informações da Marca → 2026 → Outubro · ponto de atenção: percepção de ligação com a MK3 junto a agências"}
     ]
   },
 ];
