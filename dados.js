@@ -336,7 +336,7 @@ const CLIENTES = [
       {id:"formatos", fase:"1º ciclo", tarefa:"Reunião de formatos de conteúdo", detalhe:"Combinada na reunião de 06/10 · definir os formatos fixos do Instagram", data:"2026-10-16", resp:"Analista"}
     ],
 
-    concluidas: ["pasta","planilha",
+    concluidas: ["pasta","planilha",{id:"boasvindas",data:"2026-10-01"},{id:"onboarding",data:"2026-10-01"},
                  {id:"imersao", data:"2026-10-01"},
                  {id:"imersaoDoc", data:"2026-10-09"},
                  {id:"reuniaoPlan", data:"2026-10-06"}],
@@ -344,7 +344,8 @@ const CLIENTES = [
     marcos: [
       {data:"2026-10-01", titulo:"Entrada do cliente",        detalhe:"Cliente interno · produtora dos sócios da MK3 · conteúdo, agendamento, tráfego pago e LinkedIn"},
       {data:"2026-10-01", titulo:"Imersão (parte 1)",         detalhe:"Marca, objetivos e público · foco em agências e empresas, sem conteúdo para filmmaker"},
-      {data:"2026-10-06", titulo:"Imersão (parte 2) e planejamento", detalhe:"Outubro Rosa com o case Sicoob, Dia das Crianças com fotos de infância x IA, DiskPan 30 anos, websérie SBL"}
+      {data:"2026-10-06", titulo:"Imersão (parte 2) e planejamento", detalhe:"Outubro Rosa com o case Sicoob, Dia das Crianças com fotos de infância x IA, DiskPan 30 anos, websérie SBL"},
+      {data:"2026-10-09", titulo:"Boas-vindas e PDF de onboarding", detalhe:"Não se aplicam (cliente interno) · só o grupo de WhatsApp entra"}
     ]
   },
 ];
