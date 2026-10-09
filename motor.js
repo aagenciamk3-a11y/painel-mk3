@@ -2008,7 +2008,7 @@ function abrirDia(dayIso){
   const base=(c?TODAS.filter(t=>ehDoCliente(t,c.id)):tarefasArea()).filter(t=>t.data===dayIso)
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
   const mks=marcosDaArea((c?c.marcos:CLIENTES.flatMap(x=>x.marcos)).filter(m=>m.data===dayIso));
-  const ags=(VISTA.area==="all"||VISTA.area==="mkt") ? (c?agendaCli(c.id):(ESTADO.agenda||[])).filter(e=>e.dia===dayIso) : [];
+  const ags=(VISTA.area==="all"||VISTA.area==="mkt") ? (c?agendaCli(c.id):semEspelho(ESTADO.agenda)).filter(e=>e.dia===dayIso) : [];
   const titulo=d(dayIso).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
   const mm=$("modal");
   mm.innerHTML='<div class="mbox diamodal"><h3>'+esc(titulo)+'</h3>'+
@@ -2918,10 +2918,13 @@ function avisoGravacaoHTML(){
 
 /* ================= AGENDA (espelho do Google Agenda) ================= */
 /* ESTADO.agenda = [{id, titulo, dia, hora, fim, diaInteiro, meet, cliente, quando}] */
-function agendaDe(dia){ return (ESTADO.agenda||[]).filter(e=>e.dia===dia); }
-function agendaCli(cid){ return (ESTADO.agenda||[]).filter(e=>e.cliente===cid); }
+/* evento "espelho": o prazo financeiro que o proprio painel mandou para o Google (mensalidade,
+   renovacao...). Fora da aba Agenda ele nao aparece, senao a mesma mensalidade sai duas vezes. */
+function semEspelho(l){ return (l||[]).filter(e=>!e.espelho); }
+function agendaDe(dia){ return semEspelho(ESTADO.agenda).filter(e=>e.dia===dia); }
+function agendaCli(cid){ return semEspelho(ESTADO.agenda).filter(e=>e.cliente===cid); }
 function agendaVisivel(){
-  const todos=(ESTADO.agenda||[]);
+  const todos=semEspelho(ESTADO.agenda);
   if(VISTA.escopo) return todos.filter(e=>e.cliente===VISTA.escopo);
   return todos;
 }
@@ -2936,7 +2939,7 @@ function btEditarAg(e){
 }
 function proximosAgendaHTML(){
   const hoje=iso(HOJE);
-  const l=(ESTADO.agenda||[]).filter(e=>e.dia>=hoje).sort((a,b)=>(a.dia+(a.hora||"")).localeCompare(b.dia+(b.hora||""))).slice(0,5);
+  const l=semEspelho(ESTADO.agenda).filter(e=>e.dia>=hoje).sort((a,b)=>(a.dia+(a.hora||"")).localeCompare(b.dia+(b.hora||""))).slice(0,5);
   if(!l.length) return '';
   return '<div class="db-cx"><div class="db-h">Próximos na agenda</div>'+
     l.map(e=>{
@@ -3211,7 +3214,8 @@ function puxarAgendaAoVivo(){
     .then(j=>{
       if(!j || !Array.isArray(j.eventos)) return;
       const antes=JSON.stringify(ESTADO.agenda||[]);
-      ESTADO.agenda=j.eventos.map(enriquecerEvento);   /* só na memória: não grava nem sincroniza */
+      const finGids={}; Object.entries(ESTADO.cobrancas||{}).forEach(([k,v])=>{ if(/^fin\|/.test(k) && v && v.gid) finGids[v.gid]=true; });
+      ESTADO.agenda=j.eventos.map(e=>{ const x=enriquecerEvento(e); if(x.gid && finGids[x.gid]) x.espelho=true; return x; });   /* só na memória: não grava nem sincroniza */
       if(ehAdmin() && j.financeiro) mandarPrazosFinanceiros();   /* so com o e-mail da Bia configurado no script */
       if(JSON.stringify(ESTADO.agenda)!==antes){ if(ehAdmin()) sincronizarGravacoes(); marcarAgendaViva(j.lido); semPular(render); }
       else marcarAgendaViva(j.lido);
@@ -3307,7 +3311,8 @@ function resultadosPainelHTML(){
    e o que a equipe coloca por ali, que vai direto para o Google.
    Prazos e demandas continuam nas outras abas. */
 function agendaDaArea(){
-  const todos=agendaVisivel(), a=VISTA.area;
+  let todos=(ESTADO.agenda||[]); if(VISTA.escopo) todos=todos.filter(e=>e.cliente===VISTA.escopo);
+  const a=VISTA.area;
   if(!a || a==="all") return todos;
   if(a==="fin" || a==="com") return todos.filter(e=>e.area===a);
   return todos.filter(e=>e.area!=="fin" && e.area!=="com");
@@ -3972,22 +3977,24 @@ function relevanteBoard(t){
 }
 function resumoSemanaHTML(){
   const wk=VISTA.psem; if(!wk) return '';
-  let feitas=0, naofeitas=0; const motivos={};
+  let feitas=0, naofeitas=0, abertas=0; const motivos={};
   for(let i=0;i<5;i++){
     const day=addD(wk,i);
     TODAS.filter(t=>t.data===day && relevanteBoard(t)).forEach(t=>{
       const x=xInfo(wk,t.clienteId,t.id,day);
       if(x){ naofeitas++; const k=(x.motivo||"sem motivo").trim(); motivos[k]=(motivos[k]||0)+1; }
       else if(t.st.k==="ok") feitas++;
+      else abertas++;                                   /* ainda sem marcacao: nao e feita nem nao feita */
     });
   }
   const top=Object.entries(motivos).sort((a,b)=>b[1]-a[1]).slice(0,3);
-  if(!feitas && !naofeitas) return '';
-  const tot=feitas+naofeitas, pct=tot?Math.round(feitas/tot*100):0;
+  if(!feitas && !naofeitas && !abertas) return '';
+  const tot=feitas+naofeitas+abertas, pct=tot?Math.round(feitas/tot*100):0;
   return '<div class="resumo">'+
     '<div class="res-h">Resumo da semana</div>'+
     '<div class="res-nums"><span class="res-ok"><b>'+feitas+'</b> feitas</span>'+
       '<span class="res-x"><b>'+naofeitas+'</b> não feitas</span>'+
+      (abertas?'<span class="res-ab"><b>'+abertas+'</b> em aberto</span>':'')+
       '<span class="res-pct">'+pct+'% concluído</span></div>'+
     '<div class="res-bar"><i style="width:'+pct+'%"></i></div>'+
     (top.length?'<div class="res-mot"><span class="res-mot-h">Principais motivos</span>'+

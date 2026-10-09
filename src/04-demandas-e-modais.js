@@ -687,7 +687,7 @@ function abrirDia(dayIso){
   const base=(c?TODAS.filter(t=>ehDoCliente(t,c.id)):tarefasArea()).filter(t=>t.data===dayIso)
     .sort((a,b)=>ORDEM[a.st.k]-ORDEM[b.st.k]);
   const mks=marcosDaArea((c?c.marcos:CLIENTES.flatMap(x=>x.marcos)).filter(m=>m.data===dayIso));
-  const ags=(VISTA.area==="all"||VISTA.area==="mkt") ? (c?agendaCli(c.id):(ESTADO.agenda||[])).filter(e=>e.dia===dayIso) : [];
+  const ags=(VISTA.area==="all"||VISTA.area==="mkt") ? (c?agendaCli(c.id):semEspelho(ESTADO.agenda)).filter(e=>e.dia===dayIso) : [];
   const titulo=d(dayIso).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
   const mm=$("modal");
   mm.innerHTML='<div class="mbox diamodal"><h3>'+esc(titulo)+'</h3>'+

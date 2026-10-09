@@ -1,9 +1,12 @@
 /* ================= AGENDA (espelho do Google Agenda) ================= */
 /* ESTADO.agenda = [{id, titulo, dia, hora, fim, diaInteiro, meet, cliente, quando}] */
-function agendaDe(dia){ return (ESTADO.agenda||[]).filter(e=>e.dia===dia); }
-function agendaCli(cid){ return (ESTADO.agenda||[]).filter(e=>e.cliente===cid); }
+/* evento "espelho": o prazo financeiro que o proprio painel mandou para o Google (mensalidade,
+   renovacao...). Fora da aba Agenda ele nao aparece, senao a mesma mensalidade sai duas vezes. */
+function semEspelho(l){ return (l||[]).filter(e=>!e.espelho); }
+function agendaDe(dia){ return semEspelho(ESTADO.agenda).filter(e=>e.dia===dia); }
+function agendaCli(cid){ return semEspelho(ESTADO.agenda).filter(e=>e.cliente===cid); }
 function agendaVisivel(){
-  const todos=(ESTADO.agenda||[]);
+  const todos=semEspelho(ESTADO.agenda);
   if(VISTA.escopo) return todos.filter(e=>e.cliente===VISTA.escopo);
   return todos;
 }
@@ -18,7 +21,7 @@ function btEditarAg(e){
 }
 function proximosAgendaHTML(){
   const hoje=iso(HOJE);
-  const l=(ESTADO.agenda||[]).filter(e=>e.dia>=hoje).sort((a,b)=>(a.dia+(a.hora||"")).localeCompare(b.dia+(b.hora||""))).slice(0,5);
+  const l=semEspelho(ESTADO.agenda).filter(e=>e.dia>=hoje).sort((a,b)=>(a.dia+(a.hora||"")).localeCompare(b.dia+(b.hora||""))).slice(0,5);
   if(!l.length) return '';
   return '<div class="db-cx"><div class="db-h">Próximos na agenda</div>'+
     l.map(e=>{
@@ -293,7 +296,8 @@ function puxarAgendaAoVivo(){
     .then(j=>{
       if(!j || !Array.isArray(j.eventos)) return;
       const antes=JSON.stringify(ESTADO.agenda||[]);
-      ESTADO.agenda=j.eventos.map(enriquecerEvento);   /* só na memória: não grava nem sincroniza */
+      const finGids={}; Object.entries(ESTADO.cobrancas||{}).forEach(([k,v])=>{ if(/^fin\|/.test(k) && v && v.gid) finGids[v.gid]=true; });
+      ESTADO.agenda=j.eventos.map(e=>{ const x=enriquecerEvento(e); if(x.gid && finGids[x.gid]) x.espelho=true; return x; });   /* só na memória: não grava nem sincroniza */
       if(ehAdmin() && j.financeiro) mandarPrazosFinanceiros();   /* so com o e-mail da Bia configurado no script */
       if(JSON.stringify(ESTADO.agenda)!==antes){ if(ehAdmin()) sincronizarGravacoes(); marcarAgendaViva(j.lido); semPular(render); }
       else marcarAgendaViva(j.lido);
@@ -389,7 +393,8 @@ function resultadosPainelHTML(){
    e o que a equipe coloca por ali, que vai direto para o Google.
    Prazos e demandas continuam nas outras abas. */
 function agendaDaArea(){
-  const todos=agendaVisivel(), a=VISTA.area;
+  let todos=(ESTADO.agenda||[]); if(VISTA.escopo) todos=todos.filter(e=>e.cliente===VISTA.escopo);
+  const a=VISTA.area;
   if(!a || a==="all") return todos;
   if(a==="fin" || a==="com") return todos.filter(e=>e.area===a);
   return todos.filter(e=>e.area!=="fin" && e.area!=="com");

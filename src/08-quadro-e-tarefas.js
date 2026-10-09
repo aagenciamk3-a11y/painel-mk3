@@ -91,22 +91,24 @@ function relevanteBoard(t){
 }
 function resumoSemanaHTML(){
   const wk=VISTA.psem; if(!wk) return '';
-  let feitas=0, naofeitas=0; const motivos={};
+  let feitas=0, naofeitas=0, abertas=0; const motivos={};
   for(let i=0;i<5;i++){
     const day=addD(wk,i);
     TODAS.filter(t=>t.data===day && relevanteBoard(t)).forEach(t=>{
       const x=xInfo(wk,t.clienteId,t.id,day);
       if(x){ naofeitas++; const k=(x.motivo||"sem motivo").trim(); motivos[k]=(motivos[k]||0)+1; }
       else if(t.st.k==="ok") feitas++;
+      else abertas++;                                   /* ainda sem marcacao: nao e feita nem nao feita */
     });
   }
   const top=Object.entries(motivos).sort((a,b)=>b[1]-a[1]).slice(0,3);
-  if(!feitas && !naofeitas) return '';
-  const tot=feitas+naofeitas, pct=tot?Math.round(feitas/tot*100):0;
+  if(!feitas && !naofeitas && !abertas) return '';
+  const tot=feitas+naofeitas+abertas, pct=tot?Math.round(feitas/tot*100):0;
   return '<div class="resumo">'+
     '<div class="res-h">Resumo da semana</div>'+
     '<div class="res-nums"><span class="res-ok"><b>'+feitas+'</b> feitas</span>'+
       '<span class="res-x"><b>'+naofeitas+'</b> não feitas</span>'+
+      (abertas?'<span class="res-ab"><b>'+abertas+'</b> em aberto</span>':'')+
       '<span class="res-pct">'+pct+'% concluído</span></div>'+
     '<div class="res-bar"><i style="width:'+pct+'%"></i></div>'+
     (top.length?'<div class="res-mot"><span class="res-mot-h">Principais motivos</span>'+

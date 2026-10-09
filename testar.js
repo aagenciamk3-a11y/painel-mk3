@@ -1167,6 +1167,11 @@ const hh=histHTML(CLIENTES.find(c=>c.id==="oceanus"));
 __ok("renovacao de contrato entra no historico sozinha", /Contrato renovado/.test(hh) && /CS00006\\/2026/.test(hh));
 __ok("dia da semana so com a primeira maiuscula", hh.indexOf('class="qd">Quinta-feira<')>=0);
 __ok("recado escreve AMANHÃ com acento", !/AMANHA\\b/.test(recadoTexto()));
+ESTADO.agenda=[{id:"a",gid:"g1",titulo:"Gravação",dia:iso(HOJE),cliente:"oceanus"},{id:"b",gid:"g2",titulo:"Mensalidade · Oceanus",dia:iso(HOJE),cliente:"oceanus",espelho:true}];
+__ok("prazo financeiro espelhado no Google nao aparece duas vezes fora da aba Agenda", agendaDe(iso(HOJE)).length===1 && !/Mensalidade/.test(proximosAgendaHTML()));
+VISTA.escopo=null; VISTA.area="all";
+__ok("mas continua na aba Agenda", agendaDaArea().length===2);
+ESTADO.agenda=[];
 __ok("o painel nao fala em e-mail para o cliente", !/por e-mail/.test(regras(CLIENTES.find(c=>c.id==="marroquina")).map(t=>t.detalhe).join(" ")));
 `);
 
