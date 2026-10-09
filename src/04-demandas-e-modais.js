@@ -28,7 +28,7 @@ function datasRec(r,de,ate){
   }
   for(let cur=ini; cur<=ate; cur=addD(cur,1)){
     const dw=d(cur).getDay();
-    if(r.freq==="util"){ if(dw>=1 && dw<=5) out.push(cur); }
+    if(r.freq==="util"){ if(dw>=1 && dw<=5 && !feriado(cur)) out.push(cur); }
     else if(r.freq==="semanal"){ if(dw===Number(r.dow)) out.push(cur); }
     else if(r.freq==="quinzenal"){
       const n=Math.round((d(cur)-d(r.inicio))/86400000);
@@ -804,7 +804,7 @@ function abrirMover(cid,tid,diaAtual,mesRef){
   for(let i=0;i<desloc;i++) cels+='<span class="mv-vazio"></span>';
   for(let dia=1;dia<=diasNoMes;dia++){
     const s=iso(new Date(ano,mes,dia));
-    const fds=[0,6].indexOf(new Date(ano,mes,dia).getDay())>=0;
+    const fds=[0,6].indexOf(new Date(ano,mes,dia).getDay())>=0 || !!feriado(s);
     const invalido=!podeReplanejar(t,s);
     const antes=!invalido && t && t.data && s<t.data;
     const cls=["mv-d",fds?"fds":"",s===hojeIso?"hj":"",s===diaAtual?"atual":"",s===t.data?"orig":"",

@@ -134,11 +134,13 @@ function cardsHTML(){
     const ts = por[c.id];
     const n  = ks => ts.filter(t=>ks.includes(t.st.k)).length;
     const cor = coresDe(c);
+    const lim30=addD(iso(HOJE),30);
+    const prox30=ts.filter(t=>["semana","futuro"].includes(t.st.k) && t.data && t.data<=lim30).length;
     const tiles = [
-      ["atrasado","Atrasado", n(["atrasado"])],
-      ["hoje","Hoje e amanhã", n(["hoje","umdia"])],
-      ["semana","A fazer",    n(["semana","futuro","sem"])],
-      ["ok","Concluído",      n(["ok"])]
+      ["atrasado","Atrasado", n(["atrasado"]), "Passou da data e ainda não foi marcado"],
+      ["hoje","Hoje e amanhã", n(["hoje","umdia"]), "Vence hoje ou amanhã"],
+      ["semana","Em 30 dias", prox30, "A fazer nos próximos 30 dias (depois de amanhã até "+fmt(lim30)+")"],
+      ["ok","Concluído",      n(["ok"]), "Tudo o que já foi feito para este cliente"]
     ];
     return '<a class="ccard" href="'+rotaDe({escopo:c.id,aba:"cal"})+'" data-cliente="'+c.id+'">'+
       '<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
@@ -146,7 +148,7 @@ function cardsHTML(){
       '<div class="ccard-body">'+
         '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3>'+seloCliente(c)+'</div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
-          '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
+          '<div class="stat s-'+t[0]+'" data-tt="'+escAttr(t[3])+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
       contratoCardHTML(c)+onbBadgeHTML(c)+linksHTML(c,"card")+'</div></a>';
   }).join("");
 }
@@ -181,7 +183,8 @@ function calendario(tasks, marcos, showCli, soAgenda){
     const dt = new Date(ini); dt.setDate(ini.getDate()+i);
     const s = iso(dt);
     const fora = dt.getMonth()!==mes;
-    const fds  = dt.getDay()===0 || dt.getDay()===6;
+    const fer  = feriado(s);
+    const fds  = dt.getDay()===0 || dt.getDay()===6 || !!fer;
     const evs  = base.filter(t=>t.data===s);
     const mk   = marcos.filter(m=>m.data===s);
     const ags  = soAgenda ? agendaDaArea().filter(e=>e.dia===s)
@@ -201,7 +204,8 @@ function calendario(tasks, marcos, showCli, soAgenda){
     const evsHtml = items.slice(0,cap).map(it=> it.ag ? evAgenda(it.o) : (it.marco ? evCard(it.o,false,true) : evCard(it.o,showCli,false))).join("");
     const resto = items.length - cap;
     const extra = resto>0 ? '<div class="mais" data-dia="'+s+'">+'+resto+' '+(resto===1?"item":"itens")+'</div>' : "";
-    cells += '<div class="'+cls+(items.length?'':' vazia')+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
+    cells += '<div class="'+cls+(items.length?'':' vazia')+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+
+      (fer?'<div class="fer" data-tt="Feriado nacional: não conta como dia útil">'+esc(fer)+'</div>':'')+evsHtml+extra+'</div>';
   }
 
   let dica="";

@@ -13,11 +13,35 @@ const fmt  = s => s ? d(s).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-di
 const dow  = s => s ? d(s).toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","") : "";
 const dias = s => Math.round((d(s)-HOJE)/86400000);
 
-/* soma N dias ÚTEIS (pula sábado e domingo) */
+/* ---- feriados nacionais: não são dia útil ----
+   Fixos (Lei 662/49, 6.802/80 e 14.759/23) + Sexta-feira Santa (móvel, pela Páscoa). */
+const FERIADOS_FIXOS = {"01-01":"Confraternização Universal","04-21":"Tiradentes","05-01":"Dia do Trabalho",
+  "09-07":"Independência","10-12":"Nossa Senhora Aparecida","11-02":"Finados","11-15":"Proclamação da República",
+  "11-20":"Consciência Negra","12-25":"Natal"};
+const pascoa = ano => {   /* algoritmo de Meeus/Butcher */
+  const a=ano%19,b=Math.floor(ano/100),c=ano%100,dd=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+        h=(19*a+b-dd-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;
+  return new Date(ano,mes-1,dia);
+};
+const _feriadosAno = {};
+const feriadosDoAno = ano => {
+  if(_feriadosAno[ano]) return _feriadosAno[ano];
+  const o={};
+  for(const k in FERIADOS_FIXOS) o[ano+"-"+k]=FERIADOS_FIXOS[k];
+  const sexta=pascoa(ano); sexta.setDate(sexta.getDate()-2); o[iso(sexta)]="Sexta-feira Santa";
+  return (_feriadosAno[ano]=o);
+};
+/* nome do feriado naquele dia (ou "") */
+const feriado = s => { if(!s) return ""; const t=typeof s==="string"?s:iso(s); return feriadosDoAno(Number(t.slice(0,4)))[t]||""; };
+/* dia útil = segunda a sexta e não é feriado nacional */
+const ehUtil = x => { const w=x.getDay(); return w!==0 && w!==6 && !feriado(iso(x)); };
+
+/* soma N dias ÚTEIS (pula sábado, domingo e feriado) */
 const uteis = (s,n) => {
   if(!s) return null;
   let x = d(s), c = 0;
-  while(c < n){ x.setDate(x.getDate()+1); const w = x.getDay(); if(w!==0 && w!==6) c++; }
+  while(c < n){ x.setDate(x.getDate()+1); if(ehUtil(x)) c++; }
   return iso(x);
 };
 const PRAZO = 2;
@@ -26,14 +50,14 @@ const PRAZO = 2;
 const uteisEntre = (limite, real) => {
   if(!limite || !real || real <= limite) return 0;
   let n=0, x=d(limite);
-  while(iso(x) < real){ x.setDate(x.getDate()+1); const w=x.getDay(); if(w!==0&&w!==6) n++; }
+  while(iso(x) < real){ x.setDate(x.getDate()+1); if(ehUtil(x)) n++; }
   return n;
 };
 /* dias UTEIS de hoje ate a data (negativo = ja passou, em dias corridos) */
 const uteisAte = s => {
   const n=dias(s); if(n<=0) return n;
   let c=0, x=new Date(HOJE);
-  for(let i=0;i<n;i++){ x.setDate(x.getDate()+1); const w=x.getDay(); if(w!==0&&w!==6) c++; }
+  for(let i=0;i<n;i++){ x.setDate(x.getDate()+1); if(ehUtil(x)) c++; }
   return c;
 };
 const maiorData = (a,b) => !a ? b : !b ? a : (a>b ? a : b);
@@ -1352,7 +1376,7 @@ function datasRec(r,de,ate){
   }
   for(let cur=ini; cur<=ate; cur=addD(cur,1)){
     const dw=d(cur).getDay();
-    if(r.freq==="util"){ if(dw>=1 && dw<=5) out.push(cur); }
+    if(r.freq==="util"){ if(dw>=1 && dw<=5 && !feriado(cur)) out.push(cur); }
     else if(r.freq==="semanal"){ if(dw===Number(r.dow)) out.push(cur); }
     else if(r.freq==="quinzenal"){
       const n=Math.round((d(cur)-d(r.inicio))/86400000);
@@ -2128,7 +2152,7 @@ function abrirMover(cid,tid,diaAtual,mesRef){
   for(let i=0;i<desloc;i++) cels+='<span class="mv-vazio"></span>';
   for(let dia=1;dia<=diasNoMes;dia++){
     const s=iso(new Date(ano,mes,dia));
-    const fds=[0,6].indexOf(new Date(ano,mes,dia).getDay())>=0;
+    const fds=[0,6].indexOf(new Date(ano,mes,dia).getDay())>=0 || !!feriado(s);
     const invalido=!podeReplanejar(t,s);
     const antes=!invalido && t && t.data && s<t.data;
     const cls=["mv-d",fds?"fds":"",s===hojeIso?"hj":"",s===diaAtual?"atual":"",s===t.data?"orig":"",
@@ -2753,11 +2777,13 @@ function cardsHTML(){
     const ts = por[c.id];
     const n  = ks => ts.filter(t=>ks.includes(t.st.k)).length;
     const cor = coresDe(c);
+    const lim30=addD(iso(HOJE),30);
+    const prox30=ts.filter(t=>["semana","futuro"].includes(t.st.k) && t.data && t.data<=lim30).length;
     const tiles = [
-      ["atrasado","Atrasado", n(["atrasado"])],
-      ["hoje","Hoje e amanhã", n(["hoje","umdia"])],
-      ["semana","A fazer",    n(["semana","futuro","sem"])],
-      ["ok","Concluído",      n(["ok"])]
+      ["atrasado","Atrasado", n(["atrasado"]), "Passou da data e ainda não foi marcado"],
+      ["hoje","Hoje e amanhã", n(["hoje","umdia"]), "Vence hoje ou amanhã"],
+      ["semana","Em 30 dias", prox30, "A fazer nos próximos 30 dias (depois de amanhã até "+fmt(lim30)+")"],
+      ["ok","Concluído",      n(["ok"]), "Tudo o que já foi feito para este cliente"]
     ];
     return '<a class="ccard" href="'+rotaDe({escopo:c.id,aba:"cal"})+'" data-cliente="'+c.id+'">'+
       '<div class="ccard-banner" style="background:linear-gradient(135deg,'+cor[0]+' 0%,'+cor[1]+' 100%)"></div>'+
@@ -2765,7 +2791,7 @@ function cardsHTML(){
       '<div class="ccard-body">'+
         '<div class="ccard-top"><h3>'+esc(c.nome)+'</h3>'+seloCliente(c)+'</div>'+
         '<div class="ccard-stats">'+tiles.map(t=>
-          '<div class="stat s-'+t[0]+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
+          '<div class="stat s-'+t[0]+'" data-tt="'+escAttr(t[3])+'"><i></i><b>'+t[2]+'</b> '+t[1]+'</div>').join("")+'</div>'+
       contratoCardHTML(c)+onbBadgeHTML(c)+linksHTML(c,"card")+'</div></a>';
   }).join("");
 }
@@ -2800,7 +2826,8 @@ function calendario(tasks, marcos, showCli, soAgenda){
     const dt = new Date(ini); dt.setDate(ini.getDate()+i);
     const s = iso(dt);
     const fora = dt.getMonth()!==mes;
-    const fds  = dt.getDay()===0 || dt.getDay()===6;
+    const fer  = feriado(s);
+    const fds  = dt.getDay()===0 || dt.getDay()===6 || !!fer;
     const evs  = base.filter(t=>t.data===s);
     const mk   = marcos.filter(m=>m.data===s);
     const ags  = soAgenda ? agendaDaArea().filter(e=>e.dia===s)
@@ -2820,7 +2847,8 @@ function calendario(tasks, marcos, showCli, soAgenda){
     const evsHtml = items.slice(0,cap).map(it=> it.ag ? evAgenda(it.o) : (it.marco ? evCard(it.o,false,true) : evCard(it.o,showCli,false))).join("");
     const resto = items.length - cap;
     const extra = resto>0 ? '<div class="mais" data-dia="'+s+'">+'+resto+' '+(resto===1?"item":"itens")+'</div>' : "";
-    cells += '<div class="'+cls+(items.length?'':' vazia')+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+evsHtml+extra+'</div>';
+    cells += '<div class="'+cls+(items.length?'':' vazia')+'" data-dia="'+s+'"><div class="n">'+dt.getDate()+'</div>'+
+      (fer?'<div class="fer" data-tt="Feriado nacional: não conta como dia útil">'+esc(fer)+'</div>':'')+evsHtml+extra+'</div>';
   }
 
   let dica="";
@@ -3857,9 +3885,9 @@ function dashboardHTML(completo){
       '<div class="db-cx"><div class="db-h">Esperando o cliente</div>'+espHtml+'</div>'+
       '<div class="db-cx"><div class="db-h">Próximos 7 dias</div>'+proxHtml+'</div>'+
       '<div class="db-cx"><div class="db-h">Atraso do mês</div>'+
-        '<div class="db-pl"><span class="db-pn mk3"><b>'+mk3+'</b>MK3</span>'+
-        '<span class="db-pn cli"><b>'+cli+'</b>Cliente</span></div>'+
-        '<div class="db-obs">dias úteis já consumados</div></div>'+
+        '<div class="db-pl"><span class="db-pn mk3" data-tt="Soma dos dias úteis de atraso deste mês em etapas que dependem da MK3 (criar, enviar, gravar...)"><b>'+mk3+'</b>MK3</span>'+
+        '<span class="db-pn cli" data-tt="Soma dos dias úteis que o cliente passou do prazo de 2 dias úteis para aprovar ou enviar material"><b>'+cli+'</b>Cliente</span></div>'+
+        '<div class="db-obs">dias úteis de atraso somados neste mês. Fim de semana e feriado não contam.</div></div>'+
     '</div>'+
     (completo?proximosAgendaHTML():'')+
     (completo?resultadosPainelHTML():'')+
@@ -4072,9 +4100,9 @@ function tendenciaHTML(){
       '<p>O gráfico se preenche conforme as etapas forem concluídas com data. Sempre que você marcar "concluído em tal dia" ou registrar a resposta do cliente, o atraso entra aqui.</p>'+
       '<button data-view="prio">Ir para as tarefas da semana</button></div>':'')+
     '<div class="tend-topo">'+
-      '<div class="tend-kpi"><span class="k-r">Atraso da MK3 · mês atual</span><b class="mk3">'+atual.mk3+'<small>dias úteis</small></b>'+
+      '<div class="tend-kpi" data-tt="Soma dos dias úteis de atraso deste mês em etapas que dependem da MK3"><span class="k-r">Atraso da MK3 · mês atual</span><b class="mk3">'+atual.mk3+'<small>dias úteis</small></b>'+
         '<span class="k-v '+vM.cls+'">'+esc(vM.txt)+'</span></div>'+
-      '<div class="tend-kpi"><span class="k-r">Atraso do cliente · mês atual</span><b class="cli">'+atual.cli+'<small>dias úteis</small></b>'+
+      '<div class="tend-kpi" data-tt="Soma dos dias úteis que o cliente passou do prazo para aprovar ou enviar material"><span class="k-r">Atraso do cliente · mês atual</span><b class="cli">'+atual.cli+'<small>dias úteis</small></b>'+
         '<span class="k-v '+vC.cls+'">'+esc(vC.txt)+'</span></div>'+
       '<div class="tend-kpi"><span class="k-r">Em aberto agora</span><b class="ab">'+emAberto.length+'<small>tarefas atrasadas</small></b>'+
         '<span class="k-v n">precisam de ação</span></div>'+

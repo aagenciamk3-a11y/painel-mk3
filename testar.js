@@ -1175,6 +1175,9 @@ ESTADO.agenda=[];
 const lg=somarLog([{ts:"2026-10-08T20:50:00Z",acao:"concluir",id:"x",quem:""}],[{ts:"2026-10-08T20:50:00Z",acao:"concluir",id:"x",quem:"Alda"}]);
 __ok("corrigir o autor de uma marcacao nao duplica a linha no feed", lg.length===1 && lg[0].quem==="Alda");
 __ok("toda acao gravada no log tem um verbo no feed", ["mover","demandax","plano","replanejar","demanda","editar"].every(k=>ACAOROT[k]));
+__ok("12/10 (Aparecida) e Sexta-feira Santa sao feriado", feriado("2026-10-12")==="Nossa Senhora Aparecida" && feriado("2026-04-03")==="Sexta-feira Santa" && feriado("2027-03-26")==="Sexta-feira Santa" && !feriado("2026-10-13"));
+__ok("2 dias uteis depois de sexta 09/10 caem na quarta 14/10 (pula o feriado de 12/10)", uteis("2026-10-09",2)==="2026-10-14");
+__ok("20/11 e 02/11 nao sao dia util", !ehUtil(d("2026-11-20")) && !ehUtil(d("2026-11-02")) && ehUtil(d("2026-11-03")));
 __ok("o painel nao fala em e-mail para o cliente", !/por e-mail/.test(regras(CLIENTES.find(c=>c.id==="marroquina")).map(t=>t.detalhe).join(" ")));
 `);
 

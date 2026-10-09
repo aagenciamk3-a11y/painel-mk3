@@ -182,9 +182,9 @@ function tendenciaHTML(){
       '<p>O gráfico se preenche conforme as etapas forem concluídas com data. Sempre que você marcar "concluído em tal dia" ou registrar a resposta do cliente, o atraso entra aqui.</p>'+
       '<button data-view="prio">Ir para as tarefas da semana</button></div>':'')+
     '<div class="tend-topo">'+
-      '<div class="tend-kpi"><span class="k-r">Atraso da MK3 · mês atual</span><b class="mk3">'+atual.mk3+'<small>dias úteis</small></b>'+
+      '<div class="tend-kpi" data-tt="Soma dos dias úteis de atraso deste mês em etapas que dependem da MK3"><span class="k-r">Atraso da MK3 · mês atual</span><b class="mk3">'+atual.mk3+'<small>dias úteis</small></b>'+
         '<span class="k-v '+vM.cls+'">'+esc(vM.txt)+'</span></div>'+
-      '<div class="tend-kpi"><span class="k-r">Atraso do cliente · mês atual</span><b class="cli">'+atual.cli+'<small>dias úteis</small></b>'+
+      '<div class="tend-kpi" data-tt="Soma dos dias úteis que o cliente passou do prazo para aprovar ou enviar material"><span class="k-r">Atraso do cliente · mês atual</span><b class="cli">'+atual.cli+'<small>dias úteis</small></b>'+
         '<span class="k-v '+vC.cls+'">'+esc(vC.txt)+'</span></div>'+
       '<div class="tend-kpi"><span class="k-r">Em aberto agora</span><b class="ab">'+emAberto.length+'<small>tarefas atrasadas</small></b>'+
         '<span class="k-v n">precisam de ação</span></div>'+

@@ -465,9 +465,9 @@ function dashboardHTML(completo){
       '<div class="db-cx"><div class="db-h">Esperando o cliente</div>'+espHtml+'</div>'+
       '<div class="db-cx"><div class="db-h">Próximos 7 dias</div>'+proxHtml+'</div>'+
       '<div class="db-cx"><div class="db-h">Atraso do mês</div>'+
-        '<div class="db-pl"><span class="db-pn mk3"><b>'+mk3+'</b>MK3</span>'+
-        '<span class="db-pn cli"><b>'+cli+'</b>Cliente</span></div>'+
-        '<div class="db-obs">dias úteis já consumados</div></div>'+
+        '<div class="db-pl"><span class="db-pn mk3" data-tt="Soma dos dias úteis de atraso deste mês em etapas que dependem da MK3 (criar, enviar, gravar...)"><b>'+mk3+'</b>MK3</span>'+
+        '<span class="db-pn cli" data-tt="Soma dos dias úteis que o cliente passou do prazo de 2 dias úteis para aprovar ou enviar material"><b>'+cli+'</b>Cliente</span></div>'+
+        '<div class="db-obs">dias úteis de atraso somados neste mês. Fim de semana e feriado não contam.</div></div>'+
     '</div>'+
     (completo?proximosAgendaHTML():'')+
     (completo?resultadosPainelHTML():'')+
