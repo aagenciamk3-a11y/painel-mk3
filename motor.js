@@ -2630,7 +2630,8 @@ const ACAOROT = {
   editar:["editou a demanda","obs"], "cliente-editado":["editou o cadastro de","obs"],
   "cliente-novo":["cadastrou o cliente","nova"],
   arquivar:["arquivou o cliente","x"], reativar:["reativou o cliente","ok"],
-  desremanejar:["desfez o remanejamento de","mv"], abasportal:["mudou o que o cliente vê em","obs"]
+  desremanejar:["desfez o remanejamento de","mv"], abasportal:["mudou o que o cliente vê em","obs"],
+  mover:["moveu","mv"], demandax:["removeu a demanda","x"], plano:["atualizou o plano de","obs"]
 };
 function nomeCli(cid){
   if(cid==="_dem") return "Demanda";
