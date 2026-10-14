@@ -186,7 +186,8 @@ const CLIENTES = [
       {data:"2026-07-13", titulo:"Planejamento enviado",      detalhe:"Para aprovação no Pode Postar"},
       {data:"2026-07-15", titulo:"Contrato alterado",         detalhe:"Data ajustada a pedido da cliente e reenviado"},
       {data:"2026-07-17", titulo:"Planejamento aprovado + contrato assinado", detalhe:"Aprovado hoje (com atraso); contrato assinado"},
-      {data:"2026-07-23", titulo:"Gravação marcada",       detalhe:"Diária de gravação agendada pela cliente"}
+      {data:"2026-07-23", titulo:"Gravação marcada",       detalhe:"Diária de gravação agendada pela cliente"},
+      {data:"2026-10-13", titulo:"Gravação dos vídeos de setembro", detalhe:"Diária de setembro, adiada para outubro. Gravados 4 de 5 vídeos; o vídeo da casa em Jardim Camburi não foi gravado. A diária de outubro é em 16/10."}
     ]
   },
 
