@@ -20,7 +20,7 @@ function relatorioDiario(){
   const desde=new Date(Date.now()-36*3600e3).toISOString();
   const concluidasRecentes=(ESTADO.log||[]).filter(l=>l.acao==="concluir" && l.ts>=desde)
     .map(l=>({quem:l.quem||"", tarefa:l.nome||"", cliente:l.cliente||"", ts:l.ts}));
-  return { hoje:hoje, totalAtrasadas:atrasadas.length, grupos:Object.values(grupos), atrasadas:atrasadas,
+  return { hoje:hoje, feriado:feriado(hoje), totalAtrasadas:atrasadas.length, grupos:Object.values(grupos), atrasadas:atrasadas,
     hojeEAmanha:hojeEAmanha, contratos:contratos, pagamentos:pagamentos, concluidasRecentes:concluidasRecentes };
 }
 /* texto curto para a descricao do evento da reuniao */
@@ -28,6 +28,7 @@ function textoReuniao(r){
   const M=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
   const mes=ym=>M[Number(ym.slice(5,7))-1];
   const L=[];
+  if(r.feriado){ L.push("HOJE É FERIADO ("+r.feriado+"): não marcar reunião."); L.push(""); }
   L.push("Reunião de pendências do Painel de Prazos. Abra o chat do projeto JARVIS e diga: reunião de pendências.");
   if(r.contratos.length){ L.push(""); L.push("CONTRATOS");
     r.contratos.forEach(c=>L.push("• "+c.cliente+": "+(c.semRenovacao?"encerra":"vence")+" em "+c.dias+" dia"+(c.dias===1?"":"s")+" ("+fmt(c.vence)+")")); }

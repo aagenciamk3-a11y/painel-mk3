@@ -13,9 +13,12 @@ const fmt  = s => s ? d(s).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-di
 const dow  = s => s ? d(s).toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","") : "";
 const dias = s => Math.round((d(s)-HOJE)/86400000);
 
-/* ---- feriados nacionais: não são dia útil ----
-   Fixos (Lei 662/49, 6.802/80 e 14.759/23) + Sexta-feira Santa (móvel, pela Páscoa). */
+/* ---- feriados: não são dia útil ----
+   Nacionais fixos (Lei 662/49, 6.802/80 e 14.759/23) + Sexta-feira Santa (móvel, pela Páscoa).
+   Espírito Santo: Nossa Senhora da Penha, segunda-feira 8 dias depois da Páscoa (Lei estadual 11.010/2019).
+   Cariacica (sede da MK3): São João Batista, padroeiro (24/06), e Corpus Christi (60 dias depois da Páscoa). */
 const FERIADOS_FIXOS = {"01-01":"Confraternização Universal","04-21":"Tiradentes","05-01":"Dia do Trabalho",
+  "06-24":"São João Batista (Cariacica)",
   "09-07":"Independência","10-12":"Nossa Senhora Aparecida","11-02":"Finados","11-15":"Proclamação da República",
   "11-20":"Consciência Negra","12-25":"Natal"};
 const pascoa = ano => {   /* algoritmo de Meeus/Butcher */
@@ -29,12 +32,15 @@ const feriadosDoAno = ano => {
   if(_feriadosAno[ano]) return _feriadosAno[ano];
   const o={};
   for(const k in FERIADOS_FIXOS) o[ano+"-"+k]=FERIADOS_FIXOS[k];
-  const sexta=pascoa(ano); sexta.setDate(sexta.getDate()-2); o[iso(sexta)]="Sexta-feira Santa";
+  const daPascoa=(n,nome)=>{ const x=pascoa(ano); x.setDate(x.getDate()+n); o[iso(x)]=nome; };
+  daPascoa(-2,"Sexta-feira Santa");
+  daPascoa(8,"Nossa Senhora da Penha (ES)");
+  daPascoa(60,"Corpus Christi (Cariacica)");
   return (_feriadosAno[ano]=o);
 };
 /* nome do feriado naquele dia (ou "") */
 const feriado = s => { if(!s) return ""; const t=typeof s==="string"?s:iso(s); return feriadosDoAno(Number(t.slice(0,4)))[t]||""; };
-/* dia útil = segunda a sexta e não é feriado nacional */
+/* dia útil = segunda a sexta e não é feriado (nacional, do ES ou de Cariacica) */
 const ehUtil = x => { const w=x.getDay(); return w!==0 && w!==6 && !feriado(iso(x)); };
 
 /* soma N dias ÚTEIS (pula sábado, domingo e feriado) */

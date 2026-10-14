@@ -13,9 +13,12 @@ const fmt  = s => s ? d(s).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-di
 const dow  = s => s ? d(s).toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","") : "";
 const dias = s => Math.round((d(s)-HOJE)/86400000);
 
-/* ---- feriados nacionais: não são dia útil ----
-   Fixos (Lei 662/49, 6.802/80 e 14.759/23) + Sexta-feira Santa (móvel, pela Páscoa). */
+/* ---- feriados: não são dia útil ----
+   Nacionais fixos (Lei 662/49, 6.802/80 e 14.759/23) + Sexta-feira Santa (móvel, pela Páscoa).
+   Espírito Santo: Nossa Senhora da Penha, segunda-feira 8 dias depois da Páscoa (Lei estadual 11.010/2019).
+   Cariacica (sede da MK3): São João Batista, padroeiro (24/06), e Corpus Christi (60 dias depois da Páscoa). */
 const FERIADOS_FIXOS = {"01-01":"Confraternização Universal","04-21":"Tiradentes","05-01":"Dia do Trabalho",
+  "06-24":"São João Batista (Cariacica)",
   "09-07":"Independência","10-12":"Nossa Senhora Aparecida","11-02":"Finados","11-15":"Proclamação da República",
   "11-20":"Consciência Negra","12-25":"Natal"};
 const pascoa = ano => {   /* algoritmo de Meeus/Butcher */
@@ -29,12 +32,15 @@ const feriadosDoAno = ano => {
   if(_feriadosAno[ano]) return _feriadosAno[ano];
   const o={};
   for(const k in FERIADOS_FIXOS) o[ano+"-"+k]=FERIADOS_FIXOS[k];
-  const sexta=pascoa(ano); sexta.setDate(sexta.getDate()-2); o[iso(sexta)]="Sexta-feira Santa";
+  const daPascoa=(n,nome)=>{ const x=pascoa(ano); x.setDate(x.getDate()+n); o[iso(x)]=nome; };
+  daPascoa(-2,"Sexta-feira Santa");
+  daPascoa(8,"Nossa Senhora da Penha (ES)");
+  daPascoa(60,"Corpus Christi (Cariacica)");
   return (_feriadosAno[ano]=o);
 };
 /* nome do feriado naquele dia (ou "") */
 const feriado = s => { if(!s) return ""; const t=typeof s==="string"?s:iso(s); return feriadosDoAno(Number(t.slice(0,4)))[t]||""; };
-/* dia útil = segunda a sexta e não é feriado nacional */
+/* dia útil = segunda a sexta e não é feriado (nacional, do ES ou de Cariacica) */
 const ehUtil = x => { const w=x.getDay(); return w!==0 && w!==6 && !feriado(iso(x)); };
 
 /* soma N dias ÚTEIS (pula sábado, domingo e feriado) */
@@ -4826,7 +4832,7 @@ function relatorioDiario(){
   const desde=new Date(Date.now()-36*3600e3).toISOString();
   const concluidasRecentes=(ESTADO.log||[]).filter(l=>l.acao==="concluir" && l.ts>=desde)
     .map(l=>({quem:l.quem||"", tarefa:l.nome||"", cliente:l.cliente||"", ts:l.ts}));
-  return { hoje:hoje, totalAtrasadas:atrasadas.length, grupos:Object.values(grupos), atrasadas:atrasadas,
+  return { hoje:hoje, feriado:feriado(hoje), totalAtrasadas:atrasadas.length, grupos:Object.values(grupos), atrasadas:atrasadas,
     hojeEAmanha:hojeEAmanha, contratos:contratos, pagamentos:pagamentos, concluidasRecentes:concluidasRecentes };
 }
 /* texto curto para a descricao do evento da reuniao */
@@ -4834,6 +4840,7 @@ function textoReuniao(r){
   const M=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
   const mes=ym=>M[Number(ym.slice(5,7))-1];
   const L=[];
+  if(r.feriado){ L.push("HOJE É FERIADO ("+r.feriado+"): não marcar reunião."); L.push(""); }
   L.push("Reunião de pendências do Painel de Prazos. Abra o chat do projeto JARVIS e diga: reunião de pendências.");
   if(r.contratos.length){ L.push(""); L.push("CONTRATOS");
     r.contratos.forEach(c=>L.push("• "+c.cliente+": "+(c.semRenovacao?"encerra":"vence")+" em "+c.dias+" dia"+(c.dias===1?"":"s")+" ("+fmt(c.vence)+")")); }

@@ -1218,6 +1218,10 @@ __ok("corrigir o autor de uma marcacao nao duplica a linha no feed", lg.length==
 __ok("toda acao gravada no log tem um verbo no feed", ["mover","demandax","plano","replanejar","demanda","editar"].every(k=>ACAOROT[k]));
 __ok("12/10 (Aparecida) e Sexta-feira Santa sao feriado", feriado("2026-10-12")==="Nossa Senhora Aparecida" && feriado("2026-04-03")==="Sexta-feira Santa" && feriado("2027-03-26")==="Sexta-feira Santa" && !feriado("2026-10-13"));
 __ok("2 dias uteis depois de sexta 09/10 caem na quarta 14/10 (pula o feriado de 12/10)", uteis("2026-10-09",2)==="2026-10-14");
+__ok("feriado do ES: Nossa Senhora da Penha (2025, 2026, 2027)", /Penha/.test(feriado("2025-04-28")) && /Penha/.test(feriado("2026-04-13")) && /Penha/.test(feriado("2027-04-05")));
+__ok("feriados de Cariacica: Corpus Christi e São João", /Corpus/.test(feriado("2026-06-04")) && /Corpus/.test(feriado("2027-05-27")) && /João/.test(feriado("2026-06-24")));
+__ok("Carnaval segue dia util (ponto facultativo)", !feriado("2026-02-16") && !feriado("2026-02-17"));
+__ok("relatorio avisa no feriado", (()=>{ const r=relatorioDiario(); r.feriado="Corpus Christi (Cariacica)"; return /HOJE É FERIADO/.test(textoReuniao(r)); })() && !/FERIADO/.test(textoReuniao({...relatorioDiario(),feriado:""})));
 __ok("20/11 e 02/11 nao sao dia util", !ehUtil(d("2026-11-20")) && !ehUtil(d("2026-11-02")) && ehUtil(d("2026-11-03")));
 const sol=regras(CLIENTES.find(c=>c.id==="solution")).map(t=>t.id);
 __ok("Solution Filmes entra como cliente interno: sem renovacao, encerramento nem mensalidade", sol.length>0 && !sol.some(id=>/^(renov|fimContrato|acaoComercial|pag_)/.test(id)));
