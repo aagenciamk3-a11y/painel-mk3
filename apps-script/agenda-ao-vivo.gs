@@ -101,12 +101,14 @@ function montarRelatorio_(estadoTxt) {
   const win = { addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }), document: doc };
   const nada = () => 0;
   const rodar = new Function('document', 'window', 'localStorage', 'location', 'history', 'navigator',
-    'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', '__bruto',
+    'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', '__bruto', '__eventos',
     fonte('dados.js') + '\n' + fonte('motor.js') +
-    '\n;ESTADO=normalizarEstado(JSON.parse(__bruto)); rebuild(); var __r=relatorioDiario();' +
+    '\n;ESTADO=normalizarEstado(JSON.parse(__bruto)); rebuild();' +
+    ' if (typeof aplicarAgenda === "function") { aplicarAgenda(__eventos); rebuild(); }' +   // a agenda também vira tarefa no relatório
+    ' var __r=relatorioDiario();' +
     ' return { r: __r, texto: textoReuniao(__r) };');
   const out = rodar(doc, win, { getItem: () => null, setItem() {}, removeItem() {} }, { hash: '', pathname: '/', href: '' },
-    { pushState() {}, replaceState() {} }, {}, nada, nada, nada, nada, estadoTxt);
+    { pushState() {}, replaceState() {} }, {}, nada, nada, nada, nada, estadoTxt, eventosParaRelatorio_());
   const quando = Utilities.formatDate(new Date(), FUSO, 'dd/MM/yyyy HH:mm');
   // JSON enxuto: cada tarefa vira [clienteId, id, tarefa, data] (o que a reunião precisa para marcar no painel)
   const r = out.r, t = x => [x.clienteId, x.id, x.tarefa, x.data];
@@ -114,6 +116,10 @@ function montarRelatorio_(estadoTxt) {
     grupos: r.grupos.map(g => ({ cliente: g.cliente, mes: g.mes, itens: g.itens.map(t) })),
     hojeEAmanha: r.hojeEAmanha.map(t), contratos: r.contratos, pagamentos: r.pagamentos.map(t) };
   return 'Gerado em ' + quando + '\n\n' + out.texto + '\n\n---JSON---\n' + JSON.stringify(enxuto);
+}
+/** Agenda para o relatório: se falhar a leitura, o relatório sai assim mesmo, só sem os eventos. */
+function eventosParaRelatorio_() {
+  try { return listarEventos_(new Date()); } catch (e) { return []; }
 }
 function instalarExportacao() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'exportarEstado').forEach(t => ScriptApp.deleteTrigger(t));
@@ -136,6 +142,15 @@ function doGet() {
   if (guardado) return json_(JSON.parse(guardado));
 
   const agora = new Date();
+  const resposta = { lido: Utilities.formatDate(agora, FUSO, 'dd/MM HH:mm'), eventos: listarEventos_(agora),
+    financeiro: emailsFinanceiro_().length > 0 };   // o painel só manda prazo financeiro quando a Bia está configurada
+  try { cache.put('eventos', JSON.stringify(resposta), CACHE_SEG); } catch (e) {}
+  return json_(resposta);
+}
+
+/** Os eventos da janela do painel (DIAS_ANTES para trás, DIAS_DEPOIS para frente), já no formato do painel. */
+function listarEventos_(agora) {
+  agora = agora || new Date();
   const ini = new Date(agora.getTime() - DIAS_ANTES * 864e5);
   const fim = new Date(agora.getTime() + DIAS_DEPOIS * 864e5);
   const saida = [];
@@ -152,11 +167,7 @@ function doGet() {
     });
     pagina = r.nextPageToken;
   } while (pagina);
-
-  const resposta = { lido: Utilities.formatDate(agora, FUSO, 'dd/MM HH:mm'), eventos: saida,
-    financeiro: emailsFinanceiro_().length > 0 };   // o painel só manda prazo financeiro quando a Bia está configurada
-  try { cache.put('eventos', JSON.stringify(resposta), CACHE_SEG); } catch (e) {}
-  return json_(resposta);
+  return saida;
 }
 
 /** Um evento do Google vira um (ou, se ocupar vários dias inteiros, vários) item do painel. */

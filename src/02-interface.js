@@ -359,6 +359,8 @@ function rebuildCore(){
   });
   /* demandas recorrentes: cada ocorrencia vira uma tarefa no balde "_rec" */
   ocorrenciasRec().forEach(t=>TODAS.push(t));
+  /* eventos da agenda: cada um vira uma tarefa no balde "_ag" */
+  tarefasDaAgenda().forEach(t=>TODAS.push(t));
 }
 
 

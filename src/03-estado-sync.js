@@ -331,6 +331,7 @@ function abrirRenomear(cid,tid){
   if(!ehAdmin()) return;
   if(cid==="_dem"){ abrirEditarDemanda(tid); return; }   /* demanda edita tudo no formulário */
   if(cid==="_rec"){ abrirEditorRec(tid); return; }      /* a ocorrencia abre a regra dela, nao a lista toda */
+  if(cid==="_ag"){ abrirEditorAg(tid); return; }        /* o titulo vem da agenda */
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   const atual=EXEC[baseId(t.id)]||t.tarefa;
   const renomeada=!!((ESTADO.titulos||{})[cid]||{})[tid];
@@ -366,13 +367,14 @@ function rotuloExcluida(cid,tid){
   if(cid==="_rec"){ const p=String(tid).split("@"); const r=(ESTADO.recorrentes||[]).find(x=>x.id===p[0]);
     return (r?r.texto:"Recorrente removida")+(p[1]?" ("+fmt(p[1]).slice(0,5)+")":""); }
   if(cid==="_dem"){ const dm=(ESTADO.demandas||[]).find(x=>x.id===tid); if(dm) return dm.texto; }
+  if(cid==="_ag"){ const e=(ESTADO.agenda||[]).find(x=>idTarefaAg(x)===tid); return (e?e.titulo:"Evento da agenda")+" ("+fmt(String(tid).split("@").pop()).slice(0,5)+")"; }
   return EXEC[baseId(tid)]||tid;
 }
 function nExcluidas(){ let n=0; for(const k in (ESTADO.excluidas||{})) n+=(ESTADO.excluidas[k]||[]).length; return n; }
 function abrirExcluidas(){
   if(!ehAdmin()) return;
   const E=ESTADO.excluidas||{};
-  const nomeCli=id=>{ const c=CLIENTES.find(x=>x.id===id); return c?c.nome:(id==="_dem"?"Demanda":(id==="_rec"?"Recorrente":id)); };
+  const nomeCli=id=>{ const c=CLIENTES.find(x=>x.id===id); return c?c.nome:(id==="_dem"?"Demanda":(id==="_rec"?"Recorrente":(id==="_ag"?"Agenda":id))); };
   let linhas="";
   for(const cid in E) (E[cid]||[]).forEach(tid=>{
     linhas+='<div class="ex-row"><span class="ex-t">'+esc(rotuloExcluida(cid,tid))+' <i>'+esc(nomeCli(cid))+'</i></span>'+
@@ -463,6 +465,7 @@ function moverTarefa(cid,tid,dia){ return duplicarTarefa(cid,tid,dia,true); }
 function duplicarTarefa(cid,tid,dia,mover){
   /* devolve true so quando algo mudou: quem chama decide se avisa */
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return false;
+  if(cid==="_ag"){ toast("Evento da agenda: mude a data no Google Agenda",false); return false; }
   if(t.data===dia){ toast("A tarefa já está nesse dia",false); return false; }
   if(!podeReplanejar(t,dia)){ toast("Não dá para replanejar para um dia que já passou",false); return false; }
   ESTADO.dup=ESTADO.dup||[];

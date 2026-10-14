@@ -1008,6 +1008,7 @@ function abrirEditorDemanda(id){
 }
 function abrirEditor(cid,tid){
   if(cid==="_dem"){ abrirEditorDemanda(tid); return; }
+  if(cid==="_ag"){ abrirEditorAg(tid); return; }
   if(cid==="_rec"){ abrirEditorRec(tid); return; }
   const t=TODAS.find(x=>x.clienteId===cid&&x.id===tid); if(!t) return;
   const feita=t.st.k==="ok"; const cli=cliente(cid); if(!cli) return; const anc=ANCORA[tid];
@@ -1114,6 +1115,9 @@ function handleModal(D){
     const dd0=$("ddata").value;
     addDemanda(tx,$("darea").value,dd0,$("dresp").value,($("dobs")&&$("dobs").value)||"",($("dcli")&&$("dcli").value)||null,qdo);
     semPular(abrirDemanda); toast(qdo?"Demanda registrada como feita":(dd0?"Demanda criada para "+fmt(dd0):"Demanda criada"),true); return; }
+  if(D.macao==="agsim"){ const t=TODAS.find(x=>x.clienteId==="_ag"&&x.id===D.mtid);
+    marcar("_ag",D.mtid,(t&&t.data&&t.data<=iso(HOJE))?t.data:iso(HOJE),"concluir"); fecharModal(); toast("Marcado: aconteceu",true); return; }
+  if(D.macao==="agnao"){ marcarNaoAconteceu(D.mtid); fecharModal(); toast("Marcado: n\u00e3o aconteceu",true); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }
   let dv = (D.macao==="hoje") ? iso(HOJE)

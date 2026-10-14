@@ -1146,6 +1146,47 @@ __ok("evento de cliente cai no marketing", ev("Gravação - Oceanus").area==="mk
 __ok("script antigo (ja com cliente) continua valendo", enriquecerEvento({titulo:"Qualquer",cliente:"cynthia",pessoa:"Carla"}).cliente==="cynthia");
 `);
 
+bloco("Agenda vira tarefa", M, limpar+`{
+USUARIO="Alda";
+const ontem=addD(iso(HOJE),-1), amanha=addD(iso(HOJE),1), velho=addD(AG_TAREFAS_DESDE,-3);
+ESTADO.cobrancas={"fin|suelem|x":{gid:"gfin",data:amanha}};
+aplicarAgenda([
+ {id:"u1",gid:"g1",titulo:"Gravação Cynthia Carvalho",dia:ontem,hora:"08:00",fim:"17:00",convidados:[]},
+ {id:"u2",gid:"g2",titulo:"Reunião interna",dia:amanha,hora:"10:00",fim:"11:00",convidados:["carlarnasc"]},
+ {id:"u3",gid:"gfin",titulo:"Mensalidade · Suelem",dia:amanha,convidados:[],tagArea:"fin"},
+ {id:"u4",gid:"g4",titulo:"Coisa antiga",dia:velho,convidados:[]},
+ {id:"u5",gid:"g5",titulo:"Evento de dois dias",dia:amanha,diaInteiro:true,convidados:[]},
+ {id:"u5#1",gid:"g5",titulo:"Evento de dois dias",dia:addD(amanha,1),diaInteiro:true,convidados:[]}
+]);
+rebuild();
+const ag=TODAS.filter(t=>t.clienteId==="_ag");
+const grav=ag.find(t=>t.tarefa==="Gravação Cynthia Carvalho");
+__ok("evento vira tarefa", !!grav && !!ag.find(t=>t.tarefa==="Reunião interna"));
+__ok("evento de cliente fica no cliente", grav && grav.cliDem==="cynthia" && tarefasCli(CLIENTES.find(c=>c.id==="cynthia")).some(t=>t.id===grav.id));
+__ok("espelho de prazo financeiro nao duplica", !ag.some(t=>t.gid==="gfin"));
+__ok("o que veio antes do corte nao cobra", !ag.some(t=>t.tarefa==="Coisa antiga"));
+__ok("evento de varios dias vira uma tarefa por dia", ag.filter(t=>t.gid==="g5").length===2);
+__ok("pessoa convidada vira responsavel", (ag.find(t=>t.tarefa==="Reunião interna")||{}).resp==="Carla");
+__ok("dia que passou pede confirmacao", grav.st.k==="atrasado" && /aconteceu/.test(grav.st.txt));
+__ok("futuro segue o prazo normal", (ag.find(t=>t.tarefa==="Reunião interna")||{st:{}}).st.k==="umdia");
+__ok("entra no relatorio da reuniao", relatorioDiario().atrasadas.some(x=>x.id===grav.id));
+marcar("_ag",grav.id,ontem,"concluir");
+const g2=TODAS.find(t=>t.id===grav.id);
+__ok("aconteceu conclui na data do evento", g2.st.k==="ok" && g2.st.txt==="Aconteceu" && g2.st.quando===ontem);
+marcar("_ag",grav.id,null,"desfazer");
+__ok("reabrir volta a perguntar", TODAS.find(t=>t.id===grav.id).st.k==="atrasado");
+marcarNaoAconteceu(grav.id);
+const g3=TODAS.find(t=>t.id===grav.id);
+__ok("nao aconteceu sai das pendencias", g3.st.k==="ok" && g3.st.txt==="Não aconteceu" && !relatorioDiario().atrasadas.some(x=>x.id===grav.id));
+__ok("e fica no historico com quem marcou", ESTADO.log[0].acao==="naoaconteceu" && ESTADO.log[0].quem==="Alda");
+__ok("a data so muda no Google", moverTarefa("_ag",grav.id,amanha)===false);
+__ok("tarefa da agenda nao vira prazo financeiro de volta", !prazosFinanceirosPendentes().some(x=>x.t.clienteId==="_ag"));
+excluirTarefa("_ag",grav.id);
+__ok("excluir esconde a tarefa", !TODAS.some(t=>t.id===grav.id));
+ESTADO.agenda=[]; rebuild();
+__ok("evento apagado no Google some das tarefas", !TODAS.some(t=>t.clienteId==="_ag"));
+}`);
+
 bloco("Relatorio diario (reuniao de pendencias)", M, limpar+`
 const r=relatorioDiario();
 __ok("conta as atrasadas e agrupa por cliente e mes", r.totalAtrasadas===r.atrasadas.length && r.grupos.every(g=>g.itens.every(x=>x.cliente===g.cliente && x.data.slice(0,7)===g.mes)));

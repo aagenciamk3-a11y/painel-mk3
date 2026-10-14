@@ -12,11 +12,12 @@ const ACAOROT = {
   "cliente-novo":["cadastrou o cliente","nova"],
   arquivar:["arquivou o cliente","x"], reativar:["reativou o cliente","ok"],
   desremanejar:["desfez o remanejamento de","mv"], abasportal:["mudou o que o cliente vê em","obs"],
-  mover:["moveu","mv"], demandax:["removeu a demanda","x"], plano:["atualizou o plano de","obs"]
+  mover:["moveu","mv"], naoaconteceu:["marcou que não aconteceu","x"], demandax:["removeu a demanda","x"], plano:["atualizou o plano de","obs"]
 };
 function nomeCli(cid){
   if(cid==="_dem") return "Demanda";
   if(cid==="_rec") return "Recorrente";
+  if(cid==="_ag") return "Agenda";
   const c=CLIENTES.find(x=>x.id===cid); return c?c.nome:"";
 }
 /* de que area e a linha do log: demanda ja traz a area, tarefa vem do id.
@@ -264,7 +265,8 @@ function divergenciasGravacao(){
   const mapa=gravacoesDaAgenda(), out=[];
   CLIENTES.forEach(c=>{
     const g=mapa[c.id]; if(!g) return;
-    if(c.gravacao && c.gravacao!==g.dia) out.push({cid:c.id, nome:c.nome, painel:c.gravacao, agenda:g.dia, hora:g.hora});
+    const naAgenda=(ESTADO.agenda||[]).some(e=>ehGravacao(e) && e.cliente===c.id && e.dia===c.gravacao);
+    if(c.gravacao && c.gravacao!==g.dia && !naAgenda) out.push({cid:c.id, nome:c.nome, painel:c.gravacao, agenda:g.dia, hora:g.hora});
   });
   return out;
 }

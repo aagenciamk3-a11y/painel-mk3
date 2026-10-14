@@ -289,6 +289,82 @@ function enriquecerEvento(e){
   if(!x.area) x.area = x.cliente ? "mkt" : "";
   return x;
 }
+/* eventos crus do script -> ESTADO.agenda (so na memoria: nao grava nem sincroniza).
+   Tambem usado pelo relatorio diario, que roda no script do Google. */
+function aplicarAgenda(eventos){
+  const finGids={}; Object.entries(ESTADO.cobrancas||{}).forEach(([k,v])=>{ if(/^fin\|/.test(k) && v && v.gid) finGids[v.gid]=true; });
+  ESTADO.agenda=(eventos||[]).map(e=>{ const x=enriquecerEvento(e); if(x.gid && finGids[x.gid]) x.espelho=true; return x; });
+  return ESTADO.agenda;
+}
+/* ---- agenda vira tarefa ----
+   Todo evento da agenda entra nas tarefas, no balde "_ag", menos o espelho de prazo
+   financeiro (esse ja e tarefa do painel). Depois que o dia passa, a tarefa nao se
+   conclui sozinha: fica pedindo confirmacao, "aconteceu" ou "nao aconteceu".
+   A data e o titulo mandam na agenda: para mudar, muda no Google. */
+const AG_TAREFAS_DESDE="2026-10-12";   /* o que veio antes disso nao vira cobranca */
+const idTarefaAg = e => "ag_"+String(e.gid||e.id)+"@"+e.dia;
+function areaTarefaAg(e){
+  if(e.area && AREA_ROT[e.area]) return e.area;
+  /* sem area: se for de uma pessoa so, cai numa area que ela ve */
+  const p=(ESTADO.pessoas||[]).find(x=>x.nome===e.pessoa);
+  if(p && !p.admin){ const as=(p.areas||[]).filter(a=>a!=="all"); if(as.length) return as[0]; }
+  return "mkt";
+}
+function statusAg(t){
+  if(t.feita && t.naoAconteceu) return {k:"ok", atraso:0, quando:t.dataConclusao, txt:"Não aconteceu"};
+  if(t.feita) return {k:"ok", atraso:0, quando:t.dataConclusao, txt:"Aconteceu"};
+  if(dias(t.data)<0) return {k:"atrasado", atraso:0, quando:null, txt:"Passou · aconteceu?"};
+  return status(t);
+}
+function tarefasDaAgenda(){
+  const out=[], vistos={};
+  const exc=((ESTADO.excluidas||{})["_ag"])||[];
+  const conc=(ESTADO.concluidas&&ESTADO.concluidas["_ag"])||[];
+  (ESTADO.agenda||[]).forEach(e=>{
+    if(!e || !e.dia || e.espelho || e.dia<AG_TAREFAS_DESDE) return;
+    const id=idTarefaAg(e);
+    if(vistos[id] || exc.indexOf(id)>=0) return; vistos[id]=1;
+    const done=conc.filter(x=>((x&&x.id)?x.id:x)===id).pop();
+    const feita=!!(done&&!done.remove);
+    const cli=e.cliente?CLIENTES.find(c=>c.id===e.cliente):null;
+    const area=areaTarefaAg(e);
+    const hora=(e.diaInteiro||!e.hora)?"dia inteiro":(e.hora+(e.fim?"–"+e.fim:""));
+    const t={id:id, clienteId:"_ag", cliDem:(cli?cli.id:null), gid:e.gid||null,
+             cliente:(cli?cli.nome:(e.pessoa||"Agenda")), tarefa:e.titulo||"(sem título)",
+             detalhe:"Agenda · "+hora, hora:hora, obs:e.obs||"", meet:e.meet||"",
+             data:e.dia, resp:(e.pessoa||AREA_ROT[area]||""), fase:"Agenda", area:area,
+             feita:feita, naoAconteceu:!!(feita&&done.nao), dataConclusao:(done&&done.data)||null};
+    t.st=statusAg(t);
+    out.push(t);
+  });
+  return out;
+}
+function marcarNaoAconteceu(id){
+  snapshot();
+  const t=TODAS.find(x=>x.clienteId==="_ag"&&x.id===id);
+  ESTADO.concluidas["_ag"]=(ESTADO.concluidas["_ag"]||[]).filter(e=>((e&&e.id)?e.id:e)!==id);
+  ESTADO.concluidas["_ag"].push({id:id, data:iso(HOJE), nao:true});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:(t&&t.cliDem)||"_ag",nome:t?t.tarefa:id,acao:"naoaconteceu",id:id,data:t?t.data:null,quem:USUARIO||null});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
+}
+function abrirEditorAg(id){
+  const t=TODAS.find(x=>x.clienteId==="_ag"&&x.id===id); if(!t) return;
+  const feita=t.st.k==="ok";
+  const mm=$("modal");
+  mm.innerHTML='<div class="mbox"><h3>'+esc(t.tarefa)+'</h3>'+
+    '<p class="msub">Agenda · '+fmt(t.data)+' '+dow(t.data)+' · '+esc(t.hora)+
+      (t.cliDem?' · '+esc(t.cliente):'')+(t.resp?' · '+esc(t.resp):'')+'</p>'+
+    (feita
+      ? '<p class="mok">'+(t.naoAconteceu?"Marcado: n\u00e3o aconteceu.":"Aconteceu"+(t.st.quando?" em "+fmt(t.st.quando):"")+".")+'</p>'+
+        '<div class="mbtns wrap"><button class="danger" data-macao="desfazer" data-mcid="_ag" data-mtid="'+escAttr(id)+'">Reabrir</button></div>'
+      : '<p class="mhint">'+(t.data<iso(HOJE)?"O dia j\u00e1 passou. Isso aconteceu?":"Depois do dia, o painel pergunta se aconteceu.")+'</p>'+
+        '<div class="mbtns wrap"><button data-macao="agsim" data-mtid="'+escAttr(id)+'">Aconteceu</button>'+
+        '<button class="sec" data-macao="agnao" data-mtid="'+escAttr(id)+'">N\u00e3o aconteceu</button></div>')+
+    '<p class="mhint">Data e t\u00edtulo v\u00eam do Google Agenda: para mudar, mude o evento l\u00e1.</p>'+
+    '<div class="mbtns"><button class="sec" data-macao="fechar">Fechar</button></div></div>';
+  mostrarModal(true);
+}
 function puxarAgendaAoVivo(){
   const u=agendaUrl(); if(!u) return;
   fetch(u+(u.indexOf("?")<0?"?":"&")+"ts="+Date.now())
@@ -296,10 +372,9 @@ function puxarAgendaAoVivo(){
     .then(j=>{
       if(!j || !Array.isArray(j.eventos)) return;
       const antes=JSON.stringify(ESTADO.agenda||[]);
-      const finGids={}; Object.entries(ESTADO.cobrancas||{}).forEach(([k,v])=>{ if(/^fin\|/.test(k) && v && v.gid) finGids[v.gid]=true; });
-      ESTADO.agenda=j.eventos.map(e=>{ const x=enriquecerEvento(e); if(x.gid && finGids[x.gid]) x.espelho=true; return x; });   /* só na memória: não grava nem sincroniza */
+      aplicarAgenda(j.eventos);
       if(ehAdmin() && j.financeiro) mandarPrazosFinanceiros();   /* so com o e-mail da Bia configurado no script */
-      if(JSON.stringify(ESTADO.agenda)!==antes){ if(ehAdmin()) sincronizarGravacoes(); marcarAgendaViva(j.lido); semPular(render); }
+      if(JSON.stringify(ESTADO.agenda)!==antes){ if(ehAdmin()) sincronizarGravacoes(); rebuild(); marcarAgendaViva(j.lido); semPular(render); }
       else marcarAgendaViva(j.lido);
     })
     .catch(()=>{ marcarAgendaViva(null,true); });
@@ -430,7 +505,7 @@ function chavePrazoFin(t){ return "fin|"+t.clienteId+"|"+t.id; }
 function prazosFinanceirosPendentes(){
   const hoje=iso(HOJE), lim=(function(){ const x=new Date(HOJE); x.setDate(x.getDate()+FIN_JANELA); return iso(x); })();
   const reg=ESTADO.cobrancas||{};
-  return (TODAS||[]).filter(t=>t.clienteId && t.clienteId!=="_dem" && t.data && t.data>=hoje && t.data<=lim
+  return (TODAS||[]).filter(t=>t.clienteId && t.clienteId!=="_dem" && t.clienteId!=="_ag" && t.data && t.data>=hoje && t.data<=lim
       && (t.areas||[t.area]).indexOf("fin")>=0 && !(t.st && t.st.k==="ok"))
     .map(t=>({t:t, chave:chavePrazoFin(t), reg:reg[chavePrazoFin(t)]}))
     .filter(x=>!x.reg || (x.reg.gid && x.reg.data!==x.t.data));
