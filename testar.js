@@ -1196,6 +1196,15 @@ __ok("5o dia util de janeiro/27 e 08/01 (01/01 feriado)", ds[2]==="2027-01-08");
 __ok("texto da regra", regraRecTexto(r)==="Todo 5º dia útil do mês");
 }`);
 
+bloco("Reuniao em dias uteis alternados", M, limpar+`{
+__ok("05/11 (qui) tem reuniao", ehDiaDeReuniao("2026-11-05"));
+__ok("06/11 (sex) nao tem", !ehDiaDeReuniao("2026-11-06"));
+__ok("09/11 (seg) tem", ehDiaDeReuniao("2026-11-09"));
+__ok("10/11 nao, 11/11 sim", !ehDiaDeReuniao("2026-11-10") && ehDiaDeReuniao("2026-11-11"));
+__ok("sabado nao tem", !ehDiaDeReuniao("2026-11-07"));
+__ok("feriado nao conta: 20/11 (sex) e feriado, 19/11 sim, 23/11 nao", ehDiaDeReuniao("2026-11-19") && !ehDiaDeReuniao("2026-11-20") && !ehDiaDeReuniao("2026-11-23") && ehDiaDeReuniao("2026-11-24"));
+}`);
+
 bloco("Demanda cancelada", M, limpar+`{
 USUARIO="Alda";
 addDemanda("Artes velhas","mkt",addD(iso(HOJE),-5),"Carla","","",null);
