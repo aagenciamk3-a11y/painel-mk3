@@ -1367,18 +1367,33 @@ function setNota(day, texto){
    Destino por PESSOA: so a pessoa + administracao veem.
    Quem nao e da administracao so cria recorrente para si mesmo.        */
 const REC_PASSADO=30, REC_FUTURO=45;            /* dias gerados para tras e para frente */
-const FREQ_ROT={semanal:"Toda semana",mensal:"Todo mês",util:"Todo dia útil",quinzenal:"A cada 15 dias"};
+const FREQ_ROT={semanal:"Toda semana",mensal:"Todo mês",mensalutil:"Todo mês, no dia útil N",util:"Todo dia útil",quinzenal:"A cada 15 dias"};
 const DOW_ROT=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
 /* AREA_ROT (nome de cada area) mora em 02-interface.js: um lugar so para o painel inteiro */
 function regraRecTexto(r){
   if(r.freq==="semanal") return ((r.dow===0||r.dow===6)?"Todo ":"Toda ")+DOW_ROT[r.dow];
   if(r.freq==="mensal")  return "Todo dia "+r.dia+" do mês";
+  if(r.freq==="mensalutil") return "Todo "+r.dia+"º dia útil do mês";
   if(r.freq==="quinzenal") return "A cada 15 dias, desde "+fmt(r.inicio);
   return "Todo dia útil";
 }
 function datasRec(r,de,ate){
   const out=[]; const ini=(r.inicio&&r.inicio>de)?r.inicio:de;
   if(ini>ate) return out;
+  /* N-esimo dia util do mes: pula sabado, domingo e feriado (nacional, ES e Cariacica) */
+  if(r.freq==="mensalutil"){
+    const n=Math.max(1,Number(r.dia)||1);
+    let y=+ini.slice(0,4), m=+ini.slice(5,7)-1;
+    for(let k=0;k<5;k++){
+      let cont=0, achou=null;
+      for(let dd=1; dd<=new Date(y,m+1,0).getDate(); dd++){
+        const x=new Date(y,m,dd); if(ehUtil(x)){ cont++; if(cont===n){ achou=iso(x); break; } }
+      }
+      if(achou && achou>=ini && achou<=ate) out.push(achou);
+      m++; if(m>11){ m=0; y++; }
+    }
+    return out;
+  }
   if(r.freq==="mensal"){
     let y=+ini.slice(0,4), m=+ini.slice(5,7)-1;
     for(let k=0;k<5;k++){
@@ -1502,6 +1517,7 @@ function recForm(){
   const v=f.value;
   if($("rl-dow")) $("rl-dow").style.display=(v==="semanal")?"":"none";
   if($("rl-dia")) $("rl-dia").style.display=(v==="mensal")?"":"none";
+  if($("rl-diautil")) $("rl-diautil").style.display=(v==="mensalutil")?"":"none";
   const a=$("ralvo");
   if(a && $("rl-pessoa")) $("rl-pessoa").style.display=(a.value==="pessoa")?"":"none";
 }
@@ -1529,11 +1545,14 @@ function abrirRecorrente(){
     '<label class="mlab">Área<select id="rarea">'+areas.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join("")+'</select></label>'+
     '<label class="mlab">Frequência<select id="rfreq" data-recform="1">'+
       '<option value="semanal">Toda semana</option><option value="mensal">Todo mês</option>'+
+      '<option value="mensalutil">Todo mês, num dia útil (ex.: 5º dia útil)</option>'+
       '<option value="util">Todo dia útil (segunda a sexta)</option><option value="quinzenal">A cada 15 dias</option></select></label>'+
     '<label class="mlab" id="rl-dow">Dia da semana<select id="rdow">'+
       dows.map(n=>'<option value="'+n+'"'+(n===dwHoje?' selected':'')+'>'+DOW_ROT[n]+'</option>').join("")+'</select></label>'+
     '<label class="mlab" id="rl-dia" style="display:none">Dia do mês<input type="number" id="rdia" min="1" max="31" value="'+HOJE.getDate()+'">'+
       '<span class="mhint">Em mês mais curto, cai no último dia.</span></label>'+
+    '<label class="mlab" id="rl-diautil" style="display:none">Qual dia útil do mês<input type="number" id="rdiautil" min="1" max="22" value="5">'+
+      '<span class="mhint">Conta só dias úteis: sem sábado, domingo e feriado.</span></label>'+
     '<label class="mlab">A partir de<input type="date" id="rini" value="'+hj+'">'+
       '<span class="mhint">Na frequência de 15 dias, esta é a primeira data.</span></label>'+
     '<label class="mlab">Observações <i class="opt-l">(opcional)</i><textarea id="robs" rows="2"></textarea></label>'+
@@ -2479,8 +2498,9 @@ function handleModal(D){
     const tx=(($("rtexto")&&$("rtexto").value)||"").trim();
     if(!tx){ if($("rtexto"))$("rtexto").focus(); return; }
     const freq=$("rfreq").value;
-    const dia=Number(($("rdia")&&$("rdia").value)||0);
+    const dia=freq==="mensalutil" ? Number(($("rdiautil")&&$("rdiautil").value)||0) : Number(($("rdia")&&$("rdia").value)||0);
     if(freq==="mensal" && !(dia>=1 && dia<=31)){ toast("Dia do mês tem que ser de 1 a 31",false); return; }
+    if(freq==="mensalutil" && !(dia>=1 && dia<=22)){ toast("O dia útil tem que ser de 1 a 22",false); return; }
     const alvo=($("ralvo")&&$("ralvo").value)||"pessoa";
     addRecorrente({texto:tx, area:$("rarea").value, alvo:alvo, resp:($("rresp")&&$("rresp").value)||USUARIO,
                    freq:freq, dow:($("rdow")&&$("rdow").value), dia:dia, inicio:($("rini")&&$("rini").value)||iso(HOJE),

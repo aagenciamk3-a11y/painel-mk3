@@ -1187,6 +1187,15 @@ ESTADO.agenda=[]; rebuild();
 __ok("evento apagado no Google some das tarefas", !TODAS.some(t=>t.clienteId==="_ag"));
 }`);
 
+bloco("Recorrente no dia util N do mes", M, limpar+`{
+const r={id:"r5",freq:"mensalutil",dia:5,inicio:"2026-11-01"};
+const ds=datasRec(r,"2026-11-01","2027-01-31");
+__ok("5o dia util de novembro/26 e 09/11 (02/11 Finados)", ds[0]==="2026-11-09");
+__ok("5o dia util de dezembro/26 e 07/12", ds[1]==="2026-12-07");
+__ok("5o dia util de janeiro/27 e 08/01 (01/01 feriado)", ds[2]==="2027-01-08");
+__ok("texto da regra", regraRecTexto(r)==="Todo 5º dia útil do mês");
+}`);
+
 bloco("Demanda cancelada", M, limpar+`{
 USUARIO="Alda";
 addDemanda("Artes velhas","mkt",addD(iso(HOJE),-5),"Carla","","",null);
