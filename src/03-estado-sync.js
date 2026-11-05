@@ -498,7 +498,7 @@ function bcardHTML(t, dayIso, dupOrig){
   const rot=EXEC[baseId(t.id)]||t.tarefa;
   const drag=t.clienteId+"|"+t.id+"|"+t.data;
   const ob=obsInfo(t.clienteId,t.id,dayIso);
-  const nomeResp=(t.fase==="Demanda")?t.resp:AREARESP[t.area];
+  const nomeResp=(t.fase==="Demanda")?t.resp:((t.fase==="Agenda"&&t.resp&&t.resp!==AREA_ROT[t.area])?t.resp:AREARESP[t.area]);
   const face=faceDe(nomeResp);
   const fc=FOTO[t.cliDem||t.clienteId];
   const faceCli=(t.fase==="Demanda" && !t.cliDem)?"":'<span class="card-face cli" title="'+escAttr(t.cliente)+'">'+esc((t.cliente||"?").slice(0,1))+
@@ -512,7 +512,7 @@ function bcardHTML(t, dayIso, dupOrig){
     (ehAdmin()
       ? '<button class="bcard-t edit" data-rename="'+t.clienteId+'|'+escAttr(t.id)+'" title="Clique para renomear">'+esc(rot)+(ob&&ob.parcial?' <span class="parc">parcial</span>':'')+'</button>'
       : '<div class="bcard-t">'+esc(rot)+(ob&&ob.parcial?' <span class="parc">parcial</span>':'')+'</div>')+
-    '<div class="bcard-c">'+esc(t.cliente)+'</div>'+
+    '<div class="bcard-c">'+esc(t.cliente)+(t.fase==="Agenda"&&t.hora?' · '+esc(t.hora):'')+'</div>'+
     (feita&&t.st.atraso?'<div class="bcard-atr">atrasou '+t.st.atraso+(t.st.atraso>1?' dias úteis':' dia útil')+'</div>':'')+
     '<div class="bcard-chk">'+
       '<button class="chk ok'+(feita?" on":"")+'" data-wkok="1" data-mcid="'+t.clienteId+'" data-mtid="'+escAttr(t.id)+'" data-mday="'+dayIso+'" title="Feito · clique de novo para desmarcar" aria-label="Feito">&#10003;</button>'+

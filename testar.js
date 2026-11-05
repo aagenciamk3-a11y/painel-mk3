@@ -1170,6 +1170,12 @@ __ok("pessoa convidada vira responsavel", (ag.find(t=>t.tarefa==="Reunião inter
 __ok("dia que passou pede confirmacao", grav.st.k==="atrasado" && /aconteceu/.test(grav.st.txt));
 __ok("futuro segue o prazo normal", (ag.find(t=>t.tarefa==="Reunião interna")||{st:{}}).st.k==="umdia");
 __ok("entra no relatorio da reuniao", relatorioDiario().atrasadas.some(x=>x.id===grav.id));
+VISTA.area="all"; VISTA.pano=null; VISTA.psem=null;
+__ok("aparece no quadro Tarefas da semana", relevanteBoard(grav) && relevanteBoard(ag.find(t=>t.tarefa==="Reunião interna")));
+VISTA.area="mkt";
+__ok("no filtro Marketing aparece so o que e de marketing", relevanteBoard(grav)===naArea(grav,"mkt"));
+VISTA.area="all";
+__ok("cartao mostra o horario", /08:00/.test(bcardHTML(grav,ontem,null)));
 marcar("_ag",grav.id,ontem,"concluir");
 const g2=TODAS.find(t=>t.id===grav.id);
 __ok("aconteceu conclui na data do evento", g2.st.k==="ok" && g2.st.txt==="Aconteceu" && g2.st.quando===ontem);
