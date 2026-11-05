@@ -200,6 +200,16 @@ function abrirEditorRec(id){
       '<button class="sec" data-macao="fechar">Fechar</button></div></div>';
   mostrarModal(true);
 }
+/* cancelar: sai das pendencias sem contar como feita, e fica no historico como cancelada */
+function cancelarDemanda(id){
+  snapshot();
+  const dm=(ESTADO.demandas||[]).find(x=>x.id===id); if(!dm) return;
+  ESTADO.concluidas["_dem"]=(ESTADO.concluidas["_dem"]||[]).filter(e=>((e&&e.id)?e.id:e)!==id);
+  ESTADO.concluidas["_dem"].push({id:id, data:iso(HOJE), cancelada:true});
+  ESTADO.log.unshift({ts:new Date().toISOString(),cliente:dm.cli||"_dem",nome:dm.texto,acao:"cancelar",id:id,area:dm.area,quem:USUARIO||null});
+  ESTADO.log=ESTADO.log.slice(0,300);
+  persist(); rebuild(); render();
+}
 function addDemanda(texto,area,data,resp,obs,cli,feitaEm){
   snapshot();
   ESTADO.demandas=ESTADO.demandas||[];
@@ -992,11 +1002,15 @@ function abrirEditorDemanda(id){
       ' · '+esc(dm.resp)+(cli?' · '+esc(cli.nome):'')+
       (dm.criadaPor?' <i class="opt-l">(criada por '+esc(dm.criadaPor)+')</i>':'')+'</p>'+
     (dm.obs?'<p class="mok">&#128221; '+esc(dm.obs)+'</p>':'')+
-    (feita
+    (t.cancelada
+      ? '<p class="mok">Cancelada'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
+        '<div class="mbtns wrap"><button class="danger" data-macao="desfazer" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Reabrir</button></div>'
+      : feita
       ? '<p class="mok">Concluída'+(t.st.quando?" em "+fmt(t.st.quando):"")+'.</p>'+
         blocoCorrigir("_dem", id, t.st.quando)+
         '<div class="mbtns wrap"><button class="danger" data-macao="desfazer" data-mcid="_dem" data-mtid="'+escAttr(id)+'">Reabrir</button></div>'
-      : blocoConcluir("_dem", id, t, "Concluir"))+
+      : blocoConcluir("_dem", id, t, "Concluir")+
+        (podeEditarDem(dm)?'<div class="mbtns wrap"><button class="sec" data-macao="cancelardem" data-mtid="'+escAttr(id)+'">Cancelar demanda</button></div>':''))+
     '<div class="mbtns wrap">'+
       (podeEditarDem(dm)?'<button class="sec" data-demedit="'+escAttr(id)+'">Editar</button>':'')+
       '<button class="sec" data-demobs="'+escAttr(id)+'">Observação</button>'+
@@ -1117,6 +1131,7 @@ function handleModal(D){
     semPular(abrirDemanda); toast(qdo?"Demanda registrada como feita":(dd0?"Demanda criada para "+fmt(dd0):"Demanda criada"),true); return; }
   if(D.macao==="agsim"){ const t=TODAS.find(x=>x.clienteId==="_ag"&&x.id===D.mtid);
     marcar("_ag",D.mtid,(t&&t.data&&t.data<=iso(HOJE))?t.data:iso(HOJE),"concluir"); fecharModal(); toast("Marcado: aconteceu",true); return; }
+  if(D.macao==="cancelardem"){ cancelarDemanda(D.mtid); fecharModal(); toast("Demanda cancelada",true); return; }
   if(D.macao==="agnao"){ marcarNaoAconteceu(D.mtid); fecharModal(); toast("Marcado: n\u00e3o aconteceu",true); return; }
   const cid=D.mcid, tid=D.mtid;
   if(D.macao==="desfazer"){ marcar(cid,tid,null,"desfazer"); fecharModal(); return; }

@@ -12,7 +12,7 @@ const ACAOROT = {
   "cliente-novo":["cadastrou o cliente","nova"],
   arquivar:["arquivou o cliente","x"], reativar:["reativou o cliente","ok"],
   desremanejar:["desfez o remanejamento de","mv"], abasportal:["mudou o que o cliente vê em","obs"],
-  mover:["moveu","mv"], naoaconteceu:["marcou que não aconteceu","x"], demandax:["removeu a demanda","x"], plano:["atualizou o plano de","obs"]
+  mover:["moveu","mv"], naoaconteceu:["marcou que não aconteceu","x"], cancelar:["cancelou","x"], demandax:["removeu a demanda","x"], plano:["atualizou o plano de","obs"]
 };
 function nomeCli(cid){
   if(cid==="_dem") return "Demanda";

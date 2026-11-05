@@ -1187,6 +1187,19 @@ ESTADO.agenda=[]; rebuild();
 __ok("evento apagado no Google some das tarefas", !TODAS.some(t=>t.clienteId==="_ag"));
 }`);
 
+bloco("Demanda cancelada", M, limpar+`{
+USUARIO="Alda";
+addDemanda("Artes velhas","mkt",addD(iso(HOJE),-5),"Carla","","",null);
+const dm=ESTADO.demandas[ESTADO.demandas.length-1];
+__ok("antes conta como atrasada", relatorioDiario().atrasadas.some(x=>x.id===dm.id));
+cancelarDemanda(dm.id);
+const t=TODAS.find(x=>x.id===dm.id);
+__ok("cancelada sai das pendencias", t.st.k==="ok" && t.st.txt==="Cancelada" && !relatorioDiario().atrasadas.some(x=>x.id===dm.id));
+__ok("fica no historico como cancelada", ESTADO.log[0].acao==="cancelar" && ESTADO.log[0].quem==="Alda");
+marcar("_dem",dm.id,null,"desfazer");
+__ok("reabrir volta a cobrar", TODAS.find(x=>x.id===dm.id).st.k==="atrasado");
+}`);
+
 bloco("Relatorio diario (reuniao de pendencias)", M, limpar+`
 const r=relatorioDiario();
 __ok("conta as atrasadas e agrupa por cliente e mes", r.totalAtrasadas===r.atrasadas.length && r.grupos.every(g=>g.itens.every(x=>x.cliente===g.cliente && x.data.slice(0,7)===g.mes)));

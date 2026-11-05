@@ -353,8 +353,9 @@ function rebuildCore(){
     const cli=dm.cli?CLIENTES.find(c=>c.id===dm.cli):null;
     const t={id:dm.id, clienteId:"_dem", cliDem:(cli?cli.id:null), cliente:(cli?cli.nome:dm.resp),
              tarefa:dm.texto, detalhe:(dm.obs||"Demanda"), obs:dm.obs||"", data:dm.data, resp:dm.resp,
-             fase:"Demanda", area:dm.area, feita:!!(done&&!done.remove), dataConclusao:(done&&done.data)||null};
-    t.st=status(t);
+             fase:"Demanda", area:dm.area, feita:!!(done&&!done.remove), dataConclusao:(done&&done.data)||null,
+             cancelada:!!(done&&!done.remove&&done.cancelada)};
+    t.st=t.cancelada ? {k:"ok", atraso:0, quando:t.dataConclusao, txt:"Cancelada"} : status(t);
     TODAS.push(t);
   });
   /* demandas recorrentes: cada ocorrencia vira uma tarefa no balde "_rec" */
